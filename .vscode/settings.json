@@ -1,9 +1,0 @@
-{
-    "files.exclude": {
-        "**/__pycache__": true,
-        "**/__init__.py": true,
-        ".gitignore": true,
-        ".vscode": true,
-        ".venv": true
-    }
-}
