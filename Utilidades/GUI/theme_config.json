@@ -1,0 +1,28 @@
+{
+  "mode": "dark",
+  "accent_color": "#9b59b6",
+  "colors": {
+    "dark": {
+      "bg_primary": "#1a1a2e",
+      "bg_secondary": "#16213e",
+      "bg_card": "#0f3460",
+      "text_primary": "#ffffff",
+      "text_secondary": "#a0a0a0",
+      "accent": "#1ABC9C",
+      "success": "#2ecc71",
+      "warning": "#f39c12",
+      "error": "#e74c3c"
+    },
+    "light": {
+      "bg_primary": "#f5f5f5",
+      "bg_secondary": "#ffffff",
+      "bg_card": "#e0e0e0",
+      "text_primary": "#1a1a2e",
+      "text_secondary": "#555555",
+      "accent": "#1ABC9C",
+      "success": "#27ae60",
+      "warning": "#e67e22",
+      "error": "#c0392b"
+    }
+  }
+}
