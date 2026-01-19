@@ -1,24 +1,108 @@
 # =============================================================================
-#                       NOZHGESS v1.0 - GITIGNORE
+# NOZHGESS - .gitignore
+# Archivo de exclusión para Git
 # =============================================================================
 
-# Python cache
+# Python
+# -----------------------------------------------------------------------------
+*.pyc
+*.pyo
+*.pyd
 __pycache__/
-*.py[cod]
-*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+.Python
 
-# Logs
-zLogs/
+# Virtual Environments
+# -----------------------------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# IDEs y Editores
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Nozhgess Específico
+# -----------------------------------------------------------------------------
+# Logs de ejecución
+Logs/
 *.log
 
-# IDE
-.idea/
+# Reportes de crashes
+Crash_Reports/
 
-# Temp files
-*.tmp
-*.temp
-~$*
+# Archivos de entrada/salida (contienen datos sensibles)
+Entrada/*.xlsx
+Entrada/*.xls
+Salida/*.xlsx
+Salida/*.xls
 
+# Mantener estructura de carpetas
+!Entrada/.gitkeep
+!Salida/.gitkeep
+
+# Scripts temporales de debugging
+audit_*.py
+debug_*.py
+diagnostico.py
+
+# Excel temporal
+~$*.xlsx
+~$*.xls
+.~lock.*
+
+# Sistema Operativo
+# -----------------------------------------------------------------------------
 # Windows
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# Jupyter Notebooks
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# Pytest
+# -----------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+# -----------------------------------------------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Otros
+# -----------------------------------------------------------------------------
+*.bak
+*.tmp
+*.swp
+.cache/
