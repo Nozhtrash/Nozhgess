@@ -1,0 +1,24 @@
+# =============================================================================
+#                       NOZHGESS v1.0 - GITIGNORE
+# =============================================================================
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+zLogs/
+*.log
+
+# IDE
+.idea/
+
+# Temp files
+*.tmp
+*.temp
+~$*
+
+# Windows
+Thumbs.db
+Desktop.ini
