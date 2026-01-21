@@ -52,5 +52,5 @@ Hemos organizado Nozhgess para que sea limpio y fácil de navegar:
 ---
 
 ### 🎨 Créditos y Copyright
-Desarrollado con ♥ por el **Nozhgess Team**.  
+Desarrollado con ♥ por **Nozhtrash**.  
 © 2026. Todos los derechos reservados. Licencia MIT.
