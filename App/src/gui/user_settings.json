@@ -1,0 +1,24 @@
+{
+  "window": {
+    "remember_position": true,
+    "remember_size": true,
+    "start_minimized": false,
+    "always_on_top": 0,
+    "x": 346,
+    "y": 168,
+    "width": 1344,
+    "height": 745
+  },
+  "notifications": {
+    "sound_on_complete": true,
+    "windows_notification": true
+  },
+  "performance": {
+    "animations": "normal",
+    "low_resource_mode": false
+  },
+  "data": {
+    "auto_clean_logs": true,
+    "log_retention_days": 30
+  }
+}

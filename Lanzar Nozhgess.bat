@@ -17,12 +17,12 @@ if exist ".venv\Scripts\activate.bat" (
 
 REM Ejecutar aplicación
 echo Iniciando GUI...
-pythonw Nozhgess.pyw
+pythonw App/Nozhgess.pyw
 
 REM Si pythonw no funciona, usar python normal
 if errorlevel 1 (
     echo.
     echo pythonw no disponible, usando python...
-    python Nozhgess.pyw
+    python App/Nozhgess.pyw
     pause
 )

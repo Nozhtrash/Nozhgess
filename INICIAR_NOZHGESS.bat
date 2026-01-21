@@ -25,5 +25,5 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 ECHO Iniciando Nozhgess...
-python Nozhgess.pyw
+python App/Nozhgess.pyw
 

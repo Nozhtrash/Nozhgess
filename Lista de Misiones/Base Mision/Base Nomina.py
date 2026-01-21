@@ -67,8 +67,8 @@ MAX_REINTENTOS_POR_PACIENTE: int = 5
 # Qué secciones revisar en la cartola
 REVISAR_IPD: bool = True           # Informes de Proceso de Diagnóstico
 REVISAR_OA: bool = True            # Órdenes de Atención
-REVISAR_APS: bool = False           # Hoja Diaria APS
-REVISAR_SIC: bool = False           # Solicitudes de Interconsultas
+REVISAR_APS: bool = True           # Hoja Diaria APS
+REVISAR_SIC: bool = True           # Solicitudes de Interconsultas
 
 # Revisar tablas de prestaciones
 REVISAR_HABILITANTES: bool = True
@@ -81,8 +81,8 @@ FILAS_APS: int = 1
 FILAS_SIC: int = 1
 
 # Máximo de habilitantes/excluyentes a mostrar
-HABILITANTES_MAX: int = 3
-EXCLUYENTES_MAX: int = 3
+HABILITANTES_MAX: int = 1
+EXCLUYENTES_MAX: int = 1
 
 # =============================================================================
 #                     OBSERVACIÓN FOLIO FILTRADA
@@ -90,7 +90,7 @@ EXCLUYENTES_MAX: int = 3
 
 # Si True, filtra la columna Observación Folio para mostrar solo OA con 
 # códigos específicos. Si False, muestra todos los folios usados.
-OBSERVACION_FOLIO_FILTRADA: bool = True
+OBSERVACION_FOLIO_FILTRADA: bool = False
 
 # Códigos OA a buscar específicamente (solo aplica si OBSERVACION_FOLIO_FILTRADA = True)
 # Ejemplo: ["2508073", "1902032", "2003002"]
@@ -117,16 +117,16 @@ MISSIONS: List[Dict[str, Any]] = [
         # -----------------------------------------------------------------
         
         # Nombre descriptivo de la misión
-        "nombre": "",
+        "nombre": ""
 
         # Keywords para buscar en mini-tabla y cartola (case-insensitive)
-        "keywords": [],
+        "keywords": [""],
 
         # Códigos de objetivos a buscar en prestaciones
         "objetivos": [],
 
         # Códigos de habilitantes (vacío = no buscar)
-        "habilitantes": [],
+        "habilitantes": [""],
 
         # Excluyentes: Códigos que invalidan el caso
         "excluyentes": [""],

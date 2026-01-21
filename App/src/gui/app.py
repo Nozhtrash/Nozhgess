@@ -1,0 +1,353 @@
+# Utilidades/GUI/app.py
+# -*- coding: utf-8 -*-
+"""
+==============================================================================
+                    NOZHGESS GUI v2.0 PRO - APLICACIÓN PRINCIPAL
+==============================================================================
+Interfaz gráfica premium con diseño moderno y funcionalidades completas.
+"""
+import sys
+import os
+import subprocess
+import webbrowser
+from datetime import datetime
+
+# Agregar la carpeta raíz del proyecto al path
+ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ruta_proyecto not in sys.path:
+    sys.path.insert(0, ruta_proyecto)
+
+import customtkinter as ctk
+
+from src.gui.theme import (
+    get_colors, load_theme, register_theme_callback, 
+    get_ui_scale, SIDEBAR
+)
+from src.gui.components.sidebar import Sidebar
+from src.gui.components.status_badge import StatusBadge
+from src.gui.managers import get_config, ViewManager
+from src.gui.managers.notification_manager import get_notifications
+
+
+class NozhgessApp(ctk.CTk):
+    """Aplicación principal de Nozhgess GUI v3.0."""
+    
+    VERSION = "3.0.0"
+    
+    def __init__(self):
+        super().__init__()
+        
+        # 1. Config Manager
+        self.config = get_config()
+        
+        # 2. Configuración de ventana
+        self.title("Nozhgess v3.0 - Automatización de Datos Médicos")
+        
+        w = self.config.get("window.width", 1100)
+        h = self.config.get("window.height", 700)
+        self.geometry(f"{w}x{h}")
+        self.minsize(900, 600)
+        
+        # Restaurar posición
+        if self.config.get("window.remember_position") and self.config.get("window.x") is not None:
+             x, y = self.config.get("window.x"), self.config.get("window.y")
+             self.geometry(f"+{x}+{y}")
+             
+        if self.config.get("window.always_on_top"):
+            self.attributes("-topmost", True)
+        
+        # 3. Cargar Tema
+        self._apply_theme()
+        register_theme_callback(self._on_theme_change)
+        
+        # 4. Layout
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        # Sidebar
+        self.sidebar = Sidebar(
+            self,
+            on_navigate=self._on_navigate,
+            colors=self.colors
+        )
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        
+        # View Container
+        self.view_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.view_container.grid(row=0, column=1, sticky="nsew")
+        self.view_container.grid_columnconfigure(0, weight=1)
+        self.view_container.grid_rowconfigure(0, weight=1)
+        
+        # Footer
+        self._create_footer()
+        
+        # 5. View Manager Init
+        self.view_manager = ViewManager(self.view_container, context={"colors": self.colors})
+        
+        # Registrar vistas (no instancias aún)
+        self._register_views()
+        
+        # 6. Mostrar inicial
+        self._show_view("dashboard")
+        self.sidebar.set_active("dashboard")
+        
+        # Bindings
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Configure>", self._on_window_configure)
+        
+        # Show
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    
+    def _apply_theme(self):
+        """Aplica el tema actual."""
+        theme = load_theme()
+        mode = theme.get("mode", "dark")
+        ctk.set_appearance_mode(mode)
+        ctk.set_default_color_theme("blue")
+        
+        self.colors = get_colors()
+        self.configure(fg_color=self.colors["bg_primary"])
+    
+
+    
+    def _create_footer(self):
+        """Crea footer premium."""
+        footer = ctk.CTkFrame(
+            self,
+            fg_color=self.colors.get("bg_secondary", "#161b22"),
+            height=36,
+            corner_radius=0
+        )
+        footer.grid(row=1, column=0, columnspan=2, sticky="ew")
+        footer.grid_propagate(False)
+        
+        # Container centrado
+        container = ctk.CTkFrame(footer, fg_color="transparent")
+        container.pack(expand=True)
+        
+        # Texto copyright
+        year = datetime.now().year
+        
+        ctk.CTkLabel(
+            container,
+            text="Made with ♥ by ",
+            font=ctk.CTkFont(size=10),
+            text_color=self.colors.get("text_muted", "#6e7681")
+        ).pack(side="left")
+        
+        # Link a GitHub
+        github_link = ctk.CTkButton(
+            container,
+            text="Nozhtrash",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color="transparent",
+            text_color=self.colors.get("accent", "#00f2c3"),
+            hover_color=self.colors.get("bg_card", "#21262d"),
+            width=70,
+            height=20,
+            corner_radius=6,
+            cursor="hand2",
+            command=lambda: webbrowser.open("https://github.com/Nozhtrash")
+        )
+        github_link.pack(side="left")
+        
+        ctk.CTkLabel(
+            container,
+            text=f" © {year}",
+            font=ctk.CTkFont(size=10),
+            text_color=self.colors.get("text_muted", "#6e7681")
+        ).pack(side="left")
+        
+        # Separador
+        ctk.CTkLabel(
+            container,
+            text="  |  ",
+            font=ctk.CTkFont(size=10),
+            text_color=self.colors.get("text_muted", "#6e7681")
+        ).pack(side="left")
+        
+        # Version (simple, sin badge grande)
+        ctk.CTkLabel(
+            container,
+            text=f"v{self.VERSION}",
+            font=ctk.CTkFont(size=9),
+        ).pack(side="left")
+        
+        # Separador Flexible
+        ctk.CTkFrame(container, fg_color="transparent", width=20).pack(side="left")
+
+        # STATUS BADGE (Global Notification Area)
+        self.status_badge = StatusBadge(
+            container, 
+            status="IDLE", 
+            colors=self.colors,
+            height=24
+        )
+        self.status_badge.pack(side="left", padx=10)
+        
+        # Registrar en NotificationManager
+        self._register_notifications()
+
+    def _register_notifications(self):
+        """Conecta el NotificationManager con el Badge."""
+        nm = get_notifications()
+        
+        def update_badge(status, text):
+            self.status_badge.set_status(status, text)
+            self.status_badge.pack(side="left", padx=10) # Ensure visible
+            # Auto-clear after 3s if Success
+            if status == "SUCCESS":
+                self.after(3000, lambda: self.status_badge.set_status("IDLE", ""))
+        
+        def clear_badge():
+            self.status_badge.set_status("IDLE", "")
+            
+        nm.register_badge(update_badge, clear_badge)
+    
+    def _register_views(self):
+        """Registra tipos de vistas en el ViewManager."""
+        # Imports lazily
+        from src.gui.views.dashboard import DashboardView
+        from src.gui.views.runner import RunnerView
+        from src.gui.views.settings import SettingsView
+        from src.gui.views.control_panel import ControlPanelView
+        from src.gui.views.logs_viewer import LogsViewerView
+        from src.gui.views.vba_viewer import VbaViewerView
+        from src.gui.views.docs_viewer import DocsViewerView
+        
+        # 1. Core Views
+        self.view_manager.register("dashboard", DashboardView, on_run=lambda: self._on_navigate("runner"))
+        self.view_manager.register("runner", RunnerView)
+        self.view_manager.register("control", ControlPanelView)
+        self.view_manager.register("settings", SettingsView, on_theme_change=self._on_theme_change)
+        
+        # 2. Tools
+        self.view_manager.register("logs", LogsViewerView)
+        self.view_manager.register("vba", VbaViewerView)
+        self.view_manager.register("docs", DocsViewerView)
+        
+        # 3. Optional Views
+        try:
+            from src.gui.views.missions import MissionsView
+            self.view_manager.register("missions", MissionsView)
+        except ImportError: pass
+        
+        try:
+            from src.gui.views.backups_viewer import BackupsViewerView
+            self.view_manager.register("backups", BackupsViewerView)
+        except ImportError: pass
+        
+        try:
+            from src.gui.views.debug_panel import DebugPanelView
+            self.view_manager.register("debug", DebugPanelView)
+        except ImportError: pass
+        
+        # 4. About
+        try:
+            from src.gui.views.about import AboutView
+            self.view_manager.register("about", AboutView)
+        except ImportError:
+            # Fallback local class
+            class SimpleAboutView(ctk.CTkFrame):
+                def __init__(self, master, colors, **kwargs):
+                    super().__init__(master, fg_color=colors["bg_primary"])
+                    ctk.CTkLabel(self, text="Nozhgess v3.0", font=("Arial", 20)).pack(expand=True)
+            self.view_manager.register("about", SimpleAboutView)
+    
+    def _on_navigate(self, view_id: str):
+        """Maneja la navegación."""
+        self._show_view(view_id)
+    
+    def _show_view(self, view_id: str):
+        """Muestra una vista específica."""
+        self.view_manager.show(view_id)
+    
+    def _on_theme_change(self):
+        """Callback cuando cambia el tema."""
+        theme = load_theme()
+        mode = theme.get("mode", "dark")
+        ctk.set_appearance_mode(mode)
+        
+        self.colors = get_colors()
+        self.configure(fg_color=self.colors["bg_primary"])
+        
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_colors(self.colors)
+            
+        if hasattr(self, 'view_container'):
+            self.view_container.configure(fg_color="transparent")
+        
+        # Refresh vistas via Manager
+        if hasattr(self, 'view_manager'):
+            self.view_manager.refresh_theme(self.colors)
+            
+        self.update_idletasks()
+    
+    def _on_window_configure(self, event):
+        """Guarda posición y tamaño al mover/redimensionar."""
+        if event.widget == self:
+            # Auto-save = False para evitar lag
+            if self.config.get("window.remember_position"):
+                self.config.set("window.x", self.winfo_x(), auto_save=False)
+                self.config.set("window.y", self.winfo_y(), auto_save=False)
+            
+            if self.config.get("window.remember_size"):
+                self.config.set("window.width", self.winfo_width(), auto_save=False)
+                self.config.set("window.height", self.winfo_height(), auto_save=False)
+    
+    def _on_close(self):
+        """Maneja el cierre limpio."""
+        try:
+            # Limpiar solo procesos de debug Edge
+            try:
+                import psutil
+                killed = 0
+                
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if proc.info['name'] and 'msedge' in proc.info['name'].lower():
+                            cmdline = ' '.join(proc.info['cmdline'] or [])
+                            if '--remote-debugging-port=9222' in cmdline:
+                                proc.terminate()
+                                killed += 1
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                if killed > 0:
+                    print(f"🧹 Limpieza: {killed} sesión(es) debug cerrada(s)")
+                    
+            except ImportError:
+                # Fallback sin psutil
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/IM", "msedgedriver.exe"],
+                        capture_output=True,
+                        creationflags=0x08000000,
+                        timeout=2
+                    )
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"⚠️ Error en limpieza: {e}")
+        finally:
+            # Guardamos config final (incluye posición actualizada)
+            try:
+                if hasattr(self, "config"):
+                    self.config.save()
+            except: pass
+            
+            self.quit()
+
+
+def main():
+    """Punto de entrada principal."""
+    app = NozhgessApp()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

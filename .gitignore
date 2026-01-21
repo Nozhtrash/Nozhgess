@@ -1,6 +1,6 @@
 # =============================================================================
 # NOZHGESS - .gitignore
-# Archivo de exclusión para Git
+# Archivo de exclusión para Git - Organizado por Antigravity
 # =============================================================================
 
 # Python
@@ -12,10 +12,10 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
-dist/
-build/
-*.whl
 .Python
+App/dist/
+App/build/
+*.whl
 
 # Virtual Environments
 # -----------------------------------------------------------------------------
@@ -28,7 +28,6 @@ env/
 # IDEs y Editores
 # -----------------------------------------------------------------------------
 .vscode/
-.vscode/*
 .idea/
 *.swp
 *.swo
@@ -38,72 +37,38 @@ env/
 
 # Nozhgess Específico
 # -----------------------------------------------------------------------------
-# Logs de ejecución
+# Logs de ejecución y reportes
 Logs/
+Crash_Reports/
 *.log
 
-# Reportes de crashes
-Crash_Reports/
-
 # Archivos de entrada/salida (contienen datos sensibles)
-Entrada/*.xlsx
-Entrada/*.xls
-Salida/*.xlsx
-Salida/*.xls
+# Si existieran carpetas de datos en la raíz
+Entrada/
+Salida/
 
-# Mantener estructura de carpetas
-!Entrada/.gitkeep
-!Salida/.gitkeep
+# Mantener estructura de carpetas si es necesario
+!.gitkeep
 
-# Scripts temporales de debugging
-audit_*.py
-debug_*.py
-diagnostico.py
-
-# Excel temporal
-~$*.xlsx
-~$*.xls
-.~lock.*
+# Misión actual y temporales
+# (Generalmente no se suben a git para evitar conflictos)
+# Mision_Actual/
 
 # Sistema Operativo
 # -----------------------------------------------------------------------------
-# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
-
-# macOS
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Linux
-*~
-.directory
-
-# Jupyter Notebooks
-# -----------------------------------------------------------------------------
-.ipynb_checkpoints/
-*.ipynb
-
-# Pytest
-# -----------------------------------------------------------------------------
-.pytest_cache/
-.coverage
-htmlcov/
-
-# MyPy
-# -----------------------------------------------------------------------------
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
 # Otros
 # -----------------------------------------------------------------------------
 *.bak
 *.tmp
-*.swp
 .cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/

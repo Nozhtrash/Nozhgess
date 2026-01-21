@@ -74,25 +74,25 @@ except ImportError:
 # =============================================================================
 #                        PANEL DE CONTROL GENERAL
 # =============================================================================
-from Utilidades.Principales.DEBUG import should_show_timing
-from Utilidades.Principales.Direcciones import XPATHS
-from Utilidades.Principales.Errores import clasificar_error, pretty_error
-from Utilidades.Principales.Esperas import espera
-from Utilidades.Principales.Excel_Revision import generar_excel_revision
-from Utilidades.Principales.Terminal import (
+from src.utils.DEBUG import should_show_timing
+from src.utils.Direcciones import XPATHS
+from src.utils.Errores import clasificar_error, pretty_error
+from src.utils.Esperas import espera
+from src.utils.Excel_Revision import generar_excel_revision
+from src.utils.Terminal import (
     log_error, log_info, log_ok, log_warn,
     mostrar_banner, mostrar_resumen_final, resumen_paciente
 )
-from Utilidades.Principales.Timing import Timer
+from src.utils.Timing import Timer
 
 # Local - Motor
-from Utilidades.Motor.Driver import iniciar_driver
-from Utilidades.Motor.Formatos import (
+from src.core.Driver import iniciar_driver
+from src.core.Formatos import (
     _norm, dparse, en_vigencia, has_keyword,
     join_clean, join_tags, normalizar_codigo,
     normalizar_rut, same_month, solo_fecha
 )
-from Utilidades.Motor.Mini_Tabla import leer_mini_tabla
+from src.core.Mini_Tabla import leer_mini_tabla
 
 def espera_inteligente(segundos: int, sigges_driver, mensaje: str = None) -> bool:
     """
@@ -104,7 +104,7 @@ def espera_inteligente(segundos: int, sigges_driver, mensaje: str = None) -> boo
         False si la conexión se perdió.
     """
     import time
-    from Utilidades.Principales.Terminal import log_info
+    from src.utils.Terminal import log_info
 
     if mensaje:
         log_info(f"⏳ {mensaje} ({segundos}s)...")
@@ -1196,10 +1196,18 @@ def ejecutar_revision() -> bool:
         True si completó exitosamente
     """
     # 0. VALIDACIÓN DE CONFIGURACIÓN (PRO LEVEL)
-    from Utilidades.Principales.ConfigValidator import validar_configuracion
-    if not validar_configuracion():
+    # 0. VALIDACIÓN DE CONFIGURACIÓN (PRO LEVEL)
+    from src.utils.ConfigValidator import validar_configuracion
+    is_valid, logs = validar_configuracion()
+    if not is_valid:
         log_error("⛔ Configuración inválida. Abortando ejecución.")
+        for msg in logs:
+            log_error(f"  {msg}")
         return False
+    elif logs:
+        # Mostrar advertencias
+        for msg in logs:
+            log_warn(f"  {msg}")
 
     # Verificar archivo de entrada
     if not os.path.exists(RUTA_ARCHIVO_ENTRADA):
@@ -1239,7 +1247,7 @@ def ejecutar_revision() -> bool:
 
     try:
         # Importar control de ejecución
-        from Utilidades.Principales.ExecutionControl import get_execution_control
+        from src.utils.ExecutionControl import get_execution_control
         control = get_execution_control()
         
         for idx, row in df.iterrows():
