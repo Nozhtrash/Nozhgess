@@ -21,13 +21,13 @@ echo Creando acceso directo en el escritorio...
 
 :: Crear shortcut usando PowerShell
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ws = New-Object -ComObject WScript.Shell; ^
-    $shortcut = $ws.CreateShortcut('%DESKTOP%\Nozhgess.lnk'); ^
-    $shortcut.TargetPath = 'pythonw.exe'; ^
-    $shortcut.Arguments = '\"%TARGET%\"'; ^
-    $shortcut.WorkingDirectory = '%SCRIPT_DIR%'; ^
-    $shortcut.Description = 'Nozhgess - Automatizacion de Datos Medicos'; ^
-    $shortcut.Save()"
+    "$ws = New-Object -ComObject WScript.Shell; " ^
+    "$s = $ws.CreateShortcut('%DESKTOP%\Nozhgess.lnk'); " ^
+    "$s.TargetPath = 'pythonw.exe'; " ^
+    "$s.Arguments = '\"%TARGET%\"'; " ^
+    "$s.WorkingDirectory = '%SCRIPT_DIR%'; " ^
+    "$s.Description = 'Nozhgess - Automatizacion de Datos Medicos'; " ^
+    "$s.Save()"
 
 if exist "%DESKTOP%\Nozhgess.lnk" (
     echo.
