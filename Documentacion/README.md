@@ -1,59 +1,48 @@
-# Nozhgess v3.0 LEGENDARY - Manual de Referencia
+# 📚 Centro de Documentación - Nozhgess v3.0
 
-<div align="center">
-
-**⚕️ Automatización Inteligente de Datos Médicos**
-
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
-[![CustomTkinter](https://img.shields.io/badge/GUI-CustomTkinter-green.svg)](https://github.com/TomSchimansky/CustomTkinter)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.0.0-purple.svg)]()
-
-</div>
+Bienvenido al centro de documentación oficial de **Nozhgess**. Este espacio ha sido diseñado para proporcionar transparencia absoluta sobre el funcionamiento de la herramienta y guías detalladas para todos los perfiles de usuario.
 
 ---
 
-## 📋 Descripción General
+## 🗺️ Mapa de Documentación
 
-**Nozhgess** es una plataforma de automatización diseñada para optimizar la interacción con el sistema SIGGES. Esta versión v3.0 introduce una arquitectura más limpia y organizada, separando el núcleo de la aplicación de la configuración del usuario y la documentación.
+Para una experiencia óptima, hemos dividido la documentación en secciones especializadas:
 
-### ✨ Características Destacadas
-- **Arquitectura Segura**: Separación clara entre código (`App/`), configuración del usuario y documentación.
-- **Doble Modo**: Funciona perfectamente desde la Interfaz Gráfica (GUI) o directamente desde un entorno de desarrollo (IDE).
-- **Resiliencia Extrema**: Sistema de detección de fallos, circuit breakers y validación de contratos en tiempo real.
-- **Portabilidad**: Preparado para ser compilado como un ejecutable independiente.
+### 1. [Guía de Instalación y Configuración](file:///Documentacion/Instalacion.md)
+*   Requisitos de sistema.
+*   Instalación del ejecutable y configuración de Edge.
+*   Resolución de problemas comunes (Troubleshooting).
 
----
+### 2. [Manual del Usuario (Operación)](file:///Documentacion/Manual_Usuario.md) [NUEVO]
+*   Explicación de la Interfaz Gráfica (GUI).
+*   Cómo configurar y cargar misiones.
+*   Interpretación de Logs y Reportes.
 
-## 📁 Nueva Estructura Organizada
+### 3. [Transparencia y Conceptos Base](file:///Documentacion/Conceptos_Base.md) [NUEVO]
+*   ¿Cómo interactúa Nozhgess con SIGGES?
+*   Reglas de negocio y criterios de validación clínica.
+*   Ética de automatización y manejo de datos.
 
-El proyecto se divide estratégicamente para facilitar su mantenimiento:
-
-### 🏠 Carpeta Raíz (Espacio de Trabajo)
-- 📂 **[App](file:///App)**: Contiene el "cerebro" y el código fuente.
-- 📂 **[Documentacion](file:///Documentacion)**: Manuales, licencias y registros.
-- 📂 **[Lista de Misiones](file:///Lista%20de%20Misiones)**: Definiciones de tareas de automatización.
-- 📂 **[Mision_Actual](file:///Mision_Actual)**: Estado y configuración de la tarea en curso.
-- 📂 **[Logs](file:///Logs)**: Registros detallados de cada ejecución.
-- 📂 **[Utilidades](file:///Utilidades)**, **[Iniciador](file:///Iniciador)**: Herramientas complementarias.
-
----
-
-## 🚀 Guías de Inicio
-
-### Para Usuarios Finales
-1. **Instalación**: Ejecuta [INSTALAR.bat](file:///INSTALAR.bat) para crear un acceso directo en tu escritorio.
-2. **Inicio**: Usa [INICIAR_NOZHGESS.bat](file:///INICIAR_NOZHGESS.bat) para abrir la aplicación.
-3. **Configuración**: La aplicación creará automáticamente las carpetas necesarias en el primer inicio.
-
-### Para Desarrolladores (IDE)
-1. Instala dependencias: `pip install -r App/requirements.txt`.
-2. Punto de entrada: [App/Nozhgess.pyw](file:///App/Nozhgess.pyw).
-3. Añade la raíz del proyecto a tu `PYTHONPATH` para que los módulos encuentren las carpetas de misiones.
+### 4. [Arquitectura y Desarrollo](file:///Documentacion/Arquitectura.md) [NUEVO]
+*   Estructura profunda del código (`App/src`).
+*   Sistema de Resiliencia (Circuit Breakers y Smart Waits).
+*   Guía para desarrolladores: Extensión de funcionalidades.
 
 ---
 
-## 📄 Licencia y Copyright
-Este proyecto está bajo la licencia MIT. Ver el archivo [LICENSE](file:///Documentacion/LICENSE) para más detalles.
+## 🛠️ Filosofía del Proyecto
+Nozhgess se rige por tres principios innegociables:
 
-© 2026 Nozhgess Team. Desarrollado para la eficiencia en salud.
+1.  **Transparencia**: El usuario siempre debe saber qué está haciendo la herramienta. No hay lógica oculta.
+2.  **Resiliencia**: La automatización debe ser capaz de detectar fallos en la plataforma externa y actuar con precaución.
+3.  **Simplicidad**: Menos clics, más resultados. La tecnología debe servir al profesional, no al revés.
+
+---
+
+## 📄 Otros Documentos
+*   [Registro de Cambios (Changelog)](file:///Documentacion/CHANGELOG.md)
+*   [Licencia MIT](file:///Documentacion/LICENSE)
+
+---
+© 2026 Nozhgess Team.  
+*Comprometidos con la excelencia en la automatización médica.*
