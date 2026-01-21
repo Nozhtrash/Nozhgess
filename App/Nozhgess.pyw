@@ -13,10 +13,12 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR) # Carpeta raíz del proyecto
 
+# Priorizar App/ para encontrar src/ correctamente
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
+    # Agregar raíz pero después de SCRIPT_DIR
+    sys.path.append(ROOT_DIR)
 
 
 def show_error_dialog(title: str, message: str):

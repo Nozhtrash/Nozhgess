@@ -1,24 +1,54 @@
 {
-  "window": {
-    "remember_position": true,
-    "remember_size": true,
-    "start_minimized": false,
-    "always_on_top": 0,
-    "x": 346,
-    "y": 168,
-    "width": 1344,
-    "height": 745
-  },
-  "notifications": {
-    "sound_on_complete": true,
-    "windows_notification": true
-  },
-  "performance": {
-    "animations": "normal",
-    "low_resource_mode": false
-  },
-  "data": {
-    "auto_clean_logs": true,
-    "log_retention_days": 30
-  }
+    "window": {
+        "width": 1344,
+        "height": 745,
+        "remember_position": true,
+        "remember_size": true,
+        "start_minimized": false,
+        "always_on_top": 0,
+        "x": 346,
+        "y": 168
+    },
+    "theme": {
+        "mode": "light",
+        "ui_scale": 1.0,
+        "accent_color": "#9b59b6",
+        "animations": "normal",
+        "colors": {
+            "dark": {
+                "bg_primary": "#1a1a2e",
+                "bg_secondary": "#16213e",
+                "bg_card": "#0f3460",
+                "text_primary": "#ffffff",
+                "text_secondary": "#a0a0a0",
+                "accent": "#1ABC9C",
+                "success": "#2ecc71",
+                "warning": "#f39c12",
+                "error": "#e74c3c"
+            },
+            "light": {
+                "bg_primary": "#f5f5f5",
+                "bg_secondary": "#ffffff",
+                "bg_card": "#e0e0e0",
+                "text_primary": "#1a1a2e",
+                "text_secondary": "#555555",
+                "accent": "#1ABC9C",
+                "success": "#27ae60",
+                "warning": "#e67e22",
+                "error": "#c0392b"
+            }
+        }
+    },
+    "notifications": {
+        "sound_on_complete": true,
+        "windows_notification": true
+    },
+    "performance": {
+        "animations": "normal",
+        "low_resource_mode": false
+    },
+    "data": {
+        "auto_clean_logs": true,
+        "log_retention_days": 30
+    }
 }

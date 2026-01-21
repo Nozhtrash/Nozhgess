@@ -42,17 +42,21 @@ Logs/
 Crash_Reports/
 *.log
 
+# Configuraciones locales (No subir a Repo para evitar sobrescribir ajustes del usuario)
+App/src/gui/user_settings.json
+App/src/gui/theme_config.json
+
 # Archivos de entrada/salida (contienen datos sensibles)
-# Si existieran carpetas de datos en la raíz
 Entrada/
 Salida/
+Mision_Actual/
+Mision Actual/
+
+# Binarios locales de Python (si los hubiera)
+App/localpycs/
 
 # Mantener estructura de carpetas si es necesario
 !.gitkeep
-
-# Misión actual y temporales
-# (Generalmente no se suben a git para evitar conflictos)
-# Mision_Actual/
 
 # Sistema Operativo
 # -----------------------------------------------------------------------------
@@ -72,3 +76,4 @@ $RECYCLE.BIN/
 .coverage
 htmlcov/
 .mypy_cache/
+null_files.txt
