@@ -39,7 +39,7 @@ RUTA_CARPETA_SALIDA: str = r"C:\Users\usuariohgf\OneDrive\Documentos\Trabajo Ofi
 
 # Configuración del navegador Edge en modo debug
 DIRECCION_DEBUG_EDGE: str = "localhost:9222"
-EDGE_DRIVER_PATH: str = "" # Dejar vacío para usar Selenium Manager automático (RECOMENDADO)
+EDGE_DRIVER_PATH: str = r"C:\Windows\System32\msedgedriver.exe"
 
 # =============================================================================
 #                      CONFIGURACIÓN EXCEL ENTRADA

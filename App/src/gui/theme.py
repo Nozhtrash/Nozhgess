@@ -359,11 +359,11 @@ def save_theme(theme: Dict[str, Any]) -> None:
 
 
 def get_colors() -> Dict[str, str]:
-    """Obtiene los colores actuales según el modo."""
+    """Obtiene los colores actuales - siempre usa tema oscuro para consistencia."""
     theme = load_theme()
-    mode = theme.get("mode", "dark")
     colors = theme.get("colors", DEFAULT_THEME["colors"])
-    base_colors = colors.get(mode, colors["dark"]).copy()
+    # SIMPLIFICADO: Solo tema oscuro, el claro tiene demasiados problemas
+    base_colors = colors.get("dark", DEFAULT_THEME["colors"]["dark"]).copy()
     # Aplicar color de acento personalizado
     accent = theme.get("accent_color", DEFAULT_THEME["accent_color"])
     base_colors["accent"] = accent

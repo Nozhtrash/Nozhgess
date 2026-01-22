@@ -61,11 +61,12 @@ class FormRow(ctk.CTkFrame):
             w = ctk.CTkEntry(
                 self, 
                 border_color=self.colors.get("border", "#2d3540"),
-                fg_color=self.colors.get("bg_input", "#0f141a")
+                fg_color=self.colors.get("bg_input", "#0f141a"),
+                text_color=self.colors.get("text_primary", "#f8fafc")
             )
             if val is not None: w.insert(0, str(val))
-            # Binding
             return w
+
             
         elif kind == "switch":
             w = ctk.CTkSwitch(
@@ -82,7 +83,8 @@ class FormRow(ctk.CTkFrame):
             entry = ctk.CTkEntry(
                 frame,
                 border_color=self.colors.get("border", "#2d3540"),
-                fg_color=self.colors.get("bg_input", "#0f141a")
+                fg_color=self.colors.get("bg_input", "#0f141a"),
+                text_color=self.colors.get("text_primary", "#f8fafc")
             )
             entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
             if val is not None: entry.insert(0, str(val))
@@ -96,6 +98,7 @@ class FormRow(ctk.CTkFrame):
             )
             browse_btn.pack(side="right")
             return frame
+
             
         return ctk.CTkLabel(self, text="Unknown type")
 
@@ -112,7 +115,39 @@ class FormRow(ctk.CTkFrame):
             entry.delete(0, "end")
             entry.insert(0, path)
 
+    def update_colors(self, colors: dict):
+        """Actualiza colores para soportar cambio de tema (Claro/Oscuro)."""
+        self.colors = colors
+        self.lbl.configure(text_color=colors.get("text_secondary", "#94a3b8"))
+        
+        if hasattr(self, 'help_btn'):
+            self.help_btn.configure(
+                fg_color=colors.get("bg_elevated", "#252b35"),
+                text_color=colors.get("text_muted", "#64748b")
+            )
+            
+        # Actualizar widget interior
+        if isinstance(self.widget, ctk.CTkEntry):
+            self.widget.configure(
+                border_color=colors.get("border", "#2d3540"),
+                fg_color=colors.get("bg_input", "#0f141a"),
+                text_color=colors.get("text_primary", "#000" if ctk.get_appearance_mode() == "Light" else "#fff")
+            )
+        elif isinstance(self.widget, ctk.CTkSwitch):
+            self.widget.configure(progress_color=colors.get("accent", "#00f2c3"))
+        elif isinstance(self.widget, ctk.CTkFrame): # Path picker
+            for child in self.widget.winfo_children():
+                if isinstance(child, ctk.CTkEntry):
+                    child.configure(
+                        border_color=colors.get("border", "#2d3540"),
+                        fg_color=colors.get("bg_input", "#0f141a"),
+                        text_color=colors.get("text_primary", "#000" if ctk.get_appearance_mode() == "Light" else "#fff")
+                    )
+                elif isinstance(child, ctk.CTkButton):
+                    child.configure(fg_color=colors.get("bg_elevated", "#252b35"))
+
     def get(self):
+        """Retorna el valor actual del widget."""
         if isinstance(self.widget, ctk.CTkEntry):
             return self.widget.get()
         if isinstance(self.widget, ctk.CTkSwitch):

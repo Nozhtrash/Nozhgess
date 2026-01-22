@@ -11,10 +11,11 @@ import sys
 import shutil
 import importlib
 
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
-BACKUPS_PATH = os.path.join(ruta_proyecto, "Z_Utilidades", "Backups")
+BACKUPS_PATH = os.path.join(ruta_proyecto, "Utilidades", "Backups")
 
 
 class BackupsViewerView(ctk.CTkFrame):
@@ -148,7 +149,23 @@ class BackupsViewerView(ctk.CTkFrame):
         )
         self.backup_text.pack(fill="both", expand=True, padx=12, pady=(8, 12))
         
-        # Cargar backups
+        # Lazy load en on_show
+        
+    def on_show(self):
+        """Hook al mostrar la vista."""
+        self._load_backups()
+
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        self.title.configure(text_color=colors["text_primary"])
+        self.create_btn.configure(fg_color=colors["accent"])
+        self.refresh_btn.configure(fg_color=colors["bg_card"], text_color=colors["text_primary"])
+        self.list_frame.configure(fg_color=colors["bg_secondary"])
+        self.viewer_frame.configure(fg_color=colors["bg_card"])
+        self.backup_text.configure(fg_color=colors["bg_primary"], text_color=colors["text_primary"])
+        # Recargar lista
         self._load_backups()
     
     def _load_backups(self):

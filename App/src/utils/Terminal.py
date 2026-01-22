@@ -35,6 +35,7 @@ except Exception:
 
 import logging
 import os
+import sys  # Added missing import
 from datetime import datetime
 from typing import Dict, List, Any
 
@@ -43,9 +44,12 @@ from typing import Dict, List, Any
 # =============================================================================
 
 # Crear carpeta logs si no existe
-# Usamos ruta relativa al archivo Terminal.py para encontrar Z_Utilidades
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LOG_DIR = os.path.join(BASE_DIR, "Z_Utilidades", "Logs")
+# Usamos ruta relativa para encontrar la raíz del proyecto
+ruta_utils = os.path.dirname(os.path.abspath(__file__))
+ruta_src = os.path.dirname(ruta_utils)
+ruta_app = os.path.dirname(ruta_src)
+BASE_DIR = os.path.dirname(ruta_app) # True Root
+LOG_DIR = os.path.join(BASE_DIR, "Logs")
 
 if not os.path.exists(LOG_DIR):
     try:
@@ -98,7 +102,11 @@ LOG_FILE = os.path.join(LOG_DIR, f"nozhgess_{datetime.now().strftime('%Y%m%d_%H%
 # Captura trazas completas y variables de estado para aprendizaje futuro.
 
 try:
-    from C_Mezclador.Mision_Actual import DEBUG as DEBUG_MODE
+    # Intentar importar desde la raíz del proyecto
+    if BASE_DIR not in sys.path:
+        sys.path.insert(0, BASE_DIR)
+    import Mision_Actual.Mision_Actual as ma
+    DEBUG_MODE = ma.DEBUG_MODE if hasattr(ma, "DEBUG_MODE") else False
 except ImportError:
     DEBUG_MODE = False  # Default: modo producción (logs limpios)
 

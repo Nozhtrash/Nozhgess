@@ -13,6 +13,11 @@ ruta_proyecto = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
+# FIX CRÍTICO: Agregar 'App' al path para que 'import src' funcione
+ruta_app = os.path.join(ruta_proyecto, "App")
+if ruta_app not in sys.path:
+    sys.path.insert(0, ruta_app)
+
 # =============================================================================
 #                          EJECUTAR REVISIÓN
 # =============================================================================

@@ -144,3 +144,18 @@ class CoreMixin:
         except:
             # Si falla el driver, asumimos cerrada/rota
             return True
+
+    def es_conexion_fatal(self, e: Exception) -> bool:
+        """Determina si una excepción es fatal (pérdida de conexión)."""
+        msg = str(e).lower()
+        # Lista de errores que indican pérdida definitiva de control del navegador
+        fatales = [
+            "no such window",
+            "target window already closed",
+            "connection refused",
+            "disconnected",
+            "session not created",
+            "invalid session id",
+            "chrome not reachable"
+        ]
+        return any(f in msg for f in fatales)

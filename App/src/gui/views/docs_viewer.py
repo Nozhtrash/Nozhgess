@@ -10,7 +10,8 @@ import sys
 import subprocess
 from tkinter import filedialog, messagebox
 
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 DOCS_PATH = os.path.join(ruta_proyecto, "Extras", "Info")
@@ -144,8 +145,26 @@ class DocsViewerView(ctk.CTkFrame):
         )
         self.doc_text.pack(fill="both", expand=True, padx=12, pady=(8, 12))
         
+        # self._load_docs() removed from here
+        
+    def on_show(self):
+        """Hook al mostrar la vista."""
         self._load_docs()
-    
+
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        self.title.configure(text_color=colors["text_primary"])
+        self.add_btn.configure(fg_color=colors["accent"])
+        self.folder_btn.configure(fg_color=colors["bg_card"], text_color=colors["text_primary"])
+        self.search_entry.configure(fg_color=colors["bg_secondary"], text_color=colors["text_primary"])
+        self.list_frame.configure(fg_color=colors["bg_secondary"])
+        self.viewer_frame.configure(fg_color=colors["bg_card"])
+        self.doc_text.configure(fg_color=colors["bg_primary"], text_color=colors["text_primary"])
+        # Recargar lista
+        self._load_docs()
+
     def _load_docs(self, filter_text: str = ""):
         """Carga la lista de documentos."""
         for widget in self.doc_list.winfo_children():
@@ -170,20 +189,21 @@ class DocsViewerView(ctk.CTkFrame):
             ext = os.path.splitext(filename)[1].lower()
             icon = icons.get(ext, "📄")
             
-            # Mostrar nombre completo, sin truncar
+            # Botón con texto alineado y sin truncar
             btn = ctk.CTkButton(
                 self.doc_list,
-                text=f"{icon} {filename}",
-                font=ctk.CTkFont(size=12),
+                text=f"{icon}  {filename}",
+                font=ctk.CTkFont(size=11),
                 fg_color="transparent",
                 hover_color=self.colors["bg_card"],
                 text_color=self.colors["text_primary"],
                 anchor="w",
-                height=32,
-                corner_radius=8,
+                height=28,
+                corner_radius=6,
                 command=lambda f=filename: self._load_file(f)
             )
-            btn.pack(fill="x", pady=2)
+            btn.pack(fill="x", pady=1, padx=2)
+
     
     def _load_file(self, filename: str):
         """Carga el contenido de un documento o lo abre externamente."""

@@ -45,7 +45,7 @@ class MisionController:
     def __init__(self, project_root: str):
         self.project_root = project_root
         self.mision_path = os.path.join(project_root, "Mision_Actual", "Mision_Actual.py")
-        self.debug_path = os.path.join(project_root, "src", "utils", "DEBUG.py")
+        self.debug_path = os.path.join(project_root, "App", "src", "utils", "DEBUG.py")
         
         # Asegurar path para importación
         if project_root not in sys.path:

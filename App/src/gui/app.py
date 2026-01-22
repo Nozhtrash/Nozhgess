@@ -13,9 +13,14 @@ import webbrowser
 from datetime import datetime
 
 # Agregar la carpeta raíz del proyecto al path
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ruta_app = os.path.dirname(ruta_src)
+ruta_proyecto = os.path.dirname(ruta_app) # La verdadera raíz (donde está Mision_Actual/)
+
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
+if ruta_app not in sys.path:
+    sys.path.insert(0, ruta_app)
 
 import customtkinter as ctk
 
@@ -61,16 +66,18 @@ class NozhgessApp(ctk.CTk):
         register_theme_callback(self._on_theme_change)
         
         # 4. Layout
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=0) # Sidebar fixed width
+        self.grid_columnconfigure(1, weight=1) # View area expand
+        self.grid_rowconfigure(0, weight=1)    # View area height
+        self.grid_rowconfigure(1, weight=0)    # Footer height
         
-        # Sidebar
+        # Sidebar - Span rows to prevent footer blocking bottom buttons
         self.sidebar = Sidebar(
             self,
             on_navigate=self._on_navigate,
             colors=self.colors
         )
-        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        self.sidebar.grid(row=0, column=0, rowspan=2, sticky="nsew")
         
         # View Container
         self.view_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -78,7 +85,7 @@ class NozhgessApp(ctk.CTk):
         self.view_container.grid_columnconfigure(0, weight=1)
         self.view_container.grid_rowconfigure(0, weight=1)
         
-        # Footer
+        # Footer - Confined to right side
         self._create_footer()
         
         # 5. View Manager Init
@@ -102,10 +109,9 @@ class NozhgessApp(ctk.CTk):
 
     
     def _apply_theme(self):
-        """Aplica el tema actual."""
-        theme = load_theme()
-        mode = theme.get("mode", "dark")
-        ctk.set_appearance_mode(mode)
+        """Aplica el tema actual - siempre modo oscuro para consistencia."""
+        # FORZAR MODO OSCURO - el modo claro tiene demasiados bugs
+        ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
         self.colors = get_colors()
@@ -114,82 +120,64 @@ class NozhgessApp(ctk.CTk):
 
     
     def _create_footer(self):
-        """Crea footer premium."""
-        footer = ctk.CTkFrame(
-            self,
-            fg_color=self.colors.get("bg_secondary", "#161b22"),
-            height=36,
+        """Crea footer ultra-compacto y centrado."""
+        self.footer = ctk.CTkFrame(
+            self, 
+            fg_color=self.colors.get("bg_secondary", "#0d1117"),
+            height=18,
             corner_radius=0
         )
-        footer.grid(row=1, column=0, columnspan=2, sticky="ew")
-        footer.grid_propagate(False)
+        self.footer.grid(row=1, column=1, sticky="ew")
+        self.footer.grid_propagate(False)
         
-        # Container centrado
-        container = ctk.CTkFrame(footer, fg_color="transparent")
-        container.pack(expand=True)
+        # Un solo container centrado con todo
+        container = ctk.CTkFrame(self.footer, fg_color="transparent")
+        container.place(relx=0.5, rely=0.5, anchor="center")
         
-        # Texto copyright
         year = datetime.now().year
         
+        # Todo en una línea: Made with ♥ by Nozhtrash | v3.0.0 | © 2026 | IDLE
         ctk.CTkLabel(
-            container,
-            text="Made with ♥ by ",
-            font=ctk.CTkFont(size=10),
+            container, 
+            text=f"Made with ♥ by ", 
+            font=ctk.CTkFont(size=9),
             text_color=self.colors.get("text_muted", "#6e7681")
         ).pack(side="left")
         
-        # Link a GitHub
         github_link = ctk.CTkButton(
-            container,
-            text="Nozhtrash",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            container, 
+            text="Nozhtrash", 
+            font=ctk.CTkFont(size=9, weight="bold"),
             fg_color="transparent",
             text_color=self.colors.get("accent", "#00f2c3"),
-            hover_color=self.colors.get("bg_card", "#21262d"),
-            width=70,
-            height=20,
-            corner_radius=6,
+            hover_color=self.colors.get("bg_secondary", "#0d1117"),
+            width=50,
+            height=14,
+            corner_radius=2,
             cursor="hand2",
             command=lambda: webbrowser.open("https://github.com/Nozhtrash")
         )
         github_link.pack(side="left")
         
         ctk.CTkLabel(
-            container,
-            text=f" © {year}",
-            font=ctk.CTkFont(size=10),
-            text_color=self.colors.get("text_muted", "#6e7681")
-        ).pack(side="left")
-        
-        # Separador
-        ctk.CTkLabel(
-            container,
-            text="  |  ",
-            font=ctk.CTkFont(size=10),
-            text_color=self.colors.get("text_muted", "#6e7681")
-        ).pack(side="left")
-        
-        # Version (simple, sin badge grande)
-        ctk.CTkLabel(
-            container,
-            text=f"v{self.VERSION}",
+            container, 
+            text=f" | v{self.VERSION} | © {year} | ", 
             font=ctk.CTkFont(size=9),
+            text_color=self.colors.get("text_muted", "#484f58")
         ).pack(side="left")
         
-        # Separador Flexible
-        ctk.CTkFrame(container, fg_color="transparent", width=20).pack(side="left")
-
-        # STATUS BADGE (Global Notification Area)
+        # STATUS BADGE - Integrado en la línea centrada
         self.status_badge = StatusBadge(
             container, 
             status="IDLE", 
             colors=self.colors,
-            height=24
+            height=14
         )
-        self.status_badge.pack(side="left", padx=10)
+        self.status_badge.pack(side="left")
         
         # Registrar en NotificationManager
         self._register_notifications()
+
 
     def _register_notifications(self):
         """Conecta el NotificationManager con el Badge."""

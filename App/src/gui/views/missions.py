@@ -11,7 +11,8 @@ import shutil
 import importlib
 from tkinter import filedialog, messagebox
 
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 

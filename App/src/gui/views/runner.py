@@ -14,7 +14,8 @@ import time  # FIX: Missing import
 from src.gui.components import LogConsole, StatusBadge
 from src.core.states import RunState
 
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
@@ -166,9 +167,9 @@ class RunnerView(ctk.CTkFrame):
         self.status_badge = StatusBadge(
             exec_buttons,
             status="IDLE",
-            text="Listo",
             colors=colors
         )
+        self.status_badge.set_status("IDLE", "Listo")
         self.status_badge.pack(side="right")
         
         # Estado de pausa
@@ -374,7 +375,7 @@ class RunnerView(ctk.CTkFrame):
         except queue.Empty:
             pass
         
-        self.after(30, self._poll_logs)  # 30ms para ~30fps
+        self.after(150, self._poll_logs)  # 150ms - balance entre responsividad y CPU
     
     def _safe_start_run(self):
         """Wrapper seguro para iniciar ejecución con logging de errores."""

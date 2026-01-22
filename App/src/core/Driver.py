@@ -78,15 +78,31 @@ def iniciar_driver(debug_address: str, driver_path: str) -> "SiggesDriver":
         return sigges
 
     except (ConnectionError, Exception) as e:
-        error_msg = str(e)
-        log_warn(f"⚠️ Error de conexión inicial: {error_msg}")
+        error_msg = str(e).lower()
+        log_warn(f"⚠️ Error de conexión inicial: {str(e)}")
         
-        # Self-Healing: Intentar reiniciar Edge si parece estar muerto
-        if "no such window" in error_msg.lower() or "cannot connect" in error_msg.lower():
+        # --- ESTRATEGIA 1: Fallback a Selenium Manager (Versión Incorrecta) ---
+        if driver_path and ("session not created" in error_msg or "version" in error_msg):
+            log_warn("🔄 Detectado posible error de versión con driver manual.")
+            log_info("🤖 Activando Fallback: Intentando con Selenium Manager automático...")
+            try:
+                # Reiniciar servicio en modo automático
+                service = Service()
+                driver = webdriver.Edge(service=service, options=opts)
+                driver.set_page_load_timeout(ESPERAS.get("page_load", {}).get("wait", 20))
+                sigges = SiggesDriver(driver)
+                
+                if sigges.validar_conexion()[0]:
+                    log_info("✅ Fallback exitoso: Conectado usando Selenium Manager")
+                    return sigges
+            except Exception as e_params:
+                log_error(f"❌ Fallback automático falló: {e_params}")
+
+        # --- ESTRATEGIA 2: Self-Healing (Navegador Cerrado) ---
+        if "no such window" in error_msg or "cannot connect" in error_msg:
             log_info("🩹 Attempting Self-Healing: Restarting Edge Debug...")
             try:
                 import subprocess
-                # Asumimos que init.ps1 está en el root
                 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 init_script = os.path.join(root_dir, "init.ps1")
                 
@@ -94,7 +110,12 @@ def iniciar_driver(debug_address: str, driver_path: str) -> "SiggesDriver":
                     subprocess.run(["powershell", "-File", init_script], timeout=10)
                     time.sleep(3) # Esperar a que abra
                     
-                    # Reintentar conexión
+                    # Reintentar conexión con servicio original (o automático si ya se cambió)
+                    # Si falló el driver manual antes, service ya debería ser el automático si fluyó, 
+                    # pero aquí estamos en un nuevo intento. Por seguridad usaremos Service() limpio si falló driver_path
+                    if driver_path and "version" in error_msg: 
+                         service = Service()
+                    
                     driver = webdriver.Edge(service=service, options=opts)
                     sigges = SiggesDriver(driver)
                     if sigges.validar_conexion()[0]:
@@ -103,7 +124,7 @@ def iniciar_driver(debug_address: str, driver_path: str) -> "SiggesDriver":
             except Exception as healing_err:
                 log_error(f"❌ Self-Healing falló: {healing_err}")
         
-        raise ConnectionError(f"No se pudo conectar a Edge debug en {debug_address}")
+        raise ConnectionError(f"No se pudo conectar a Edge debug. Detalles: {error_msg}")
 
 
 class ContractViolationError(NozhgessError):
@@ -144,8 +165,6 @@ class SiggesDriver(NavigationMixin, LoginMixin, DataParsingMixin, CoreMixin):
         
         # Emitir Health Report Inicial
         self.log_boot_info()
-
-    def validate_driver_contract(self):
 
     def validate_driver_contract(self):
         """
@@ -202,3 +221,16 @@ class SiggesDriver(NavigationMixin, LoginMixin, DataParsingMixin, CoreMixin):
         if run_id: self.state.run_id = run_id
         if rut: self.state.current_patient_rut = rut
         if stage: self.state.current_stage = stage
+
+    def es_conexion_fatal(self, e: Exception) -> bool:
+        """Determina si una excepción es fatal (pérdida de conexión)."""
+        msg = str(e).lower()
+        fatales = [
+            "no such window",
+            "target window already closed",
+            "connection refused",
+            "disconnected",
+            "session not created",
+            "invalid session id"
+        ]
+        return any(f in msg for f in fatales)

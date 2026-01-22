@@ -122,9 +122,9 @@ WINDOW_DEFAULT_HEIGHT = 850
 #                          PATHS RELATIVOS
 # =============================================================================
 
-PATH_LOGS = "Z_Utilidades/Logs"
+PATH_LOGS = "Logs"
 PATH_CRASH_REPORTS = "Crash_Reports"
-PATH_BACKUPS = "src/utils/Backups"
+PATH_BACKUPS = "Utilidades/Backups"
 PATH_VBA = "Extras/VBA"
 PATH_DOCS = "Extras/Info"
 

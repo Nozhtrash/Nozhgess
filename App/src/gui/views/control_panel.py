@@ -13,7 +13,9 @@ from src.gui.controllers.mision_controller import MisionController
 from src.gui.managers.notification_manager import get_notifications
 
 # Asegurar path para imports
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src)) # Root central
+
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
@@ -39,7 +41,7 @@ class ControlPanelView(ctk.CTkFrame):
             fg_color="transparent",
             scrollbar_button_color=colors["bg_card"]
         )
-        self.scroll.pack(fill="both", expand=True, padx=15, pady=5)
+        self.scroll.pack(fill="both", expand=True, padx=20, pady=10)
         
         # Cargar UI inicial
         self.reload_ui()
@@ -101,8 +103,8 @@ class ControlPanelView(ctk.CTkFrame):
         self.reload_btn.pack(side="right", padx=(5, 0))
 
     def on_show(self):
-        """Hook al mostrar la vista."""
-        self._on_reload(silent=True)
+        """Hook al mostrar la vista - no recarga automáticamente para mejor rendimiento."""
+        pass  # Removed auto-reload: self._on_reload(silent=True)
 
     def reload_ui(self):
         """Reconstruye el formulario basado en la config del Controller."""
@@ -138,7 +140,7 @@ class ControlPanelView(ctk.CTkFrame):
         
         # 1. Identificación
         c = Card(self.scroll, "Identificación 🏷️", colors=self.colors)
-        c.pack(fill="x", pady=8)
+        c.pack(fill="x", pady=10)
         add(c.content, "NOMBRE_DE_LA_MISION", "Nombre de la Misión")
 
         # 2. Rutas
@@ -242,6 +244,35 @@ class ControlPanelView(ctk.CTkFrame):
             self.debug_btn.configure(text="🐛 Debug: ON", fg_color=self.colors["warning"])
         else:
             self.debug_btn.configure(text="🐛 Debug: OFF", fg_color=self.colors["bg_card"])
+
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        
+        # Header components
+        if hasattr(self, 'debug_btn'):
+            self.debug_btn.configure(
+                fg_color=colors["bg_card"],
+                text_color=colors["text_primary"]
+            )
+        
+        # Scroll area
+        self.scroll.configure(scrollbar_button_color=colors["bg_card"])
+        
+        # Propagar a todas las tarjetas y filas
+        for widget in self.scroll.winfo_children():
+            if hasattr(widget, "update_colors"):
+                widget.update_colors(colors)
+        
+        # Footer components
+        if hasattr(self, 'save_btn'):
+            self.save_btn.configure(fg_color=colors["accent"])
+        if hasattr(self, 'reload_btn'):
+            self.reload_btn.configure(
+                fg_color=colors["bg_card"],
+                text_color=colors["text_primary"]
+            )
 
     def _show_error(self, msg):
         err_lbl = ctk.CTkLabel(self.scroll, text=f"❌ {msg}", text_color="red")

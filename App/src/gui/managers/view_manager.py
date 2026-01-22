@@ -39,21 +39,35 @@ class ViewManager:
                 if hasattr(curr, "on_hide"): curr.on_hide()
         
         # 2. Get/Create instancia
-        if name not in self._instances:
-            # Lazy Instantiation
-            if name not in self._registry:
-                 return # Should not happen check above
-                 
-            view_cls, view_kwargs = self._registry[name]
-            
-            # Merge context colors with view specific kwargs
-            init_kwargs = view_kwargs.copy()
-            init_kwargs["colors"] = self.context.get("colors", {})
-            
-            # Instanciar
-            instance = view_cls(self.container, **init_kwargs)
-            self._instances[name] = instance
-        
+        try:
+            if name not in self._instances:
+                # Lazy Instantiation
+                if name not in self._registry:
+                     return # Should not happen check above
+                     
+                view_cls, view_kwargs = self._registry[name]
+                
+                # Merge context colors with view specific kwargs
+                init_kwargs = view_kwargs.copy()
+                init_kwargs["colors"] = self.context.get("colors", {})
+                
+                # Instanciar
+                instance = view_cls(self.container, **init_kwargs)
+                self._instances[name] = instance
+        except Exception as e:
+            print(f"❌ Error instanciando vista '{name}': {e}")
+            import traceback
+            traceback.print_exc()
+            # Placeholder de error para que no quede vacía la pantalla
+            error_view = ctk.CTkFrame(self.container, fg_color="#442222")
+            ctk.CTkLabel(
+                error_view, 
+                text=f"⚠️ Error al cargar '{name}'\n\n{str(e)}",
+                font=("Segoe UI", 14),
+                text_color="white"
+            ).pack(expand=True, padx=20, pady=20)
+            self._instances[name] = error_view
+
         view = self._instances[name]
         
         # 3. Mostrar nueva

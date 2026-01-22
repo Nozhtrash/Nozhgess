@@ -1132,7 +1132,16 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
 
             except Exception as e:
                 # Verificar si el error es FATAL (navegador cerrado/conexión perdida)
-                if sigges.es_conexion_fatal(e):
+                es_fatal = False
+                if hasattr(sigges, 'es_conexion_fatal'):
+                    es_fatal = sigges.es_conexion_fatal(e)
+                else:
+                    # Fallback manual si el método no existe (Debug)
+                    msg_b = str(e).lower()
+                    if any(x in msg_b for x in ["no such window", "connection refused", "session not created", "disconnected"]):
+                        es_fatal = True
+
+                if es_fatal:
                     log_error(f"🚨 {rut}: ERROR FATAL detectado - Navegador desconectado")
                     log_error(str(e))
                     log_error("━" * 60)

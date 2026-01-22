@@ -7,17 +7,23 @@ class StatusBadge(ctk.CTkFrame):
     """
     
     STYLES = {
-        "IDLE": {"bg": "bg_elevated", "fg": "text_muted", "icon": "⚪"},
+        "IDLE": {"bg": "transparent", "fg": "text_muted", "icon": "⚪"},
         "RUNNING": {"bg": "info_bg", "fg": "info", "icon": "⏳"},
         "SUCCESS": {"bg": "success_bg", "fg": "success", "icon": "✅"},
         "ERROR": {"bg": "error_bg", "fg": "error", "icon": "❌"},
         "WARNING": {"bg": "warning_bg", "fg": "warning", "icon": "⚠️"}
     }
+
     
     def __init__(self, master, status="IDLE", colors: dict = None, **kwargs):
         self.colors = colors or {}
         
-        super().__init__(master, corner_radius=12, **kwargs)
+        if "height" in kwargs and kwargs["height"] < 24:
+             cr = kwargs["height"] // 2
+        else:
+             cr = 12
+             
+        super().__init__(master, corner_radius=cr, **kwargs)
         
         self.label = ctk.CTkLabel(
             self,
@@ -39,14 +45,15 @@ class StatusBadge(ctk.CTkFrame):
         fg_key = style["fg"]
         icon = style["icon"]
         
-        # Resolver colores del tema
-        bg_col = self.colors.get(bg_key, "#333")
-        fg_col = self.colors.get(fg_key, "#fff")
+        # Resolver colores del tema (transparent es especial)
+        bg_col = "transparent" if bg_key == "transparent" else self.colors.get(bg_key, "#333")
+        fg_col = self.colors.get(fg_key, "#888")
         
         self.configure(fg_color=bg_col)
         
-        display_text = f"{icon}  {text or status.upper()}"
+        display_text = f"{icon} {text or status.upper()}"
         self.label.configure(text=display_text, text_color=fg_col)
+
 
     def update_colors(self, colors):
         self.colors = colors

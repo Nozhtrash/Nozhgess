@@ -19,7 +19,8 @@ from datetime import datetime
 import importlib
 
 # Imports del proyecto
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
@@ -32,11 +33,7 @@ class DashboardView(ctk.CTkFrame):
     def __init__(self, master, colors: dict, on_run: callable = None, **kwargs):
         super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
         
-        # Recargar configuración
-        try:
-            importlib.reload(MA)
-        except:
-            pass
+        # MA ya importado a nivel de módulo - no hacer reload (muy lento)
         
         self.colors = colors
         self.on_run = on_run
@@ -437,12 +434,45 @@ class DashboardView(ctk.CTkFrame):
         except:
             return "?"
     
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        
+        # Propagar a hijos recursivamente
+        def refresh_children(parent):
+            for child in parent.winfo_children():
+                if hasattr(child, "update_colors"):
+                    child.update_colors(colors)
+                elif isinstance(child, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
+                    if hasattr(child, "configure"):
+                        # Si es scroll, actualizar scrollbar
+                        if isinstance(child, ctk.CTkScrollableFrame):
+                            child.configure(
+                                scrollbar_button_color=colors.get("bg_elevated", "#30363d"),
+                                scrollbar_button_hover_color=colors.get("accent", "#00f2c3")
+                            )
+                        # Si tiene border_width, es una card
+                        if hasattr(child, "cget") and child.cget("border_width") > 0:
+                            child.configure(
+                                fg_color=colors.get("bg_card", "#21262d"),
+                                border_color=colors.get("border", "#30363d")
+                            )
+                    refresh_children(child)
+                elif isinstance(child, ctk.CTkLabel):
+                    # Actualizar colores de texto (evitar sobreescribir acentos si es posible)
+                    curr_color = child.cget("text_color")
+                    if curr_color == colors.get("text_primary") or curr_color == "#ffffff":
+                         child.configure(text_color=colors["text_primary"])
+                    elif curr_color == colors.get("text_secondary") or curr_color == "#8b949e":
+                         child.configure(text_color=colors.get("text_secondary", "#8b949e"))
+                         
+        refresh_children(self)
+
     def _get_latest_log_snippet(self) -> str:
         """Obtiene último snippet del log."""
         try:
-            log_path = os.path.join(ruta_proyecto, "Z_Utilidades", "Logs")
-            if not os.path.exists(log_path):
-                log_path = os.path.join(ruta_proyecto, "Logs")
+            log_path = os.path.join(ruta_proyecto, "Logs")
             if not os.path.exists(log_path):
                 return "Sin historial de logs"
             

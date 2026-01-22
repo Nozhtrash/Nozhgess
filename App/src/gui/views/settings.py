@@ -24,13 +24,14 @@ from datetime import datetime, timedelta
 from tkinter import filedialog, messagebox
 
 # Path del proyecto
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
 from src.gui.theme import (
     ACCENT_COLORS, load_theme, save_theme, set_mode, set_accent_color,
-    THEME_CONFIG_PATH
+    THEME_CONFIG_PATH, get_animations, set_animations, set_ui_scale
 )
 
 # Path para user settings
@@ -104,16 +105,51 @@ class SettingsView(ctk.CTkFrame):
         )
         self.scroll.pack(fill="both", expand=True, padx=24, pady=20)
         
-        # Header
+        # Header & Secciones esenciales (lazy: crear solo las visibles inicialmente)
         self._create_header()
-        
-        # Secciones (simplificadas - sin escala/sonidos/rendimiento)
         self._create_appearance_section()
         self._create_window_section()
+        
+        # Diferir creación de secciones menos frecuentes para mejorar rendimiento
+        self.after(50, self._create_remaining_sections)
+    
+    def _create_remaining_sections(self):
+        """Crea las secciones restantes después del render inicial."""
+        self._create_notifications_section()
         self._create_data_section()
+        self._create_performance_section()
         self._create_shortcuts_section()
         self._create_advanced_section()
         self._create_info_section()
+
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente sin duplicar secciones."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        self.scroll.configure(
+            scrollbar_button_color=colors.get("bg_elevated", colors["bg_card"]),
+            scrollbar_button_hover_color=colors.get("accent", "#00f2c3")
+        )
+        
+        # Propagar a todas las secciones (Cards y FormRows)
+        for widget in self.scroll.winfo_children():
+            if hasattr(widget, "update_colors"):
+                widget.update_colors(colors)
+            # Para widgets CTK estándar que no tienen update_colors
+            elif isinstance(widget, ctk.CTkFrame):
+                # Si es una card de sección
+                if widget.cget("border_width") > 0:
+                    widget.configure(
+                        fg_color=colors.get("bg_card", "#21262d"),
+                        border_color=colors.get("border", "#30363d")
+                    )
+                for child in widget.winfo_children():
+                    if isinstance(child, ctk.CTkLabel):
+                        # Detectar si es un label de acento (icon/title)
+                        if child.cget("text_color") in ACCENT_COLORS.values() or "accent" in str(child.cget("text_color")):
+                             child.configure(text_color=colors.get("accent", "#00f2c3"))
+                        else:
+                             child.configure(text_color=colors.get("text_primary", "#ffffff"))
     
     def _create_header(self):
         """Header de la página."""
@@ -199,21 +235,16 @@ class SettingsView(ctk.CTkFrame):
         """Sección de apariencia."""
         card = self._create_section_card("Apariencia", "🎨")
         
-        # Modo de tema
-        row = self._create_setting_row(card, "Modo de Tema", "Elige entre modo oscuro o claro")
+        # Modo de tema - FIJO EN OSCURO (el modo claro está deshabilitado)
+        row = self._create_setting_row(card, "Modo de Tema", "Tema oscuro - único modo estable disponible")
         
-        self.mode_menu = ctk.CTkOptionMenu(
+        # Label fijo en lugar de selector (el modo claro está roto)
+        ctk.CTkLabel(
             row,
-            values=["🌙 Oscuro", "☀️ Claro"],
-            command=self._change_mode,
-            fg_color=self.colors.get("bg_secondary", "#161b22"),
-            button_color=self.colors.get("accent", "#00f2c3"),
-            button_hover_color=self.colors.get("success", "#3fb950"),
-            dropdown_fg_color=self.colors.get("bg_card", "#21262d"),
-            width=140
-        )
-        self.mode_menu.pack(side="right")
-        self.mode_menu.set("🌙 Oscuro" if self.theme.get("mode") == "dark" else "☀️ Claro")
+            text="🌙 Oscuro",
+            font=ctk.CTkFont(size=12),
+            text_color=self.colors.get("text_secondary", "#8b949e")
+        ).pack(side="right")
         
         # Color de Acento
         row = self._create_setting_row(card, "Color de Acento", "Personaliza el color principal de la interfaz")
@@ -672,7 +703,6 @@ class SettingsView(ctk.CTkFrame):
     def _clean_logs(self):
         """Limpia logs antiguos."""
         log_paths = [
-            os.path.join(ruta_proyecto, "Z_Utilidades", "Logs"),
             os.path.join(ruta_proyecto, "Logs"),
         ]
         
@@ -697,9 +727,9 @@ class SettingsView(ctk.CTkFrame):
     def _show_disk_usage(self):
         """Muestra uso de disco."""
         paths = {
-            "Logs": os.path.join(ruta_proyecto, "Z_Utilidades", "Logs"),
+            "Logs": os.path.join(ruta_proyecto, "Logs"),
             "Crash Reports": os.path.join(ruta_proyecto, "Crash_Reports"),
-            "Backups": os.path.join(ruta_proyecto, "src", "utils", "Backups"),
+            "Backups": os.path.join(ruta_proyecto, "Utilidades", "Backups"),
         }
         
         info = "📊 Uso de Disco:\n\n"

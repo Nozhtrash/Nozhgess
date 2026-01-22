@@ -8,10 +8,11 @@ import customtkinter as ctk
 import os
 import sys
 
-ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
-LOGS_PATH = os.path.join(ruta_proyecto, "Z_Utilidades", "Logs")
+LOGS_PATH = os.path.join(ruta_proyecto, "Logs")
 
 
 class LogsViewerView(ctk.CTkFrame):
@@ -114,26 +115,38 @@ class LogsViewerView(ctk.CTkFrame):
         self._load_logs()
     
     def _load_logs(self):
-        """Carga los últimos 8 logs."""
+        """Carga los logs de Logs/ y sus subcarpetas (Terminal/Debug)."""
         for widget in self.log_list.winfo_children():
             widget.destroy()
         
         if not os.path.exists(LOGS_PATH):
             return
         
-        # Obtener logs ordenados por fecha (más reciente primero)
-        files = [f for f in os.listdir(LOGS_PATH) if f.endswith(".log")]
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(LOGS_PATH, x)), reverse=True)
+        # Buscar archivos .log recursivamente
+        log_files = []
+        for root, _, files in os.walk(LOGS_PATH):
+            for f in files:
+                if f.endswith(".log"):
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, LOGS_PATH)
+                    mtime = os.path.getmtime(full_path)
+                    log_files.append((rel_path, full_path, mtime))
         
-        # Mostrar los últimos 8
-        for filename in files[:8]:
-            filepath = os.path.join(LOGS_PATH, filename)
-            size_kb = os.path.getsize(filepath) / 1024
+        # Ordenar por fecha (más reciente primero)
+        log_files.sort(key=lambda x: x[2], reverse=True)
+        
+        # Mostrar los últimos 15 (antes solo 8)
+        for rel_path, full_path, mtime in log_files[:15]:
+            size_kb = os.path.getsize(full_path) / 1024
             
-            # Sin truncar nombre
+            # Identificar tipo por carpeta
+            icon = "📄"
+            if "Terminal" in rel_path: icon = "💻"
+            elif "Debug" in rel_path: icon = "🔧"
+            
             btn = ctk.CTkButton(
                 self.log_list,
-                text=f"📄 {filename}\n   {size_kb:.1f} KB",
+                text=f"{icon} {rel_path}\n   {size_kb:.1f} KB",
                 font=ctk.CTkFont(size=11),
                 fg_color="transparent",
                 hover_color=self.colors["bg_card"],
@@ -141,13 +154,13 @@ class LogsViewerView(ctk.CTkFrame):
                 anchor="w",
                 height=48,
                 corner_radius=8,
-                command=lambda f=filename: self._load_file(f)
+                command=lambda p=rel_path: self._load_file(p)
             )
             btn.pack(fill="x", pady=3)
         
         # Auto-cargar el más reciente
-        if files:
-            self._load_file(files[0])
+        if log_files:
+            self._load_file(log_files[0][0])
     
     def _load_file(self, filename: str):
         """Carga el contenido de un log."""
@@ -174,3 +187,18 @@ class LogsViewerView(ctk.CTkFrame):
             self.clipboard_append(content)
             self.copy_btn.configure(text="✅ Copiado")
             self.after(1500, lambda: self.copy_btn.configure(text="📋 Copiar"))
+
+    def update_colors(self, colors: dict):
+        """Actualiza colores dinámicamente."""
+        self.colors = colors
+        self.configure(fg_color=colors["bg_primary"])
+        self.title.configure(text_color=colors["text_primary"])
+        self.refresh_btn.configure(fg_color=colors["bg_card"], text_color=colors["text_primary"])
+        self.copy_btn.configure(fg_color=colors["accent"])
+        self.list_frame.configure(fg_color=colors["bg_secondary"])
+        self.viewer_frame.configure(fg_color=colors["bg_card"])
+        self.log_text.configure(fg_color=colors["bg_primary"], text_color=colors["text_primary"])
+        self.file_label.configure(text_color=colors["text_primary"])
+        
+        # Recargar lista de logs con nuevos colores de hover
+        self._load_logs()

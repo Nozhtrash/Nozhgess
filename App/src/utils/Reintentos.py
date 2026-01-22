@@ -182,13 +182,16 @@ class CircuitBreaker:
     def __init__(
         self,
         failure_threshold: int = 5,
-        recovery_timeout: float = 30.0
+        recovery_timeout: float = 30.0,
+        success_threshold: int = 1
     ):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
+        self.success_threshold = success_threshold
         
         self.state = CircuitState.CLOSED
         self.failure_count = 0
+        self.success_count = 0
         self.last_failure_time: Optional[float] = None
 
     def before_call(self):
@@ -200,16 +203,30 @@ class CircuitBreaker:
             elapsed = time.time() - (self.last_failure_time or 0)
             if elapsed > self.recovery_timeout:
                 self.state = CircuitState.HALF_OPEN
+                self.success_count = 0  # Resetear contador de éxitos para prueba
                 log_info("🔄 Circuit Breaker: OPEN → HALF_OPEN (Probando recuperación)")
             else:
                 raise CircuitOpenError(f"Circuito ABIERTO. Reintento disponible en {int(self.recovery_timeout - elapsed)}s")
 
     def record_success(self):
         """Llamado cuando la operación es exitosa."""
-        if self.state != CircuitState.CLOSED:
-            log_info("✅ Circuit Breaker: CERRADO (Servicio recuperado)")
-        self.failure_count = 0
-        self.state = CircuitState.CLOSED
+        if self.state == CircuitState.HALF_OPEN:
+            self.success_count += 1
+            if self.success_count >= self.success_threshold:
+                self.state = CircuitState.CLOSED
+                self.failure_count = 0
+                self.success_count = 0
+                log_info("✅ Circuit Breaker: CERRADO (Servicio recuperado completamente)")
+            else:
+                # Aún probando
+                pass
+        else:
+            # Si estaba cerrado (o abierto incorrectamente), resetear todo
+            if self.state != CircuitState.CLOSED:
+                log_info("✅ Circuit Breaker: Forzado a CERRADO")
+                self.state = CircuitState.CLOSED
+            self.failure_count = 0
+            self.success_count = 0
 
     def record_failure(self):
         """Llamado cuando la operación falla."""

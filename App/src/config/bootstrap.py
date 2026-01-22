@@ -45,9 +45,10 @@ class Bootstrap:
     def __init__(self):
         self.missing: List[str] = []
         self.failed: List[str] = []
-        self.project_root = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
+        ruta_config = os.path.dirname(os.path.abspath(__file__))
+        ruta_src = os.path.dirname(ruta_config)
+        ruta_app = os.path.dirname(ruta_src)
+        self.project_root = os.path.dirname(ruta_app) # True Root
     
     def check_python_version(self) -> Tuple[bool, str]:
         """
@@ -127,9 +128,9 @@ class Bootstrap:
         """Crea directorios necesarios si no existen."""
         directories = [
             os.path.join(self.project_root, "Crash_Reports"),
-            os.path.join(self.project_root, "Z_Utilidades", "Logs"),
-            os.path.join(self.project_root, "assets", "sounds"),
-            os.path.join(self.project_root, "assets", "sounds", "music"),
+            os.path.join(self.project_root, "Logs"),
+            os.path.join(self.project_root, "Utilidades", "Backups"),
+            os.path.join(self.project_root, "App", "assets", "sounds"),
             os.path.join(self.project_root, "Lista de Misiones", "Reportes"),
         ]
         
