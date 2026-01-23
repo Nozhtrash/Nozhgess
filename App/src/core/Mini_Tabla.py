@@ -9,10 +9,17 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from src.utils.Terminal import log_info
+from src.utils.Terminal import log_info, log_debug 
 from src.utils.Direcciones import XPATHS
 from src.utils.Esperas import ESPERAS
-from src.core.Formatos import _norm
+
+
+def _norm(s: str) -> str:
+    """Normaliza texto para comparaciones (quita tildes, minúsculas, etc)."""
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    return re.sub(r"[\s]+", " ", re.sub(r"[^a-z0-9\sáéíóúüñ]", " ", "".join(c for c in s if not unicodedata.combining(c)).lower().strip()))
 
 
 def _limpiar_nombre_caso(texto: str) -> str:
@@ -134,8 +141,9 @@ def leer_mini_tabla(sigges) -> List[Dict[str, Any]]:
             return row !== null && row.problema;  // Filtrar vacías
         });
         """
-        
+
         casos = driver.execute_script(script, tbody)
+        log_debug(f"📊 JS Extraction Raw: {len(casos)} rows candidates")
         
         # ✅ BUGFIX: Procesar fechas DESPUÉS de ejecutar JavaScript
         # (antes intentaba llamar _extraer_fecha desde dentro del JS)
@@ -299,7 +307,13 @@ def _leer_mini_tabla_fallback(sigges, tbody) -> List[Dict[str, Any]]:
                 continue
             
             # Extraer usando el mapa de columnas
-            problema_raw = (tds[column_map.get("nombre", 2)].text or "").strip()
+            try:
+                problema_raw = (tds[column_map.get("nombre", 2)].text or "").strip()
+                # Log raw data for deep debugging
+                if i < 3: # Log first 3 rows only to avoid spam
+                     log_debug(f"🧾 Row[{i}] Raw Name: '{problema_raw}'")
+            except:
+                problema_raw = ""
             estado = (tds[column_map.get("estado", 4)].text or "").strip()
             motivo = (tds[column_map.get("motivo", 5)].text or "").strip()
             
@@ -365,7 +379,7 @@ def _leer_mini_tabla_fallback(sigges, tbody) -> List[Dict[str, Any]]:
 
 def _auto_detectar_columnas(tbody, rows) -> Optional[Dict[str, int]]:
     """
-    🧠 Auto-detecta índices de columnas basándose en contenido característico.
+    Auto-detecta índices de columnas basándose en contenido característico.
     
     Estrategia:
     1. Buscar header (thead o primera fila con th)
@@ -425,6 +439,10 @@ def _mapear_headers(headers) -> Optional[Dict[str, int]]:
     column_map = {}
     
     log_info(f"🔍 Analizando {len(headers)} headers:")
+    
+    # Log detailed header analysis
+    header_texts = [h.text for h in headers]
+    log_debug(f"📋 Headers Found: {header_texts}")
     
     for idx, h in enumerate(headers):
         texto_original = (h.text or "").strip()

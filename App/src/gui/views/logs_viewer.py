@@ -7,6 +7,7 @@ Muestra los últimos logs de ejecución.
 import customtkinter as ctk
 import os
 import sys
+from tkinter import messagebox
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -23,6 +24,7 @@ class LogsViewerView(ctk.CTkFrame):
         
         self.colors = colors
         self.current_file = None
+        self.checkboxes = {} # Map full_path -> checkbox widget
         
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -36,7 +38,7 @@ class LogsViewerView(ctk.CTkFrame):
         )
         self.title.pack(side="left")
         
-        # Botón actualizar - MÁS GRANDE
+        # Botón actualizar
         self.refresh_btn = ctk.CTkButton(
             header,
             text="🔄 Actualizar",
@@ -44,12 +46,27 @@ class LogsViewerView(ctk.CTkFrame):
             fg_color=colors["bg_card"],
             hover_color=colors["accent"],
             text_color=colors["text_primary"],
-            width=120,
+            width=100,
             height=36,
             corner_radius=8,
             command=self._load_logs
         )
-        self.refresh_btn.pack(side="right")
+        self.refresh_btn.pack(side="right", padx=(10, 0))
+        
+        # Botón eliminar
+        self.delete_btn = ctk.CTkButton(
+            header,
+            text="🗑️ Eliminar",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=colors["error"],
+            hover_color="#c0392b",
+            text_color="white",
+            width=100,
+            height=36,
+            corner_radius=8,
+            command=self._delete_selected_logs
+        )
+        self.delete_btn.pack(side="right")
         
         # Layout principal
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -87,8 +104,32 @@ class LogsViewerView(ctk.CTkFrame):
             text_color=colors["text_primary"]
         )
         self.file_label.pack(side="left")
+
+        # Search Bar
+        self.search_entry = ctk.CTkEntry(
+            viewer_header,
+            placeholder_text="🔍 Buscar...",
+            width=150,
+            height=32,
+            font=ctk.CTkFont(size=12)
+        )
+        self.search_entry.pack(side="left", padx=(15, 5))
+        self.search_entry.bind("<Return>", lambda e: self._search_log())
+
+        self.search_btn = ctk.CTkButton(
+            viewer_header,
+            text="Buscar",
+            width=60,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color=colors["bg_secondary"],
+            command=self._search_log
+        )
+        self.search_btn.pack(side="left", padx=(0, 5))
         
-        # Botón copiar - MÁS GRANDE
+        # Botón copiar
+        
+        # Botón copiar
         self.copy_btn = ctk.CTkButton(
             viewer_header,
             text="📋 Copiar",
@@ -116,6 +157,8 @@ class LogsViewerView(ctk.CTkFrame):
     
     def _load_logs(self):
         """Carga los logs de Logs/ y sus subcarpetas (Terminal/Debug)."""
+        # Limpiar
+        self.checkboxes.clear()
         for widget in self.log_list.winfo_children():
             widget.destroy()
         
@@ -135,8 +178,8 @@ class LogsViewerView(ctk.CTkFrame):
         # Ordenar por fecha (más reciente primero)
         log_files.sort(key=lambda x: x[2], reverse=True)
         
-        # Mostrar los últimos 15 (antes solo 8)
-        for rel_path, full_path, mtime in log_files[:15]:
+        # Mostrar los últimos 20
+        for rel_path, full_path, mtime in log_files[:20]:
             size_kb = os.path.getsize(full_path) / 1024
             
             # Identificar tipo por carpeta
@@ -144,8 +187,29 @@ class LogsViewerView(ctk.CTkFrame):
             if "Terminal" in rel_path: icon = "💻"
             elif "Debug" in rel_path: icon = "🔧"
             
+            # Container fila
+            row = ctk.CTkFrame(self.log_list, fg_color="transparent")
+            row.pack(fill="x", pady=2)
+            
+            # Checkbox selección
+            cb = ctk.CTkCheckBox(
+                row, 
+                text="", 
+                width=24, 
+                checkbox_width=20, 
+                checkbox_height=20,
+                border_width=2,
+                corner_radius=4,
+                border_color=self.colors.get("text_muted", "gray"),
+                hover_color=self.colors.get("accent", "blue"),
+                fg_color=self.colors.get("accent", "blue")
+            )
+            cb.pack(side="left", padx=(0, 5))
+            self.checkboxes[full_path] = cb
+            
+            # Botón archivo (ocupa el resto)
             btn = ctk.CTkButton(
-                self.log_list,
+                row,
                 text=f"{icon} {rel_path}\n   {size_kb:.1f} KB",
                 font=ctk.CTkFont(size=11),
                 fg_color="transparent",
@@ -156,16 +220,62 @@ class LogsViewerView(ctk.CTkFrame):
                 corner_radius=8,
                 command=lambda p=rel_path: self._load_file(p)
             )
-            btn.pack(fill="x", pady=3)
+            btn.pack(side="left", fill="x", expand=True)
         
-        # Auto-cargar el más reciente
-        if log_files:
+        # Auto-cargar el más reciente si no hay uno seleccionado
+        if log_files and not self.current_file:
             self._load_file(log_files[0][0])
-    
+            
+    def _delete_selected_logs(self):
+        """Elimina los logs seleccionados."""
+        to_delete = []
+        for path, cb in self.checkboxes.items():
+            if cb.get() == 1:
+                to_delete.append(path)
+        
+        if not to_delete:
+            messagebox.showinfo("Información", "Selecciona al menos un log para eliminar.")
+            return
+            
+        count = len(to_delete)
+        confirm = messagebox.askyesno(
+            "Confirmar eliminación", 
+            f"¿Estás seguro de que deseas eliminar {count} archivo(s) de log?\nEsta acción no se puede deshacer."
+        )
+        
+        if confirm:
+            deleted = 0
+            errors = 0
+            for path in to_delete:
+                try:
+                    os.remove(path)
+                    deleted += 1
+                except Exception as e:
+                    print(f"Error borrando {path}: {e}")
+                    errors += 1
+            
+            # Recargar lista
+            self._load_logs()
+            
+            # Limpiar visor si el archivo actual fue borrado
+            if self.current_file in to_delete:
+                self.log_text.delete("1.0", "end")
+                self.file_label.configure(text="Selecciona un log")
+                self.current_file = None
+                
+            # Feedback
+            msg = f"Eliminados {deleted} archivo(s)."
+            if errors > 0:
+                msg += f"\nErrores: {errors}"
+            messagebox.showinfo("Resultado", msg)
+
     def _load_file(self, filename: str):
         """Carga el contenido de un log."""
         filepath = os.path.join(LOGS_PATH, filename)
-        self.current_file = filepath
+        
+        # Guardar path absoluto para manejar borrado
+        full_path_check = filepath if os.path.isabs(filepath) else os.path.abspath(filepath)
+        self.current_file = full_path_check
         
         try:
             with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
@@ -188,17 +298,52 @@ class LogsViewerView(ctk.CTkFrame):
             self.copy_btn.configure(text="✅ Copiado")
             self.after(1500, lambda: self.copy_btn.configure(text="📋 Copiar"))
 
+    def _search_log(self):
+        """Busca texto en el log actual."""
+        query = self.search_entry.get()
+        if not query:
+            return
+            
+        # Limpiar tags previos
+        self.log_text.tag_remove("search_highlight", "1.0", "end")
+        self.log_text.tag_config("search_highlight", background="#f1c40f", foreground="black")
+        
+        start_pos = "1.0"
+        count = 0
+        first = None
+        
+        while True:
+            pos = self.log_text.search(query, start_pos, stopindex="end", nocase=True)
+            if not pos:
+                break
+                
+            end_pos = f"{pos}+{len(query)}c"
+            self.log_text.tag_add("search_highlight", pos, end_pos)
+            
+            if not first:
+                first = pos
+            
+            count += 1
+            start_pos = end_pos
+            
+        if first:
+            self.log_text.see(first)
+            self.search_btn.configure(text=f"{count}")
+        else:
+            self.search_btn.configure(text="0")
+
     def update_colors(self, colors: dict):
         """Actualiza colores dinámicamente."""
         self.colors = colors
         self.configure(fg_color=colors["bg_primary"])
         self.title.configure(text_color=colors["text_primary"])
         self.refresh_btn.configure(fg_color=colors["bg_card"], text_color=colors["text_primary"])
+        self.delete_btn.configure(fg_color=colors["error"])
         self.copy_btn.configure(fg_color=colors["accent"])
         self.list_frame.configure(fg_color=colors["bg_secondary"])
         self.viewer_frame.configure(fg_color=colors["bg_card"])
         self.log_text.configure(fg_color=colors["bg_primary"], text_color=colors["text_primary"])
         self.file_label.configure(text_color=colors["text_primary"])
         
-        # Recargar lista de logs con nuevos colores de hover
+        # Recargar lista de logs con nuevos colores
         self._load_logs()

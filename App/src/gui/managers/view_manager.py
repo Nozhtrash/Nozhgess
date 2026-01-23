@@ -95,10 +95,14 @@ class ViewManager:
             if hasattr(view, "update_colors"):
                 view.update_colors(new_colors)
             else:
-                # Legacy view sin soporte de tema dinámico -> Destroy
-                view.destroy()
-                del self._instances[name]
+                # Legacy view sin soporte explícito -> Intentar refresh básico seguro
+                # NO DESTRUIR: Esto causaba pérdida de estado (ej: logs de ejecución)
+                try:
+                    if hasattr(view, "configure"):
+                        view.configure(fg_color=new_colors.get("bg_primary"))
+                except:
+                    pass
         
-        # Restaurar vista actual si murió
+        # Restaurar vista actual (por si acaso, aunque ya no destruimos)
         if self.current_view_name and self.current_view_name not in self._instances:
             self.show(self.current_view_name)

@@ -234,43 +234,66 @@ def generar_excel_revision(
     ruta_salida = os.path.join(RUTA_CARPETA_SALIDA, filename)
 
     try:
+        # INTENTO 1: Ruta Original
         with pd.ExcelWriter(ruta_salida, engine="openpyxl") as writer:
+            _escribir_y_estilizar(writer, resultados_por_mision)
             
-            # Una hoja por misión
-            for i_mision, filas in resultados_por_mision.items():
-                nombre_hoja = f"Mision {i_mision + 1}"
-                
-                if not filas:
-                    # Hoja vacía con mensaje
-                    df = pd.DataFrame([{
-                        "Fecha": "",
-                        "Rut": "",
-                        "Nombre": "",
-                        "Observación": "Sin datos procesados"
-                    }])
-                else:
-                    df = pd.DataFrame(filas)
-                
-                df.to_excel(writer, index=False, sheet_name=nombre_hoja)
-                
-                # Aplicar estilos
-                try:
-                    ws = writer.sheets[nombre_hoja]
-                    _aplicar_estilos(ws)
-                except Exception:
-                    pass  # Continuar sin estilos si hay error
-            
-            # Hoja de Carga Masiva
-            try:
-                ws_masiva = writer.book.create_sheet("Carga Masiva")
-                ws_masiva.append(["Fecha", "Rut", "Dv", "Prestaciones", "Tipo", "Ps-Fam", "Especialidad"])
-                _aplicar_estilos(ws_masiva)
-            except Exception:
-                pass
-
         log_ok(f"📁 Excel guardado: {filename}")
         return ruta_salida
         
     except Exception as e:
-        log_error(f"Error guardando Excel: {str(e)[:50]}")
-        return None
+        log_error(f"❌ Error guardando en ruta original: {e}")
+        
+        # INTENTO 2: Fallback (Carpeta Backups en Proyecto)
+        try:
+            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # App/src/utils -> App/src -> App -> Root
+            fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+            backup_dir = os.path.join(root_dir, "Backups", fecha_hoy)
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            ruta_backup = os.path.join(backup_dir, filename)
+            
+            log_info(f"🔄 Intentando guardar en respaldo: {ruta_backup}")
+            
+            with pd.ExcelWriter(ruta_backup, engine="openpyxl") as writer:
+                _escribir_y_estilizar(writer, resultados_por_mision)
+                
+            log_ok(f"✅ RESCATADO: Excel guardado en respaldo: {ruta_backup}")
+            return ruta_backup
+            
+        except Exception as e2:
+            log_error(f"❌ CRÍTICO: Falló también el respaldo: {e2}")
+            return None
+
+def _escribir_y_estilizar(writer, resultados_por_mision):
+    """Helper para escribir y estiilizar evitando duplicidad de código."""
+    # Una hoja por misión
+    for i_mision, filas in resultados_por_mision.items():
+        nombre_hoja = f"Mision {i_mision + 1}"
+        
+        if not filas:
+            df = pd.DataFrame([{
+                "Fecha": "",
+                "Rut": "",
+                "Nombre": "",
+                "Observación": "Sin datos procesados"
+            }])
+        else:
+            df = pd.DataFrame(filas)
+        
+        df.to_excel(writer, index=False, sheet_name=nombre_hoja)
+        
+        # Aplicar estilos
+        try:
+            ws = writer.sheets[nombre_hoja]
+            _aplicar_estilos(ws)
+        except Exception:
+            pass 
+    
+    # Hoja de Carga Masiva
+    try:
+        ws_masiva = writer.book.create_sheet("Carga Masiva")
+        ws_masiva.append(["Fecha", "Rut", "Dv", "Prestaciones", "Tipo", "Ps-Fam", "Especialidad"])
+        _aplicar_estilos(ws_masiva)
+    except Exception:
+        pass

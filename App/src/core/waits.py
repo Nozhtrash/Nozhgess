@@ -24,20 +24,44 @@ class SmartWait:
         self.state = state
         self.driver = state.driver
 
-    def wait_for_spinner(self, key: str = "spinner", timeout: Optional[float] = None):
-        """Espera a que desaparezca el cargador (spinner)."""
+    def wait_for_spinner(self, key: str = "spinner", timeout: Optional[float] = None, appear_timeout: float = 0.0):
+        """
+        Espera a que desaparezca el cargador.
+        Si appear_timeout > 0, primero espera a que aparezca.
+        """
         cfg = ESPERAS.get(key, ESPERAS.get("spinner", {}))
         xpath = cfg.get("xpath", "//div[contains(@class,'spinner')]")
         wait_time = timeout or cfg.get("wait", 10)
+        sleep_time = cfg.get("sleep", 0.0)
         
         try:
-            # Primero esperar a que aparezca brevemente (opcional)
-            # Luego esperar a que desaparezca
+            # DEBUG INTENSIVO
+            log_info(f"[DEBUG] ⏳ Spinner Wait: key={key}, appear={appear_timeout}s, wait={wait_time}s")
+            
+            # FASE 0: Esperar a que APAREZCA (si se solicita)
+            if appear_timeout > 0:
+                try:
+                    WebDriverWait(self.driver, appear_timeout).until(
+                        EC.presence_of_element_located((By.XPATH, xpath))
+                    )
+                    log_info(f"[DEBUG] ✅ Spinner APARECIÓ (dentro de {appear_timeout}s)")
+                except Exception:
+                    log_info(f"[DEBUG] ⚠️ Spinner NO APARECIÓ (tras {appear_timeout}s) - Continuando...")
+                    pass
+
+            # FASE 1: Esperar a que DESAPAREZCA
             WebDriverWait(self.driver, wait_time).until(
                 EC.invisibility_of_element_located((By.XPATH, xpath))
             )
-        except Exception:
-            log_warn(f"⌛ Timeout esperando desaparición de spinner ({key})")
+            log_info(f"[DEBUG] ✅ Spinner DESAPARECIÓ (o ya no estaba)")
+        except Exception as e:
+            log_info(f"[DEBUG] ❌ Error esperando spinner: {e}")
+            pass
+
+        # Aplicar sleep configurado (Restauración de comportamiento legacy robusto)
+        if sleep_time > 0:
+            # self.sleep(sleep_time, f"seguridad ({key})") # Verbose
+            time.sleep(sleep_time) # Silent sleep para no spammear logs
 
     def wait_for_state_change(self, old_state: str, timeout: float = 5.0):
         """Espera a que el estado de la aplicación cambie."""

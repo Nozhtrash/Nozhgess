@@ -17,6 +17,7 @@ class ExecutionControl:
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
         self._pause_event.set()  # No pausado por defecto
+        self._snapshot_event = threading.Event()
         
     def should_stop(self) -> bool:
         """Verifica si se debe detener la ejecución."""
@@ -38,6 +39,18 @@ class ExecutionControl:
     def request_resume(self):
         """Solicita reanudar la ejecución."""
         self._pause_event.set()
+
+    def request_snapshot(self):
+        """Solicita un snapshot inmediato."""
+        self._snapshot_event.set()
+        
+    def should_snapshot(self) -> bool:
+        """Verifica si se solicitó snapshot."""
+        return self._snapshot_event.is_set()
+        
+    def clear_snapshot_request(self):
+        """Limpia la solicitud de snapshot."""
+        self._snapshot_event.clear()
     
     def reset(self):
         """Resetea el control para una nueva ejecución."""

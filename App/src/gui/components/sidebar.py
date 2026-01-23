@@ -5,6 +5,7 @@ Sidebar premium - espaciado uniforme y botones elegantes.
 Versión mejorada con transiciones suaves y bordes premium.
 """
 import customtkinter as ctk
+import os
 from typing import Callable, Dict, Optional
 
 
@@ -97,10 +98,14 @@ class Sidebar(ctk.CTkFrame):
     
     def _btn(self, vid: str, icon: str, label: str):
         """Botón compacto con icon y texto simétricos."""
+        # Frame contenedor para mejor control de alineación
+        btn_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=2, padx=4)
+        
         btn = ctk.CTkButton(
-            self.scroll, 
-            text=f"{icon}  {label}",  # Dos espacios para separación uniforme
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            btn_frame, 
+            text=f"  {icon}    {label}",  # Más espacio y mejor distribución
+            font=ctk.CTkFont(family="Segoe UI", size=13), # Un poco más grande
             fg_color="transparent",
             text_color=self.colors["text_secondary"],
             hover_color=self.colors.get("bg_card", "#1a1f27"),
@@ -109,7 +114,7 @@ class Sidebar(ctk.CTkFrame):
             anchor="w",
             command=lambda v=vid: self._nav(v)
         )
-        btn.pack(fill="x", pady=2, padx=4)
+        btn.pack(fill="x")
         
         # Guardar referencia
         self.buttons[vid] = {"btn": btn}

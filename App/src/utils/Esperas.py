@@ -31,14 +31,14 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
     # 🔧 INICIALIZACIÓN DE DRIVER
     # =========================================================================
     "driver_init_connect": {
-        "wait": 3.0,
+        "wait": 1.0,
         "sleep": 0.5,
         "desc": "Conexión inicial al navegador Edge en modo debug",
         "critical": True,
         "category": "init"
     },
     "driver_verify_connection": {
-        "wait": 2.0,
+        "wait": 0.5,
         "sleep": 0.3,
         "desc": "Verificar que la conexión al driver está activa",
         "critical": True,
@@ -206,7 +206,7 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
     # =========================================================================
     "search_find_rut_input": {
         "wait": 5.0,
-        "sleep": 0.0,
+        "sleep": 1.0, # RESTAURADO: Estabilidad
         "desc": "Encontrar el campo input de RUT en página de búsqueda",
         "critical": True,
         "category": "search"
@@ -234,14 +234,14 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
     },
     "search_type_rut": {
         "wait": 1.0,
-        "sleep": 0.0,
+        "sleep": 0.5, # RESTAURADO: Estabilidad post-typing
         "desc": "Escribir RUT en el campo (instantáneo)",
         "critical": True,
         "category": "search"
     },
     "search_click_buscar": {
         "wait": 2.0,
-        "sleep": 0.0,
+        "sleep": 1.0, # RESTAURADO: Estabilidad pre/post click
         "desc": "Click en botón 'Buscar'",
         "critical": True,
         "category": "search"
@@ -254,8 +254,8 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
         "category": "search"
     },
     "search_wait_results": {
-        "wait": 2.0,  # OPTIMIZADO: 8.0 → 2.0s (resultados cargan rápido)
-        "sleep": 0.0,
+        "wait": 8.0,  # RESTAURADO: 2.0s → 8.0s (Sitio lento)
+        "sleep": 1.0,
         "desc": "Esperar que desaparezca spinner y carguen resultados",
         "critical": True,
         "category": "search"
@@ -265,15 +265,15 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
     # 📋 MINI-TABLA (ANÁLISIS DETALLADO)
     # =========================================================================
     "mini_find_table": {
-        "wait": 3.0,
-        "sleep": 0.0,
+        "wait": 10.0,
+        "sleep": 0.5,
         "desc": "Encontrar elemento <table> de mini-tabla",
         "critical": True,
         "category": "mini_table"
     },
     "mini_wait_tbody": {
-        "wait": 3.0,
-        "sleep": 0.0,
+        "wait": 10.0,
+        "sleep": 0.5,
         "desc": "Esperar que aparezca <tbody> con contenido",
         "critical": True,
         "category": "mini_table"
@@ -574,8 +574,8 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
     # =========================================================================
     "default": {
         "wait": 2.0,
-        "sleep": 0.5,
-        "desc": "Espera genérica por defecto",
+        "sleep": 1.0,
+        "desc": "Espera genérica por defecto (Robustez garantizada)",
         "critical": False,
         "category": "generic"
     },

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
-import re
+import json
 import importlib
 import traceback
 from typing import Dict, Any, List, Optional
 
 class MisionController:
     """
-    Controlador para gestionar la configuración en Mision_Actual.py.
-    Separa la lógica de negocio de la vista (ControlPanelView).
+    Controlador para gestionar la configuración vía mission_config.json.
+    Mantiene compatibilidad con Mision_Actual.py recargando el módulo tras guardar.
     """
     
     HELP_TEXTS = {
@@ -44,91 +44,117 @@ class MisionController:
 
     def __init__(self, project_root: str):
         self.project_root = project_root
-        self.mision_path = os.path.join(project_root, "Mision_Actual", "Mision_Actual.py")
+        # Path al nuevo JSON
+        self.config_path = os.path.join(project_root, "App", "config", "mission_config.json")
         self.debug_path = os.path.join(project_root, "App", "src", "utils", "DEBUG.py")
         
-        # Asegurar path para importación
+        self._cached_config = None
+        
+        # Asegurar path para importación (necesario para el reload de Mision_Actual)
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
 
-    def load_config(self) -> Dict[str, Any]:
-        """Recarga y devuelve la configuración actual de Mision_Actual."""
+    def load_config(self, force_reload: bool = False) -> Dict[str, Any]:
+        """
+        Carga la configuración desde el JSON.
+        """
         try:
-            # Forzar recarga del módulo
-            import Mision_Actual.Mision_Actual as ma
-            importlib.reload(ma)
+            if self._cached_config and not force_reload:
+                return self._cached_config.copy()
             
-            # Extraer variables
-            config = {k: getattr(ma, k) for k in dir(ma) if not k.startswith("__")}
+            if not os.path.exists(self.config_path):
+                raise FileNotFoundError(f"Config no encontrada en: {self.config_path}")
+                
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
             
-            # Filtrar solo las que nos interesan (según HELP_TEXTS)
-            filtered_config = {k: v for k, v in config.items() if k in self.HELP_TEXTS}
+            # Filtrar lo que mostramos (opcional, pero mantenemos consistencia con HELP_TEXTS)
+            # Nota: Si agregamos claves nuevas al JSON que queremos editar, debemos agregarlas a HELP_TEXTS o quitar este filtro.
+            # Por ahora, devolvemos todo el config + DEBUG_MODE virtual
             
-            return filtered_config
+            # Injectar DEBUG_MODE virtualmente
+            config["DEBUG_MODE"] = self.is_debug_active()
+            
+            self._cached_config = config
+            return config
+            
         except Exception as e:
             traceback.print_exc()
-            raise Exception(f"Error cargando Mision_Actual: {e}")
+            if self._cached_config:
+                 print("⚠️ Usando caché tras error de carga.")
+                 return self._cached_config.copy()
+            raise Exception(f"Error cargando config: {e}")
 
     def save_config(self, modified_data: Dict[str, Any]) -> None:
         """
-        Guarda los cambios en Mision_Actual.py usando Regex para preservar comentarios.
-        
-        Args:
-            modified_data: Diccionario con {nombre_variable: nuevo_valor}
+        Guarda los cambios en mission_config.json con coerción de tipos.
         """
         try:
-            with open(self.mision_path, "r", encoding="utf-8") as f:
-                content = f.read()
+            # 1. Cargar estado actual del disco para preservar llaves no editadas
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                current_config = json.load(f)
 
-            for var_name, new_val in modified_data.items():
-                # 1. Booleans
-                if isinstance(new_val, bool):
-                    val_str = "True" if new_val else "False"
-                    pattern = rf'^(\s*{var_name}\s*:\s*bool\s*=\s*)(?:True|False)(.*)$'
-                    content = re.sub(pattern, rf'\g<1>{val_str}\g<2>', content, flags=re.MULTILINE)
-                    continue
-
-                val_str = str(new_val).strip()
-
-                # 2. Paths (Raw strings)
-                if "RUTA_" in var_name or "_PATH" in var_name:
-                    clean_path = val_str.replace("\\", "\\\\")
-                    # Pattern flexible para r"" o ""
-                    pattern = rf'^(\s*{var_name}\s*:\s*str\s*=\s*)(r?["\']).*?(\2)(.*)$'
-                    content = re.sub(pattern, rf'\g<1>r"{clean_path}"\g<4>', content, flags=re.MULTILINE)
-                    continue
-
-                # 3. Lists
-                if isinstance(new_val, list) or var_name in ["CODIGOS_FOLIO_BUSCAR", "FOLIO_VIH_CODIGOS"]:
-                    # Si viene como string separado por comas
-                    if isinstance(new_val, str):
-                        codes = [f'"{c.strip()}"' for c in new_val.split(",") if c.strip()]
-                        codes_str = "[" + ", ".join(codes) + "]"
-                    elif isinstance(new_val, list):
-                        codes = [f'"{c}"' for c in new_val]
-                        codes_str = "[" + ", ".join(codes) + "]"
-                    else:
-                        codes_str = "[]"
+            # 2. Actualizar valores
+            for k, v in modified_data.items():
+                if k == "DEBUG_MODE":
+                    continue # Se maneja aparte
+                
+                if k in current_config:
+                    # Coerción de tipos básica para evitar guardar strings donde van ints/bools
+                    target_type = type(current_config[k])
+                    
+                    if target_type == bool:
+                        # Manejar "True"/"False" o 1/0
+                        if isinstance(v, str):
+                            final_val = v.lower() == 'true'
+                        else:
+                            final_val = bool(v)
+                        current_config[k] = final_val
                         
-                    pattern = rf'^(\s*{var_name}\s*:\s*List\[str\]\s*=\s*).*?(\s*#.*)?$'
-                    content = re.sub(pattern, rf'\g<1>{codes_str}\g<2>', content, flags=re.MULTILINE)
-                    continue
-
-                # 4. Ints / Strings genéricos
-                pattern = rf'^(\s*{var_name}\s*:\s*(?:int|str)\s*=\s*).*?(\s*#.*)?$'
-                if val_str.isdigit():
-                    content = re.sub(pattern, rf'\g<1>{val_str}\g<2>', content, flags=re.MULTILINE)
+                    elif target_type == int:
+                        try:
+                             current_config[k] = int(v)
+                        except:
+                             current_config[k] = 0 # Fallback
+                             
+                    elif target_type == list:
+                        if isinstance(v, str):
+                            # Convertir string separado por comas a lista
+                            current_config[k] = [x.strip() for x in v.split(",") if x.strip()]
+                        elif isinstance(v, list):
+                             current_config[k] = v
+                    else:
+                        current_config[k] = v
                 else:
-                    content = re.sub(pattern, rf'\g<1>"{val_str}"\g<2>', content, flags=re.MULTILINE)
+                    # Llave nueva, guardar tal cual
+                    current_config[k] = v
 
-            with open(self.mision_path, "w", encoding="utf-8") as f:
-                f.write(content)
+            # 3. Escribir JSON
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(current_config, f, indent=2, ensure_ascii=False)
+            
+            # 4. Manejar DEBUG_MODE si cambió
+            if "DEBUG_MODE" in modified_data:
+                current_debug = self.is_debug_active()
+                new_debug = modified_data["DEBUG_MODE"]
+                # Normalizar booleano
+                if isinstance(new_debug, str): new_debug = new_debug.lower() == 'true'
+                
+                if current_debug != new_debug:
+                    self.toggle_debug()
+
+            # 5. Hot Reload de Mision_Actual.py para que el backend se entere
+            import Mision_Actual.Mision_Actual as ma
+            importlib.reload(ma)
+            
+            # 6. Invalidar caché local
+            self._cached_config = None
 
         except Exception as e:
             raise Exception(f"Error guardando configuración: {e}")
 
     def toggle_debug(self) -> bool:
-        """Alterna el modo debug en DEBUG.py y retorna el nuevo estado."""
+        """Alterna el modo debug en DEBUG.py (Legacy file support)."""
         try:
             with open(self.debug_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -145,15 +171,11 @@ class MisionController:
                 f.write(content)
                 
             import src.utils.DEBUG as debug_mod
-            if hasattr(debug_mod, 'set_level'):
-                debug_mod.set_level(new_state)
-            
-            # Reload module to be sure
             importlib.reload(debug_mod)
-            
             return new_state
         except Exception as e:
-            raise Exception(f"Error cambiando modo debug: {e}")
+            print(f"Error toggling debug: {e}")
+            return False
 
     def is_debug_active(self) -> bool:
         """Verifica si el modo debug está activo."""
@@ -163,3 +185,143 @@ class MisionController:
             return debug_mod.DEBUG_MODE
         except:
             return False
+
+    def get_active_mission_data(self) -> Dict[str, Any]:
+        """Devuelve los datos de la misión activa (la primera en la lista)."""
+        cfg = self.load_config()
+        missions = cfg.get("MISSIONS", [])
+        if not missions:
+            return {}
+        return missions[0]
+
+    def update_active_mission(self, data: Dict[str, Any]) -> None:
+        """
+        Actualiza los datos de la misión activa (MISSIONS[0]).
+        Maneja la conversión de listas si es necesario.
+        """
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                full_config = json.load(f)
+            
+            missions = full_config.get("MISSIONS", [])
+            if not missions:
+                missions = [{}] # Crear misión default si no existe
+            
+            # Actualizar la primera misión (Activa)
+            active_mission = missions[0]
+            
+            for k, v in data.items():
+                # Validación de tipos básica para listas (keywords, objetivos, etc)
+                if k in ["keywords", "objetivos", "habilitantes", "excluyentes"]:
+                    if isinstance(v, str):
+                        # Convertir string CSV a lista (Limpiando basura de listas stringuificadas)
+                        raw_list = [x.strip() for x in v.split(",") if x.strip()]
+                        clean_list = []
+                        for item in raw_list:
+                            # Auto-heal: Si el item tiene comillas o corchetes remanentes, limpiarlos
+                            clean_item = item.replace("[", "").replace("]", "").replace("'", "").replace('"', "").strip()
+                            if clean_item:
+                                clean_list.append(clean_item)
+                        active_mission[k] = clean_list
+                    elif isinstance(v, list):
+                        active_mission[k] = v
+                    else:
+                        active_mission[k] = [] # Fallback
+                else:
+                    # Strings directos (nombre, familia, etc)
+                    active_mission[k] = v
+            
+            missions[0] = active_mission
+            full_config["MISSIONS"] = missions
+            
+            # Guardar usando save_config genérico para triggers (ma reload, etc)
+            # Pero save_config espera top-level keys.
+            # Mejor llamar a la lógica de escritura directamente para setear MISSIONS completo
+            
+            # Sobrescribir MISSIONS en el save genérico sería:
+            self.save_config({"MISSIONS": missions})
+            
+        except Exception as e:
+            raise Exception(f"Error actualizando misión activa: {e}")
+
+    def add_empty_mission(self) -> None:
+        """Agrega una misión vacía a la configuración."""
+        try:
+            cfg = self.load_config()
+            missions = cfg.get("MISSIONS", [])
+            
+            # Plantilla vacía
+            new_mission = {
+                "nombre": f"Nueva Misión {len(missions) + 1}",
+                "keywords": [],
+                "objetivos": [],
+                "habilitantes": [],
+                "excluyentes": [],
+                "familia": "",
+                "especialidad": "",
+                "frecuencia": "Mensual",
+                "edad_min": None,
+                "edad_max": None
+            }
+            
+            missions.append(new_mission)
+            
+            # Guardar (usando lógica raw para preservar estructura)
+            # Reutilizamos save_config pasando toda la lista
+            self.save_config({"MISSIONS": missions})
+            
+        except Exception as e:
+            raise Exception(f"Error agregando misión: {e}")
+
+    def delete_mission(self, index: int) -> None:
+        """Elimina una misión por índice."""
+        try:
+            cfg = self.load_config()
+            missions = cfg.get("MISSIONS", [])
+            
+            if 0 <= index < len(missions):
+                missions.pop(index)
+                self.save_config({"MISSIONS": missions})
+            else:
+                 raise Exception("Índice de misión inválido")
+                 
+        except Exception as e:
+            raise Exception(f"Error eliminando misión: {e}")
+
+    def export_mission(self, mission_data: Dict[str, Any], folder_type: str) -> str:
+        """
+        Exporta la misión a un JSON individual en la carpeta especificada.
+        folder_type: 'reportes' | 'nominas'
+        Retorna la ruta del archivo creado.
+        """
+        try:
+            import re
+            
+            # Determinar carpeta destino (Reportes o Nóminas)
+            base_folder = os.path.join(self.project_root, "A_Lista de Misiones")
+            target_folder = ""
+            
+            if folder_type.lower() == "reportes":
+                target_folder = os.path.join(base_folder, "Reportes")
+            elif folder_type.lower() == "nominas":
+                target_folder = os.path.join(base_folder, "Nóminas") # Cuidado con tilde
+            else:
+                target_folder = base_folder # Fallback
+                
+            os.makedirs(target_folder, exist_ok=True)
+            
+            # Limpiar nombre para filename
+            name = mission_data.get("NOMBRE_DE_LA_MISION", "Mision_Sin_Nombre")
+            safe_name = re.sub(r'[\\/*?:"<>|]', "", name).strip().replace(" ", "_")
+            filename = f"{safe_name}.json"
+            
+            path = os.path.join(target_folder, filename)
+            
+            # Guardar solo los datos de ESTA misión
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(mission_data, f, indent=2, ensure_ascii=False)
+                
+            return path
+            
+        except Exception as e:
+            raise Exception(f"Error exportando misión: {e}")

@@ -24,7 +24,7 @@ ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
-import Mision_Actual.Mision_Actual as MA
+# import Mision_Actual.Mision_Actual as MA # REMOVED: Deprecated in favor of MisionController
 
 
 class DashboardView(ctk.CTkFrame):
@@ -410,26 +410,29 @@ class DashboardView(ctk.CTkFrame):
         return "Buenas noches"
     
     def _get_mission_name(self) -> str:
-        """Obtiene nombre de misión actual."""
+        """Obtiene nombre de misión actual (Optimizada)."""
         try:
-            importlib.reload(MA)
-            return MA.NOMBRE_DE_LA_MISION
+            # Usar Controller en lugar de reload directo
+            from src.gui.controllers.mision_controller import MisionController
+            ctrl = MisionController(ruta_proyecto)
+            cfg = ctrl.load_config(force_reload=False) # Usar caché
+            return cfg.get("NOMBRE_DE_LA_MISION", "Sin Configurar")
         except:
             return "Sin Configurar"
     
     def _get_active_filters(self) -> str:
-        """Obtiene filtros activos."""
+        """Obtiene filtros activos (Optimizada)."""
         try:
-            importlib.reload(MA)
+            from src.gui.controllers.mision_controller import MisionController
+            ctrl = MisionController(ruta_proyecto)
+            cfg = ctrl.load_config(force_reload=False) 
+            
             filters = []
-            if MA.REVISAR_IPD:
-                filters.append("IPD")
-            if MA.REVISAR_OA:
-                filters.append("OA")
-            if MA.REVISAR_APS:
-                filters.append("APS")
-            if MA.REVISAR_SIC:
-                filters.append("SIC")
+            if cfg.get("REVISAR_IPD"): filters.append("IPD")
+            if cfg.get("REVISAR_OA"): filters.append("OA")
+            if cfg.get("REVISAR_APS"): filters.append("APS")
+            if cfg.get("REVISAR_SIC"): filters.append("SIC")
+            
             return ", ".join(filters) if filters else "Ninguno"
         except:
             return "?"

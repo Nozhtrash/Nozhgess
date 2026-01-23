@@ -60,27 +60,23 @@ from Mision_Actual.Mision_Actual import (
     EXCLUYENTES_MAX,
     VENTANA_VIGENCIA_DIAS,
     OBSERVACION_FOLIO_FILTRADA,
+    HABILITANTES_MAX,
+    EXCLUYENTES_MAX,
+    VENTANA_VIGENCIA_DIAS,
+    OBSERVACION_FOLIO_FILTRADA,
     CODIGOS_FOLIO_BUSCAR
 )
 
-# Import opcional para VIH (retrocompatibilidad con misiones antiguas)
-try:
-    from Mision_Actual.Mision_Actual import FOLIO_VIH, FOLIO_VIH_CODIGOS
-except ImportError:
-    FOLIO_VIH = False
-    FOLIO_VIH_CODIGOS = []
-
-
-# =============================================================================
-#                        PANEL DE CONTROL GENERAL
-# =============================================================================
+# Local - Principales
+from src.utils.ExecutionControl import get_execution_control
 from src.utils.DEBUG import should_show_timing
 from src.utils.Direcciones import XPATHS
 from src.utils.Errores import clasificar_error, pretty_error
 from src.utils.Esperas import espera
 from src.utils.Excel_Revision import generar_excel_revision
 from src.utils.Terminal import (
-    log_error, log_info, log_ok, log_warn,
+    log_error, log_info, log_ok, log_warn, log_step,
+    log_debug, get_system_stats, timing_block,
     mostrar_banner, mostrar_resumen_final, resumen_paciente
 )
 from src.utils.Timing import Timer
@@ -94,49 +90,8 @@ from src.core.Formatos import (
 )
 from src.core.Mini_Tabla import leer_mini_tabla
 
-def espera_inteligente(segundos: int, sigges_driver, mensaje: str = None) -> bool:
-    """
-    Espera de forma robusta e interrumpible.
-    Verifica la conexión cada segundo.
-    
-    Returns:
-        True si completó la espera.
-        False si la conexión se perdió.
-    """
-    import time
-    from src.utils.Terminal import log_info
-
-    if mensaje:
-        log_info(f"⏳ {mensaje} ({segundos}s)...")
-        
-    for i in range(segundos):
-        # 1. Verificar conexión
-        try:
-             # Fast health check (sin validar URL para no spammear)
-             s_open = not sigges_driver.sesion_cerrada() 
-             # Nota: sesion_cerrada() hace check de elementos, puede ser lento.
-             # Mejor check simple: ¿Driver responde?
-             _ = sigges_driver.driver.current_url
-        except:
-             log_warn("⚠️ Conexión perdida durante espera...")
-             return False
-        
-        # 2. Dormir 1s
-        time.sleep(1)
-        
-    return True
-
 # Inicializar colorama
 colorama_init(autoreset=True)
-
-# =============================================================================
-#                    CONSTANTES DE NAVEGACIÓN
-# =============================================================================
-
-# URLs directas para navegación confiable (no dependen de menús)
-URL_BUSQUEDA_PACIENTE = "https://www.sigges.cl/#/busqueda-de-paciente"
-URL_CARTOLA_UNIFICADA = "https://www.sigges.cl/#/cartola-unificada-de-paciente"
-
 
 
 # =============================================================================
@@ -178,8 +133,7 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
             continue
             
         for kw in kws:
-            # 🧠 Match inteligente usando normalización robusta
-            if _norm(kw) in _norm(nombre):
+            if kw.lower() in nombre:
                 candidatos.append(c)
                 break
     
@@ -203,6 +157,10 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
         # Calcular puntaje
         base_score = 10000000000 if es_activo else 0 
         score = base_score + ts
+        
+        # Log reasoning
+        problema_txt = c.get('problema', 'Unknown')
+        log_debug(f"⚖️ Score logic: {problema_txt[:20]}... | Active={es_activo} | TS={ts} -> Final={score}")
         
         if score > mejor_puntaje:
             mejor_puntaje = score
@@ -269,59 +227,10 @@ def buscar_inteligencia_historia(sigges, root, estado_caso: str) -> Dict[str, st
                 
     obs_folio_final = " | ".join(obs_folio_parts)
     
-    # 4. Búsqueda de códigos VIH
-    vih_result = ""
-    if FOLIO_VIH and FOLIO_VIH_CODIGOS:
-        vih_result = _buscar_vih_en_oa(f, c)
-    
     return {
         "apto_se": "SI" if es_apto_se else "NO",
-        "obs_folio": obs_folio_final,
-        "vih": vih_result
+        "obs_folio": obs_folio_final
     }
-
-
-def _buscar_vih_en_oa(fechas_oa: List[str], codigos_oa: List[str]) -> str:
-    """
-    Busca las últimas fechas de códigos VIH en la tabla OA.
-    
-    Args:
-        fechas_oa: Lista de fechas de OA
-        codigos_oa: Lista de códigos de OA
-    
-    Returns:
-        String formateado: "305091 - 20/01/2025 | 305090 - 20/02/2025 | 9001043 - 20/03/2025"
-    """
-    if not FOLIO_VIH or not FOLIO_VIH_CODIGOS:
-        return ""
-    
-    # Normalizar códigos de búsqueda
-    codigos_buscar_norm = [normalizar_codigo(x) for x in FOLIO_VIH_CODIGOS if x]
-    
-    # Diccionario para guardar la última fecha de cada código
-    ultimas_fechas = {}
-    
-    for i, codigo in enumerate(codigos_oa or []):
-        codigo_norm = normalizar_codigo(codigo)
-        if codigo_norm in codigos_buscar_norm:
-            fecha = fechas_oa[i] if i < len(fechas_oa) else ""
-            if fecha:
-                dt = dparse(fecha)
-                # Guardar solo si es más reciente
-                if codigo_norm not in ultimas_fechas:
-                    ultimas_fechas[codigo_norm] = (fecha, dt or datetime.min)
-                elif dt and dt > ultimas_fechas[codigo_norm][1]:
-                    ultimas_fechas[codigo_norm] = (fecha, dt)
-    
-    # Formatear resultado en el orden de FOLIO_VIH_CODIGOS
-    parts = []
-    for cod_buscar in FOLIO_VIH_CODIGOS:
-        cod_norm = normalizar_codigo(cod_buscar)
-        if cod_norm in ultimas_fechas:
-            fecha_str = ultimas_fechas[cod_norm][0]
-            parts.append(f"{cod_norm} - {fecha_str}")
-    
-    return " | ".join(parts)
 
 
 def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str], 
@@ -338,34 +247,17 @@ def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str],
         Lista de tuplas (codigo, fecha) ordenadas por fecha desc
     """
     cods_norm = {normalizar_codigo(c) for c in (cods or []) if str(c).strip()}
-    
-    # 🐛 DEBUG: Mostrar códigos normalizados
-    log_info(f"   🔧 Códigos habilitantes normalizados: {cods_norm}")
-    log_info(f"   🔧 Fecha objetivo (fobj): {fobj.strftime('%d/%m/%Y') if fobj else 'None'}")
-    
     out = []
-    codigos_vistos = set()  # Para evitar duplicados en el log
 
     for p in prest or []:
         c_norm = normalizar_codigo(p.get("codigo", ""))
-        
-        # 🐛 DEBUG: Mostrar códigos de prestaciones si coinciden (evitar spam)
-        if c_norm and c_norm in cods_norm and c_norm not in codigos_vistos:
-            log_info(f"   🎯 Código {c_norm} detectado en prestaciones!")
-            codigos_vistos.add(c_norm)
-        
         if not c_norm or c_norm not in cods_norm:
             continue
-            
         f = dparse(p.get("fecha", ""))
         if f and (not fobj or f <= fobj):
             out.append((c_norm, f))
-            log_info(f"   ✅ Agregado: {c_norm} fecha {f.strftime('%d/%m/%Y')}")
-        elif f and fobj and f > fobj:
-            log_warn(f"   ⏭️ Descartado {c_norm}: fecha {f.strftime('%d/%m/%Y')} es posterior a fobj {fobj.strftime('%d/%m/%Y')}")
 
     return sorted(out, key=lambda x: x[1], reverse=True)
-
 
 
 def listar_fechas_objetivo(prest: List[Dict[str, str]], cod: str, 
@@ -449,10 +341,6 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     if REVISAR_OA:
         cols.append("Observación Folio")
 
-    # VIH: solo si está habilitado (columna al final)
-    if FOLIO_VIH:
-        cols.append("VIH")
-
     return cols
 
 
@@ -473,8 +361,6 @@ def vac_row(m: Dict[str, Any], fecha: str, rut: str, nombre: str,
     r["Mensual"] = "Sin Día"
     r["Familia"] = m.get("familia", "")
     r["Especialidad"] = m.get("especialidad", "")
-    if FOLIO_VIH:
-        r["VIH"] = ""
     return r
 
 
@@ -545,10 +431,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         # Si hay observación de folios globales encontrada, la usamos prioritariamente
         if intel_data["obs_folio"]:
             res["Observación Folio"] = intel_data["obs_folio"]
-        
-        # Agregar columna VIH si está habilitada
-        if FOLIO_VIH and intel_data.get("vih"):
-            res["VIH"] = intel_data["vih"]
             
     except Exception as e:
         log_warn(f"Fallo inteligencia historia (Apto SE): {e}")
@@ -570,21 +452,10 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             res["Diagnóstico IPD"] = join_clean(d_list)
             
             # 🔍 Verificar si algún estado IPD contiene "Sí" para Apto RE
-            log_info(f"🔍 Revisando estados IPD para Apto RE:")
-            log_info(f"   📋 Estados IPD recibidos: {e_list}")
-            log_info(f"   📋 Número de estados: {len(e_list)}")
-            
-            for i, estado in enumerate(e_list):
-                estado_lower = (estado or "").lower()
-                log_info(f"   Estado {i+1}: '{estado}' (lower: '{estado_lower}')")
-                
-                # Buscar "sí" o "si" (con o sin tilde)
-                if estado and ("sí" in estado_lower or "si" == estado_lower.strip()):
+            for estado in e_list:
+                if estado and "sí" in estado.lower():
                     ipd_tiene_si = True
-                    log_ok(f"   ✅ DETECTADO 'Sí' en estado IPD {i+1}: '{estado}'")
                     break
-            
-            log_info(f"   📊 Resultado ipd_tiene_si: {ipd_tiene_si}")
             
             t1 = time.time()
             dt = (t1-t0)*1000
@@ -629,15 +500,8 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             res["Estado APS"] = join_clean(e_aps)
             
             # 🔍 Verificar si existe al menos un registro APS para Apto RE
-            log_info(f"🔍 Revisando registros APS para Apto RE:")
-            log_info(f"   📋 Fechas APS recibidas: {f_aps}")
-            log_info(f"   📋 Número de registros: {len(f_aps) if f_aps else 0}")
-            
             if f_aps and len(f_aps) > 0 and any(f.strip() for f in f_aps):
                 aps_tiene_registros = True
-                log_ok(f"   ✅ DETECTADO al menos 1 registro APS")
-            
-            log_info(f"   📊 Resultado aps_tiene_registros: {aps_tiene_registros}")
             
             t1 = time.time()
             dt = (t1-t0)*1000
@@ -657,6 +521,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             if should_show_timing():
                 print(f"{Fore.LIGHTBLACK_EX}  └─ Leer SIC → {dt:.0f}ms{Style.RESET_ALL}")
 
+                print(f"{Fore.LIGHTBLACK_EX}  └─ Leer SIC → {dt:.0f}ms{Style.RESET_ALL}")
 
         # ===== Prestaciones =====
         t0 = time.time()
@@ -664,23 +529,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             print(f"{Fore.LIGHTBLACK_EX}  └─ Leer prestaciones...{Style.RESET_ALL}")
         tb = sigges._prestaciones_tbody(idx)
         prestaciones = sigges.leer_prestaciones_desde_tbody(tb) if tb else []
-        
-        # 🐛 DEBUG: Mostrar muestra de códigos leídos
-        if prestaciones:
-            log_info(f"📋 Prestaciones leídas: {len(prestaciones)}")
-            # Mostrar primeras 10 para no saturar
-            muestra = prestaciones[:10]
-            log_info("   📋 Muestra de códigos (primeros 10):")
-            for prest in muestra:
-                codigo_raw = prest.get("codigo", "")
-                codigo_norm = normalizar_codigo(codigo_raw)
-                fecha = prest.get("fecha", "")
-                log_info(f"      - Raw: '{codigo_raw}' → Norm: '{codigo_norm}' | Fecha: {fecha}")
-            
-            # Mostrar todos los códigos únicos normalizados
-            codigos_unicos = {normalizar_codigo(p.get("codigo", "")) for p in prestaciones if normalizar_codigo(p.get("codigo", ""))}
-            log_info(f"   🔢 Códigos únicos normalizados encontrados: {sorted(codigos_unicos)}")
-        
         t1 = time.time()
         dt = (t1-t0)*1000
         if should_show_timing():
@@ -702,16 +550,10 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     # 🧠 APTO RE (IPD con Sí o APS creado)
     # =========================================================================
     # Se calcula después de leer IPD y APS
-    log_info(f"🧮 Calculando Apto RE:")
-    log_info(f"   📊 ipd_tiene_si: {ipd_tiene_si}")
-    log_info(f"   📊 aps_tiene_registros: {aps_tiene_registros}")
-    
     if ipd_tiene_si or aps_tiene_registros:
         res["Apto RE"] = "SI"
-        log_ok(f"   ✅ APTO RE = SI (IPD={ipd_tiene_si}, APS={aps_tiene_registros})")
     else:
         res["Apto RE"] = "NO"
-        log_warn(f"   ⚠️ APTO RE = NO (IPD={ipd_tiene_si}, APS={aps_tiene_registros})")
 
     # ===== OBJETIVOS =====
     # ===== OBJETIVOS =====
@@ -754,22 +596,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     # ===== HABILITANTES =====
     habs_cfg = m.get("habilitantes", []) or []
     if REVISAR_HABILITANTES and habs_cfg:
-        # Normalizar códigos de configuración
-        habs_norm = {normalizar_codigo(c) for c in habs_cfg if str(c).strip()}
-        
-        # 🐛 DEBUG: Log códigos buscados
-        log_info(f"🔍 Buscando habilitantes: {list(habs_norm)}")
-        log_info(f"📋 Total prestaciones disponibles: {len(prestaciones)}")
-        
-        # Buscar en prestaciones
         habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj)
 
         if habs_found:
-            # 🐛 DEBUG: Log encontrados
-            log_ok(f"✅ Habilitantes encontrados: {len(habs_found)}")
-            for h in habs_found[:HABILITANTES_MAX]:
-                log_info(f"   - {h[0]} en {h[1].strftime('%d/%m/%Y')}")
-                
             top = habs_found[:HABILITANTES_MAX]
             res["C Hab"] = join_clean([h[0] for h in top])
             res["F Hab"] = join_clean([h[1].strftime("%d/%m/%Y") for h in top])
@@ -779,24 +608,17 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             # Simplificado: si hay al menos uno vigente, está OK
             if hab_vigentes:
                 res["Hab Vi"] = "Vigente"
-                log_info(f"📊 Vigencia: {len(hab_vigentes)} vigentes de {len(habs_found)} totales")
             else:
                 res["Hab Vi"] = "No Vigente"
-                log_warn(f"⚠️ Ningún habilitante vigente (ventana: {VENTANA_VIGENCIA_DIAS} días)")
         else:
             # Sin habilitantes = vacío (no texto)
             res["Hab Vi"] = ""
-            log_warn(f"⚠️ No se encontraron habilitantes en {len(prestaciones)} prestaciones")
 
     # ===== EXCLUYENTES =====
     excl_list = m.get("excluyentes", []) or []
-    if REVISAR_EXCLUYENTES and excl_list:
-        excl_norm = {normalizar_codigo(x) for x in excl_list if str(x).strip()}
-        
-        # 🐛 DEBUG: Log códigos buscados
-        log_info(f"🔍 Buscando excluyentes: {list(excl_norm)}")
-        log_info(f"📋 Total prestaciones disponibles: {len(prestaciones)}")
-        
+    excl_norm = {normalizar_codigo(x) for x in excl_list if str(x).strip()}
+
+    if excl_norm:
         excl_found = []
         for p in prestaciones:
             c_norm = normalizar_codigo(p.get("codigo", ""))
@@ -804,8 +626,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                 f_txt = (p.get("fecha", "") or "").strip()
                 dt = dparse(f_txt) or datetime.min
                 excl_found.append((c_norm, f_txt, dt))
-                # 🐛 DEBUG: Log cuando encuentra
-                log_ok(f"✅ Excluyente encontrado: {c_norm} en fecha {f_txt}")
 
         excl_found.sort(key=lambda x: x[2], reverse=True)
         excl_found = excl_found[:EXCLUYENTES_MAX]
@@ -813,9 +633,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         if excl_found:
             res["C Excluyente"] = join_clean([x[0] for x in excl_found])
             res["F Excluyente"] = join_clean([x[1] for x in excl_found])
-            log_info(f"📊 Excluyentes finales: {res['C Excluyente']}")
-        else:
-            log_warn(f"⚠️ No se encontraron excluyentes en {len(prestaciones)} prestaciones")
 
     # ===== OBSERVACIÓN FOLIO =====
     if REVISAR_OA:
@@ -925,92 +742,29 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                         # Marcar como no resuelto y salir del loop
                         break
                 
-                # ========================================================
-                # ESTRATEGIA DE REINTENTOS MEJORADA V2
-                # ========================================================
-                # Sistema conservador que NO pierde sesión de login
-                # Evita F5 y navegación directa por URL que causan logout
-                
-                # ========================================================
-                # ESTRATEGIA DE REINTENTOS F5 INTELIGENTE
-                # ========================================================
-                # 1. Espera BASE entre reintentos: 8 segundos
-                # 2. Intento 3 y 5: F5 + 10s espera
-                # 3. Intento 4: Espera extendida 60s
-                
-                if intento == 1:
-                    pass
-                    
-                else:
-                    # Espera base de 8 segundos (solicitada por usuario)
-                    # EXCEPTO si es el intento 4 (que tiene espera propia de 60s)
-                    if intento != 4:
-                        if not espera_inteligente(8, sigges, "Pausa operativa entre intentos"):
-                             break
-
+                # Estrategia de reintentos
                 if intento == 2:
-                    log_warn(f"⚠️  REINTENTO {intento}/{MAX_REINTENTOS_POR_PACIENTE} - {rut}")
-                    # Verificar conexión y seguir
-                    is_valid, _ = sigges.validar_conexion()
-                    if not is_valid: break
-                    
+                    log_warn(f"Reintento 2 para {rut}")
+                    espera("reintento_1")
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)  # 🛠️ Abrir menú si está cerrado
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
                 elif intento == 3:
-                    log_warn(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    log_warn(f"🔄 REINTENTO 3 - ESTRATEGIA F5 REFRESH")
-                    log_warn(f"⚠️  Detectando posible sesión caducada...")
-                    log_warn(f"🔄 Ejecutando REFRESCAR PÁGINA (F5)...")
+                    log_warn(f"Reintento 3 para {rut}")
+                    espera("reintento_2")
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)  # 🛠️ Abrir menú si está cerrado
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
+                elif intento >= 4:
+                    log_warn(f"Reintento final para {rut}")
                     try:
                         sigges.driver.refresh()
-                        # Espera de carga post-F5 (10s solicitados)
-                        if not espera_inteligente(10, sigges, "Estabilizando post-refresh"):
-                            break
-                        
-                        # Verificar si la sesión se cerró
-                        if sigges.sesion_cerrada():
-                            log_error(f"❌ SESIÓN CERRADA DETECTADA TRAS F5")
-                            log_error(f"🛑 POR FAVOR INICIA SESIÓN MANUALMENTE AHORA")
-                            # Dar tiempo extra para login manual
-                            espera_inteligente(15, sigges, "Esperando login manual")
-                    except Exception as e:
-                        log_error(f"Error al refrescar: {e}")
-                        
-                elif intento == 4:
-                    log_warn(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    log_warn(f"🕒 REINTENTO 4 - ESPERA EXTENDIDA")
-                    log_warn(f"⚠️  Pausando 60 segundos por seguridad...")
-                    log_warn(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    if not espera_inteligente(60, sigges, "Pausa de seguridad"):
-                         break
-                    
-                    is_valid, _ = sigges.validar_conexion()
-                    if not is_valid: break
-                        
-                elif intento == 5:
-                    log_warn(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    log_warn(f"🔄 REINTENTO 5 - ESTRATEGIA F5 FINAL")
-                    log_warn(f"🔄 Ejecutando SEGUNDO REFRESCAR PÁGINA (F5)...")
-                    try:
-                        sigges.driver.refresh()
-                        if not espera_inteligente(10, sigges, "Estabilizando post-refresh"):
-                             break
-                        
-                        if sigges.sesion_cerrada():
-                             log_error(f"❌ SESIÓN CERRADA - ÚLTIMA OPORTUNIDAD DE LOGIN")
-                             espera_inteligente(10, sigges, "Esperando login manual")
-                    except Exception as e:
-                        log_error(f"Error al refrescar: {e}")
-
-                elif intento > 5:
-                    # Reintentos finales 6-N (con espera base de 8s ya aplicada)
-                    log_warn(f"⚠️  REINTENTO {intento}/{MAX_REINTENTOS_POR_PACIENTE} - Últimos intentos")
-                    try:
-                        # Navegación forzada por URL para intentar "despegar"
-                        sigges.ir(XPATHS["BUSQUEDA_URL"])
-                    except:
+                    except Exception:
                         pass
+                    espera("reintento_3")
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)  # 🛠️ Abrir menú si está cerrado
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
 
                 # 🧠 NUEVO TIMING SYSTEM: Robusto y automático
-                from Utilidades.Principales.Timing2 import TimingContext
+                from src.utils.Timing2 import TimingContext
                 
                 # Reset timer global para este paciente
                 TimingContext.reset()
@@ -1060,7 +814,7 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 log_info(f"{rut}: ✅ {len(mini)} caso(s) encontrado(s)")
                 
                 # Optimizar búsqueda de keywords
-                from Utilidades.Motor.Mini_Tabla import resolver_casos_duplicados
+                from src.core.Mini_Tabla import resolver_casos_duplicados
                 
                 # 5️⃣.1 Resolver keywords
                 with TimingContext("5️⃣.1 Resolver keywords", rut):
@@ -1087,12 +841,6 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                     log_info(f"{rut}: {razon}")
                 else:
                     log_info(f"{rut}: Casos detectados pero sin match de keywords")
-                    
-                    # 5.2 Si no hay caso, saltar explícitamente sin ir a cartola
-                    log_warn(f"⚠️ {rut}: Sin caso relevante en mini-tabla - SALTANDO CARTOLA")
-                    res_paci = [vac_row(m, fecha, rut, nombre, "Sin Caso (Mini-Tabla)") for m in MISSIONS]
-                    resuelto = True
-                    continue
                 
                 # 6️⃣ Leer edad
                 with TimingContext("6️⃣ Leer edad", rut) as ctx:
@@ -1132,16 +880,7 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
 
             except Exception as e:
                 # Verificar si el error es FATAL (navegador cerrado/conexión perdida)
-                es_fatal = False
-                if hasattr(sigges, 'es_conexion_fatal'):
-                    es_fatal = sigges.es_conexion_fatal(e)
-                else:
-                    # Fallback manual si el método no existe (Debug)
-                    msg_b = str(e).lower()
-                    if any(x in msg_b for x in ["no such window", "connection refused", "session not created", "disconnected"]):
-                        es_fatal = True
-
-                if es_fatal:
+                if sigges.es_conexion_fatal(e):
                     log_error(f"🚨 {rut}: ERROR FATAL detectado - Navegador desconectado")
                     log_error(str(e))
                     log_error("━" * 60)
@@ -1204,20 +943,6 @@ def ejecutar_revision() -> bool:
     Returns:
         True si completó exitosamente
     """
-    # 0. VALIDACIÓN DE CONFIGURACIÓN (PRO LEVEL)
-    # 0. VALIDACIÓN DE CONFIGURACIÓN (PRO LEVEL)
-    from src.utils.ConfigValidator import validar_configuracion
-    is_valid, logs = validar_configuracion()
-    if not is_valid:
-        log_error("⛔ Configuración inválida. Abortando ejecución.")
-        for msg in logs:
-            log_error(f"  {msg}")
-        return False
-    elif logs:
-        # Mostrar advertencias
-        for msg in logs:
-            log_warn(f"  {msg}")
-
     # Verificar archivo de entrada
     if not os.path.exists(RUTA_ARCHIVO_ENTRADA):
         log_error(f"Archivo no existe: {RUTA_ARCHIVO_ENTRADA}")
@@ -1255,36 +980,49 @@ def ejecutar_revision() -> bool:
         print(f"{Fore.YELLOW}⏱️ Timer global iniciado - timing acumulativo continuo{Style.RESET_ALL}\n")
 
     try:
-        # Importar control de ejecución
-        from src.utils.ExecutionControl import get_execution_control
+        # Control de ejecución
         control = get_execution_control()
         
         for idx, row in df.iterrows():
-            # ===== CONTROL DE EJECUCIÓN =====
+            # 🛑 VERIFICAR DETENCIÓN
             if control.should_stop():
-                log_warn("━" * 80)
-                log_warn("⏹️ DETENCIÓN SOLICITADA POR USUARIO")
-                log_warn(f"📊 Procesados: {stats['exitosos']}/{total} pacientes")
-                log_warn("━" * 80)
+                log_warn("🛑 Ejecución detenida por usuario")
                 break
-            
-            if control.should_pause():
-                log_warn("━" * 80)
-                log_warn("⏸️ EJECUCIÓN PAUSADA")
-                log_warn("💡 Presiona 'Reanudar' en la GUI para continuar")
-                log_warn("━" * 80)
                 
-                if not control.wait_if_paused():
-                    log_warn("⏹️ Detención durante pausa")
-                    break
-                
-                log_ok("▶️ Ejecución reanudada")
-            
-            # ===== PROCESAMIENTO =====
+            # ⏸️ VERIFICAR PAUSA
+            control.wait_if_paused()
+
             if idx > 0 and idx % 50 == 0:
                 gc.collect()
 
+            # 📸 CHECK SNAPSHOT
+            if control.should_snapshot():
+                try:
+                    log_info("📸 Guardando snapshot solicitado...")
+                    
+                    # Generar nombre con timestamp para diferenciar
+                    timestamp_snap = datetime.now().strftime("%H%M")
+                    filename_snap = f"{NOMBRE_DE_LA_MISION}_SNAP_{timestamp_snap}"
+                    
+                    saved_path = generar_excel_revision(
+                        resultados_por_mision, MISSIONS,
+                        filename_snap, RUTA_CARPETA_SALIDA
+                    )
+                    
+                    if saved_path:
+                        log_ok(f"📸 Snapshot guardado en: {os.path.basename(saved_path)}")
+                    
+                    control.clear_snapshot_request()
+                except Exception as e:
+                    log_error(f"❌ Error guardando snapshot: {e}")
+                    control.clear_snapshot_request() # Limpiar igual para no buclear
+
             # Procesar paciente con timer global
+            # Log de recursos antes de procesar
+            stats_str = get_system_stats()
+            if stats_str:
+                log_debug(f"🖥️ System Check [Idx {idx}]: {stats_str}")
+                
             filas, ok = procesar_paciente(sigges, row, idx, total, t_script_inicio)
 
             # Estadísticas

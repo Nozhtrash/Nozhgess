@@ -282,6 +282,8 @@ class NavigationMixin:
             self.ir(XPATHS["BUSQUEDA_URL"])
             # Esperar a que el input RUT esté presente
             if ya_en_busqueda(self.driver, XPATHS, timeout=3.0):
+                # Esperar estabilidad visual (spinner overlay)
+                self.waits.wait_for_spinner("spinner_short")
                 self.log.ok("✅ Navegación por URL exitosa")
                 return
         except Exception as e:
@@ -303,8 +305,31 @@ class NavigationMixin:
         return self._find(XPATHS["INPUT_RUT"], "presence", "search_find_rut_input")
 
     def click_buscar(self) -> bool:
-        """Hace click en el botón Buscar."""
-        return self._click(XPATHS["BTN_BUSCAR"], False, True, "search_click_buscar", "spinner")
+        """Hace click en el botón Buscar (con fallback de ENTER)."""
+        from selenium.webdriver.common.keys import Keys
+        
+        # Asegurar que no haya overlays antes de clickear
+        self.waits.wait_for_spinner("spinner_short")
+        
+        # Intento 1: Click en botón (prioridad Xpath corregida)
+        log_info("[DEBUG] 🖱️ Intentando Click en BUSCAR...")
+        clicked = self._click(XPATHS["BTN_BUSCAR"], False, True, "search_click_buscar", "spinner")
+        log_info(f"[DEBUG] Resultado Click: {clicked}")
+        
+        # Estrategia "La Forma de Presionar": Force Submit con ENTER
+        try:
+            input_rut = self.find_input_rut()
+            if input_rut:
+                log_info("[DEBUG] ⌨️ Ejecutando FALLBACK ENTER en input RUT...")
+                time.sleep(0.5)
+                input_rut.send_keys(Keys.ENTER)
+                log_info("[DEBUG] ✅ ENTER enviado")
+                return True
+        except Exception as e:
+            log_info(f"[DEBUG] ❌ Falló ENTER fallback: {e}")
+            pass
+            
+        return clicked
 
     def ir_a_cartola(self) -> bool:
         """Navegación optimizada a Cartola."""

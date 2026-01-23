@@ -275,16 +275,28 @@ class NozhgessApp(ctk.CTk):
         self.update_idletasks()
     
     def _on_window_configure(self, event):
-        """Guarda posición y tamaño al mover/redimensionar."""
+        """Guarda posición y tamaño al mover/redimensionar (Debounced)."""
         if event.widget == self:
-            # Auto-save = False para evitar lag
-            if self.config.get("window.remember_position"):
-                self.config.set("window.x", self.winfo_x(), auto_save=False)
-                self.config.set("window.y", self.winfo_y(), auto_save=False)
+            # Debounce: Cancelar timer anterior si existe
+            if hasattr(self, "_config_save_timer"):
+                self.after_cancel(self._config_save_timer)
             
-            if self.config.get("window.remember_size"):
-                self.config.set("window.width", self.winfo_width(), auto_save=False)
-                self.config.set("window.height", self.winfo_height(), auto_save=False)
+            # Programar nuevo timer de 500ms
+            self._config_save_timer = self.after(500, self._save_window_config)
+
+    def _save_window_config(self):
+        """Guarda la configuración de la ventana efectivamente."""
+        if hasattr(self, "config"):
+             if self.config.get("window.remember_position"):
+                 self.config.set("window.x", self.winfo_x(), auto_save=False)
+                 self.config.set("window.y", self.winfo_y(), auto_save=False)
+             
+             if self.config.get("window.remember_size"):
+                 self.config.set("window.width", self.winfo_width(), auto_save=False)
+                 self.config.set("window.height", self.winfo_height(), auto_save=False)
+             
+             # Guardar a disco
+             self.config.save()
     
     def _on_close(self):
         """Maneja el cierre limpio."""
@@ -294,15 +306,17 @@ class NozhgessApp(ctk.CTk):
                 import psutil
                 killed = 0
                 
-                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                    try:
-                        if proc.info['name'] and 'msedge' in proc.info['name'].lower():
-                            cmdline = ' '.join(proc.info['cmdline'] or [])
-                            if '--remote-debugging-port=9222' in cmdline:
-                                proc.terminate()
-                                killed += 1
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
+                # [SOLICITUD USUARIO] NO cerrar el navegador al salir
+                # for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                #     try:
+                #         if proc.info['name'] and 'msedge' in proc.info['name'].lower():
+                #             cmdline = ' '.join(proc.info['cmdline'] or [])
+                #             if '--remote-debugging-port=9222' in cmdline:
+                #                 # proc.terminate()  <-- DESACTIVADO
+                #                 # killed += 1
+                #                 pass
+                #     except (psutil.NoSuchProcess, psutil.AccessDenied):
+                #         continue
                 
                 if killed > 0:
                     print(f"🧹 Limpieza: {killed} sesión(es) debug cerrada(s)")
@@ -310,12 +324,13 @@ class NozhgessApp(ctk.CTk):
             except ImportError:
                 # Fallback sin psutil
                 try:
-                    subprocess.run(
-                        ["taskkill", "/F", "/IM", "msedgedriver.exe"],
-                        capture_output=True,
-                        creationflags=0x08000000,
-                        timeout=2
-                    )
+                    # subprocess.run(
+                    #     ["taskkill", "/F", "/IM", "msedgedriver.exe"],
+                    #     capture_output=True,
+                    #     creationflags=0x08000000,
+                    #     timeout=2
+                    # )
+                    pass
                 except:
                     pass
                     

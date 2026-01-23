@@ -35,9 +35,16 @@ except Exception:
 
 import logging
 import os
-import sys  # Added missing import
+import sys
+import time
 from datetime import datetime
 from typing import Dict, List, Any
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 # =============================================================================
 #                         CONFIGURACIÓN DE LOGGING
@@ -184,9 +191,31 @@ def log_error(msg: str) -> None:
 #                    FUNCIONES DE LOGGING AVANZADAS
 # =============================================================================
 
+def get_system_stats() -> str:
+    """Retorna string con uso de CPU y RAM (si psutil está disponible)."""
+    if not PSUTIL_AVAILABLE:
+        return ""
+    try:
+        cpu = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory().percent
+        return f" [CPU: {cpu}% | RAM: {mem}%]"
+    except:
+        return ""
+
 def log_debug(msg: str) -> None:
-    """Log de debug - Solo en DEBUG_MODE, solo a archivo (no consola)."""
-    _log_to_file("INFO", f"[DEBUG] {msg}")
+    """
+    Log de debug DETALLADO - Solo en DEBUG_MODE.
+    Incluye milisegundos y stats del sistema.
+    """
+    # Timestamp de alta precisión para debug
+    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    stats = get_system_stats()
+    
+    full_msg = f"[{timestamp}]{stats} {msg}"
+    
+    # Escribir siempre al log (DEBUG se filtra en el handler si es necesario, pero aquí forzamos INFO para que se guarde)
+    # Usamos prefijo [DEBUG] para que el parser de runner.py lo detecte
+    _log_to_file("INFO", f"[DEBUG] {full_msg}")
 
 
 def log_step(paso: str, rut: str = None, extra: str = None) -> None:
@@ -205,7 +234,13 @@ def log_step(paso: str, rut: str = None, extra: str = None) -> None:
         ctx_parts.append(extra)
     
     ctx = f" | {' | '.join(ctx_parts)}" if ctx_parts else ""
-    msg = f"📌 {paso}{ctx}"
+    
+    # En debug mode, añadir stats al paso
+    if DEBUG_MODE:
+        stats = get_system_stats()
+        msg = f"📌 {paso}{ctx}{stats}"
+    else:
+        msg = f"📌 {paso}{ctx}"
     log_info(msg)
 
 
@@ -393,6 +428,7 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
         linea_resultado_especial = None
 
     # IMPRIMIR TODO
+    # IMPRIMIR TODO
     try:
         print(linea_info)
         print()
@@ -400,19 +436,22 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
         # Imprimir cada misión en su propia línea con separación
         for i_m, linea_m in enumerate(lineas_misiones):
             print(linea_m)
-            if i_m < len(lineas_misiones) - 1:  # No agregar línea vacía después de la última
-                print()  # Línea vacía entre misiones
+            # Siempre espacio después de misión
+            print() 
         
         # Si hay error especial, mostrarlo
         if linea_resultado_especial:
-            print()
             print(linea_resultado_especial)
+            print() # Espacio
         
-        print(f"{C_BARRA}{'─' * 90}{RESET}")
+        # Separación extra para el siguiente paciente (Total 2-3 espacios visuales)
+        print() 
+        print() # Espacio extra solicitado 
+        
     except Exception:
         # Fallback simple si falla el formateo
         print(f"[{i}/{total}] {nombre} - {rut} - {'OK' if paciente_ok else 'ERROR'}")
-        print("─" * 90)
+        print()
 
 
 def mostrar_banner(mision: str, archivo: str, total_filas: int) -> None:

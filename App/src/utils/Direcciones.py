@@ -33,84 +33,90 @@ XPATHS: Dict[str, Any] = {
     "LOGIN_URL": "https://www.sigges.cl/#/login",
     "LOGIN_SUCCESS_URL": "https://www.sigges.cl/#/actualizaciones",
     
-    # Botón "Ingresar" - Priorizar texto sobre estructura
+    # Botón "Ingresar"
     "LOGIN_BTN_INGRESAR": [
-        "//button[.//p[normalize-space()='Ingresar']]",  # Texto exacto (más estable)
-        "//button[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ingresar')]",
-        "//button[@type='submit' and contains(@class,'botonBase')]",
-        "/html/body/div/div/div[2]/div[1]/form/div[3]/button",  # Fallback absoluto
+        "//*[@id='root']/div/div[2]/div[1]/form/div[3]/button", # User Absolute
+        "//button[@type='submit' and contains(@class,'botonBase')]", # User Class
+        "//button[.//p[normalize-space()='Ingresar']]",
     ],
     
     # Dropdown "Seleccione una unidad"
     "LOGIN_SEL_UNIDAD_HEADER": [
-        "//div[contains(@class,'filtroSelect__header')]//p[normalize-space()='Seleccione una unidad']/..",
+        "//*[@id='root']/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[1]", # User Absolute
         "//div[contains(@class,'filtroSelect__header')]",
-        "//p[contains(translate(normalize-space(.),'ÁÉÍÓÚ','áéíóú'),'seleccione una unidad')]/ancestor::div[contains(@class,'filtroSelect__header')]",
-        "/html/body/div/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[1]",
     ],
     
     # Opción hospital "Gustavo Fricke"
     "LOGIN_OP_HOSPITAL": [
-        "//p[normalize-space()='Hospital Dr. Gustavo Fricke (Viña del Mar)']",
-        "//div[contains(@class,'filtroSelect__option')]//p[contains(normalize-space(),'Gustavo Fricke')]",
-        "//div[contains(@class,'filtroSelect__option')][.//p[contains(translate(normalize-space(.),'ÁÉÍÓÚ','áéíóú'),'gustavo fricke')]]",
-        "/html/body/div/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[2]/div/p",
+        "//*[@id='root']/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[2]/div/p", # User Absolute
+        "//div[contains(@class,'filtroSelect__options')]//p[contains(text(),'Gustavo Fricke')]",
     ],
     
     # Tile "INGRESO SIGGES CONFIDENCIAL"
     "LOGIN_TILE_INGRESO_SIGGES": [
+        "//*[@id='root']/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div[3]/p", # User Absolute
         "//p[normalize-space()='INGRESO SIGGES CONFIDENCIAL']",
-        "//div[contains(@class,'boxItems__item')]//p[contains(normalize-space(),'SIGGES CONFIDENCIAL')]",
-        "//div[contains(@class,'boxItems__item')][.//p[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'confidencial')]]",
-        "/html/body/div/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div[3]/p",
     ],
     
     # Botón "Conectese con unidad y perfil"
     "LOGIN_BTN_CONECTAR": [
-        "//button[.//p[contains(normalize-space(),'Conectese con unidad y perfil')]]",
-        "//button[.//p[contains(translate(normalize-space(.),'ÁÉÍÓÚ','áéíóú'),'conectese')]]",
-        "//button[contains(@class,'botonBase')]",
-        "/html/body/div/div/div/div/div[1]/div/div[2]/div[3]/button",
+        "//*[@id='root']/div/div/div/div[1]/div/div[2]/div[3]/button/p", # User Absolute
+        "//button[.//p[contains(text(),'Conectese')]]",
     ],
 
     # =========================================================================
     #                          MENÚ LATERAL
     # =========================================================================
     "MENU_CONTENEDOR": [
+        "//*[@id='root']/main/div[2]/nav/div[1]", # User Absolute
         "//nav/div[contains(@class, 'cardMenu')]",
-        "/html/body/div/main/div[2]/nav/div[1]"
     ],
     "MENU_ICONO_APERTURA": [
-        "/html/body/div/main/div[2]/nav/div[1]/div[1]",  # XPath absoluto proporcionado por el usuario
+        "//*[@id='root']/main/div[2]/nav/div[1]/div[1]", # User Absolute
         "//nav/div[contains(@class, 'cardMenu')]/div",
     ],
     "MENU_CLASS_ABIERTO": "cardOpen",
     
-    # Menu completo de navegación
-    "MENU_NAV_COMPLETO": [
-        "/html/body/div/main/div[2]/nav/div[1]/div[2]",  # XPath absoluto proporcionado por el usuario
-        "//div[@class='cardNav__menu']",
+    # Card "Ingreso y Consulta Paciente" (Abre el menú)
+    "BTN_MENU_INGRESO_CONSULTA_CARD": [
+        "//*[@id='root']/main/div[2]/nav/div[1]/div[1]/p", # User Absolute (Text)
+        "//p[normalize-space()='Ingreso y Consulta Paciente']",
+    ],
+    
+    
+    # Botón del menú para ir a Búsqueda de Paciente
+    "BTN_MENU_BUSQUEDA": [
+        "//*[@id='root']/main/div[2]/nav/div[1]/div[2]/a[1]", # User Absolute
+        "//a[@href='#/34']", # User Link Directo
+        "//a[.//p[normalize-space()='Búsqueda de Paciente']]",
+    ],
+    
+    # Botón del menú para ir a Cartola
+    "BTN_MENU_CARTOLA": [
+        "//*[@id='root']/main/div[2]/nav/div[1]/div[2]/a[2]/p", # User Absolute
+        "//*[@id='root']/main/div[2]/nav/div[1]/div[2]/a[4]/p", # Alternativo (posible variación)
+        "//a[@href='#/161']", # User Link Directo
+        "//a[.//p[contains(text(),'Cartola Unificada')]]",
     ],
 
     # =========================================================================
     #                      BÚSQUEDA DE PACIENTE
     # =========================================================================
     "INPUT_RUT": [
-        "//input[@id='rutInput']",  # ID específico del input
-        "//input[contains(@placeholder,'R.U.T')]",
-        "//input[contains(@placeholder,'RUT')]",
+        "//*[@id='rutInput']", # User & Universal
+        "//input[@id='rutInput']",
         "/html/body/div/main/div[3]/div[3]/div/div/div[1]/div/div/div/input",
     ],
     # Botón "Buscar RUN"
     "BTN_BUSCAR": [
-        "//button[.//p[normalize-space()='Buscar RUN']]",  # Texto exacto
-        "//button[.//p[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'buscar')]]",
-        "//button[@class='botonBase botonStand2']",
-        "/html/body/div/main/div[3]/div[3]/div/div/div[1]/div/button",
+        "//*[@id='root']/main/div[3]/div[3]/div/div/div[1]/div/button", # User Absolute (to Button - Priority 1)
+        "//*[@id='root']/main/div[3]/div[3]/div/div/div[1]/div/button/p", # User Absolute (to P - Priority 2)
+        "//button[@class='botonBase botonStand2']", # User Class Specific
+        "//button[.//p[normalize-space()='Buscar RUN']]",
     ],
     "EDAD_PACIENTE": [
-        "//div[p[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'edad')]]/following-sibling::div/p",
-        "/html/body/div/main/div[3]/div[3]/div/div[1]/div[7]/div[2]/div/p",
+        "//*[@id='root']/main/div[3]/div[3]/div/div[1]/div[7]/div[2]/div/p", # User Absolute
+        "//div[contains(text(),'Edad')]/following-sibling::div/p",
     ],
 
     # =========================================================================
@@ -118,28 +124,19 @@ XPATHS: Dict[str, Any] = {
     # =========================================================================
     # 🧠 INTELIGENTE: Selectores que priorizan tbody CON filas (no vacío)
     "MINI_TABLA_TBODY": [
-        # Prioridad 1: tbody que YA tiene filas con td (evita race condition)
-        "//div[contains(@class,'cardTable')]//table/tbody[.//tr[td]]",
-        "//table[.//tr/td]/tbody[ancestor::div[contains(@class, 'cardTable')]]",
-        
-        # Prioridad 2: tbody genérico (puede estar vacío aún)
-        "//div[@class='contBody maxW scroll']//div[contains(@class,'cardTable')]/table/tbody",
-        "//table/tbody[ancestor::div[contains(@class, 'cardTable')]]",
-        
-        # Fallback: XPath absoluto
-        "/html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table/tbody",
+        "//*[@id='root']/main/div[3]/div[3]/div/div[2]/div/div/table/tbody", # User Absolute
+        "//div[contains(@class,'cardTable')]//table/tbody",
     ],
     "MINI_TABLA_TABLE": [
-        "//div[@class='contBody maxW scroll']//div[contains(@class,'cardTable')]/table",
-        "/html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table",
+        "//*[@id='root']/main/div[3]/div[3]/div/div[2]/div/div/table", # User Absolute
     ],
 
     # =========================================================================
     #                            CARTOLA
     # =========================================================================
     "CONT_CARTOLA": [
-        "//div[contains(@class, 'container-cartola') or contains(@class, 'contRow')]/parent::div",
-        "/html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]"
+        "/html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]", # Base container
+        "//div[contains(@class, 'container-cartola')]",
     ],
     
     # Contenedor principal de filtros (Hitos GES, No GES, Todos)
@@ -150,13 +147,25 @@ XPATHS: Dict[str, Any] = {
     
     # Hitos GES
     "CHK_HITOS_GES": [
+        "//*[@id='root']/main/div[3]/div[2]/div[1]/div[5]/div[1]/div/div/label/input", # User Absolute
         "//label[input[@type='checkbox']]/p[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'hitos ges')]/..//input",
         "//input[@type='checkbox' and ancestor::label[contains(., 'GES')]]",
-        "/html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div/div/label/input",
     ],
     "CONT_HITOS_GES": [
         "//div[@class='contRow'][@data-color='gris'][.//p[contains(., 'Hitos GES')]]",
         "/html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]",
+    ],
+    
+    # Tabla Provisoria (Fechas Inicio/Cierre)
+    "TABLA_PROVISORIA_TBODY": [
+        "//*[@id='root']/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody", # User Absolute
+        "//div[contains(@class,'contBox')]//table/tbody",
+    ],
+    
+    # Fecha Fallecimiento
+    "FECHA_FALLECIMIENTO": [
+        "//*[@id='root']/main/div[3]/div[2]/div[1]/div[1]/div[2]/div[5]/div[2]/div/p", # User Absolute
+        "//p[contains(text(),'Sin Información') or contains(text(),'Vivo') or contains(text(),'/')]", 
     ],
     
     # Hitos No GES

@@ -14,7 +14,7 @@ ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
-VBA_PATH = os.path.join(ruta_proyecto, "Extras", "VBA")
+VBA_PATH = os.path.join(ruta_proyecto, "A_Lista de Misiones", "VBA")
 
 
 class VbaViewerView(ctk.CTkFrame):
@@ -25,6 +25,11 @@ class VbaViewerView(ctk.CTkFrame):
         
         self.colors = colors
         self.current_file = None
+        
+        # Asegurar que la carpeta existe al iniciar
+        try:
+            os.makedirs(VBA_PATH, exist_ok=True)
+        except: pass
         
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -296,5 +301,8 @@ class VbaViewerView(ctk.CTkFrame):
     
     def _open_folder(self):
         """Abre la carpeta de VBA."""
-        if os.path.exists(VBA_PATH):
+        try:
+            os.makedirs(VBA_PATH, exist_ok=True)
             os.startfile(VBA_PATH)
+        except Exception as e:
+            print(f"Error abriendo carpeta: {e}")

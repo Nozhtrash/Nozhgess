@@ -85,11 +85,14 @@ class CoreMixin:
         """
         self.waits.wait_for_spinner(key)
 
-    def _find(self, locators: list[str], condition: str = "presence", 
+    def _find(self, locators: list[str], condition: str = "presence",
               clave_espera: str = "default") -> Optional[Any]:
         """
         Busca un elemento usando el SelectorEngine resiliente.
         """
+        # TIER SSS+: Sleep global obligatorio (1.0s) pedido por usuario
+        time.sleep(1.0)
+        
         cfg = ESPERAS.get(clave_espera, {})
         timeout = cfg.get("wait", 10)
         
@@ -102,6 +105,9 @@ class CoreMixin:
         
         # Invalidate cache BEFORE action to ensure consistency
         self._invalidar_cache_estado()
+        
+        # TIER SSS+: Sleep global obligatorio (1.0s) pedido por usuario
+        time.sleep(1.0)
         
         # Use wait engine
         self.waits.wait_for_spinner(clave_espera)

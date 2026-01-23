@@ -158,3 +158,22 @@ class FormRow(ctk.CTkFrame):
                 if isinstance(child, ctk.CTkEntry):
                     return child.get()
         return None
+
+    def set_value(self, value: Any):
+        """Establece el valor del widget."""
+        val_str = str(value) if value is not None else ""
+        
+        if isinstance(self.widget, ctk.CTkEntry):
+            self.widget.delete(0, "end")
+            self.widget.insert(0, val_str)
+            
+        elif isinstance(self.widget, ctk.CTkSwitch):
+            if value: self.widget.select()
+            else: self.widget.deselect()
+            
+        elif isinstance(self.widget, ctk.CTkFrame): # Path frame
+            for child in self.widget.winfo_children():
+                if isinstance(child, ctk.CTkEntry):
+                    child.delete(0, "end")
+                    child.insert(0, val_str)
+                    break

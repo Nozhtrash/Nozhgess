@@ -26,9 +26,10 @@ class Card(ctk.CTkFrame):
         if title:
             self._create_header(title)
             
-        # Container de contenido
+        # Container de contenido aislado del header
+        # Esto permite usar grid() dentro del contenido sin romper el pack() del header
         self.content = ctk.CTkFrame(self, fg_color="transparent")
-        self.content.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        self.content.pack(fill="both", expand=True, padx=2, pady=2)
     
     def _create_header(self, title: str):
         """Crea el header con título y separador."""
@@ -67,6 +68,7 @@ class Card(ctk.CTkFrame):
             self.sep.configure(fg_color=colors.get("border_light", "#1f2937"))
         
         # Propagar a hijos si tienen update_colors
-        for child in self.content.winfo_children():
-            if hasattr(child, "update_colors"):
-                child.update_colors(colors)
+        for child in self.winfo_children():
+            if child not in [getattr(self, 'title_lbl', None), getattr(self, 'sep', None)]:
+                 if hasattr(child, "update_colors"):
+                    child.update_colors(colors)

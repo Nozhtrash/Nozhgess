@@ -152,7 +152,7 @@ class RunnerView(ctk.CTkFrame):
             exec_buttons,
             text="🗑  Limpiar Logs",
             font=ctk.CTkFont(size=13),
-            fg_color=colors["bg_secondary"],
+            fg_color=self.colors["bg_secondary"],
             hover_color=colors["bg_primary"],
             text_color=colors["text_primary"],
             width=110,
@@ -161,8 +161,58 @@ class RunnerView(ctk.CTkFrame):
             command=self._clear_logs
         )
         self.clear_btn.pack(side="left")
+
+        self.clear_btn.pack(side="left")
+
+        # Botón Guardar Ahora (Snapshot)
+        self.snapshot_btn = ctk.CTkButton(
+            exec_buttons,
+            text="💾  Guardar Ahora",
+            font=ctk.CTkFont(size=13),
+            fg_color=self.colors["accent"],
+            hover_color=self.colors["success"],
+            text_color="white",
+            width=120,
+            height=42,
+            corner_radius=8,
+            command=self._request_snapshot
+        )
+        self.snapshot_btn.pack(side="left", padx=(10, 0))
+
+        # --- SECTOR DE BÚSQUEDA (DERECHA) ---
+        search_frame = ctk.CTkFrame(exec_buttons, fg_color="transparent")
+        search_frame.pack(side="right", padx=(20, 0))
         
-        # Status
+        self.search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="🔍 Buscar en pestaña...",
+            width=180,
+            height=32,
+            font=ctk.CTkFont(size=11)
+        )
+        self.search_entry.pack(side="left", padx=(0, 5))
+        self.search_entry.bind("<Return>", lambda e: self._do_search())
+        
+        self.search_btn = ctk.CTkButton(
+            search_frame,
+            text="Buscar",
+            width=60,
+            height=32,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.colors["accent"],
+            command=self._do_search
+        )
+        self.search_btn.pack(side="left", padx=(0, 5))
+        
+        ctk.CTkButton(
+            search_frame,
+            text="❌",
+            width=30,
+            height=32,
+            fg_color=self.colors["bg_secondary"],
+            command=self._clear_search
+        ).pack(side="left")
+        
         # Status
         self.status_badge = StatusBadge(
             exec_buttons,
@@ -182,6 +232,7 @@ class RunnerView(ctk.CTkFrame):
         # Crear pestañas
         self.tab_term = self.log_tabs.add("💻 Terminal")
         self.tab_debug = self.log_tabs.add("🔧 Debug / Trace")
+        self.tab_general = self.log_tabs.add("📝 General")
         
         # Configurar Tab Terminal
         # Usar Segoe UI Emoji para soporte completo de emojis en Windows
@@ -200,6 +251,14 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(family="Cascadia Code", size=10)
         )
         self.debug_console.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Configurar Tab General (Log completo similar a nozhgess.log)
+        self.general_console = LogConsole(
+            self.tab_general,
+            colors=colors,
+            font=ctk.CTkFont(family="Consolas", size=10)
+        )
+        self.general_console.pack(fill="both", expand=True, padx=5, pady=5)
         
         # Iniciar polling
         self._poll_logs()
@@ -289,10 +348,11 @@ class RunnerView(ctk.CTkFrame):
                 clean_msg = ansi_escape.sub('', msg)
                 
                 # ================================================================
-                # RUTEO INTELIGENTE: Separar Terminal de Debug
+                # RUTEO INTELIGENTE: Separar Terminal de Debug de General
                 # ================================================================
                 to_terminal = False  # Por defecto, NO va a terminal
                 to_debug = True      # Por defecto, SÍ va a debug
+                to_general = True    # Por defecto, SÍ va a general (Log completo mirror del archivo)
                 
                 # REGLA 1: Resúmenes de pacientes van a Terminal
                 if "🔥" in clean_msg and "|" in clean_msg:
@@ -324,53 +384,55 @@ class RunnerView(ctk.CTkFrame):
                     to_terminal = True
                     to_debug = True
                 
-                # REGLA 4: Todo lo demás SOLO a Debug
-                # - Timing (⏳, ✓, ⏱️, ━)
-                # - Pasos técnicos (1️⃣, 2️⃣, etc.)
-                # - Detalles de ejecución (└─, ├─)
-                # - Logs de debugging
+                # ================================================================
+                # 3. FILTRADO ESTRICTO DE DESTINO (SEGÚN PETICIÓN USUARIO)
+                # ================================================================
+                
+                # A. TERMINAL: SOLO Resumen Visual (Tablas, Emojis de reporte)
+                summary_indicators = ["🔥", "📋", "📊", "RESUMEN FINAL", "Exitosos:", "Guardado en:"]
+                if any(x in clean_msg for x in summary_indicators):
+                    to_terminal = True
+                    to_debug = False # No ensuciar debug con resumen repetido
+                    to_general = False # No ensuciar general
+                
+                # B. DEBUG: Pasos técnicos, Tiempos, Trazas
+                elif any(x in clean_msg for x in ["⏳", "✓", "⏱️", "└─", "├─", "INICIO TIMING", "TOTAL:", "System Check"]):
+                    to_terminal = False
+                    to_debug = True
+                    to_general = False
+                
+                # C. GENERAL: Logs de sistema, backend, errores puros
                 else:
-                    # Detectar mensajes técnicos que NO deben ir a terminal
-                    debug_indicators = [
-                        "⏳", "✓", "⏱️",  # Timing symbols
-                        "━━━", "──",      # Separators
-                        "└─", "├─",       # Tree symbols
-                        "INICIO TIMING", "TOTAL:",  # Timing headers
-                        "Asegurar estado", "Encontrar input", "Escribir RUT",  # Steps
-                        "Leer mini-tabla", "Leer edad", "Navegar a Cartola",
-                        "Expandir caso", "Leer IPD", "Leer OA", "Leer APS",
-                        "Leer SIC", "Leer prestaciones", "Cerrar caso",
-                        "Acum:", "📊", "👤"  # Timing info
-                    ]
-                    
-                    if any(indicator in clean_msg for indicator in debug_indicators):
-                        to_terminal = False
-                        to_debug = True
+                    # Catch-all para logs de sistema (Driver, JS extraction, etc)
+                    to_terminal = False
+                    to_debug = False # Opcional: poner True si se quiere todo en debug
+                    to_general = True
+
                 
                 # ================================================================
                 # INSERTAR EN LOS TEXTBOXES CORRESPONDIENTES
                 # ================================================================
                 if to_terminal:
                     self.term_console.append(clean_msg + "\n")
-                    
-                    # Guardar en archivo de log terminal
                     if self.terminal_log_handle:
                         try:
                             self.terminal_log_handle.write(clean_msg + "\n")
                             self.terminal_log_handle.flush()
-                        except:
-                            pass
+                        except: pass
                     
                 if to_debug:
                     self.debug_console.append(clean_msg + "\n")
-                    
-                    # Guardar en archivo de log debug
                     if self.debug_log_handle:
                         try:
                             self.debug_log_handle.write(clean_msg + "\n")
                             self.debug_log_handle.flush()
-                        except:
-                            pass
+                        except: pass
+                
+                if to_general:
+                    try:
+                        self.general_console.append(clean_msg + "\n")
+                    except: pass
+
                     
         except queue.Empty:
             pass
@@ -428,7 +490,7 @@ class RunnerView(ctk.CTkFrame):
             try:
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
+                sock.settimeout(0.5)
                 result = sock.connect_ex(('127.0.0.1', 9222))
                 sock.close()
                 
@@ -448,12 +510,28 @@ class RunnerView(ctk.CTkFrame):
                 import Mision_Actual.Mision_Actual as ma
                 import Utilidades.Mezclador.Conexiones as conexiones
                 
-                # RECARGA CRÍTICA: Asegurar que se use la nueva misión
+                # RECARGA CRÍTICA: Asegurar que se usen los nuevos parches de estabilidad
+                # Sin esto, los cambios en las firmas de métodos (kwargs) no se ven
+                import src.core.Driver as driver_mod
+                import src.core.waits as waits_mod
+                import src.core.modules.core as core_mod
+                import src.core.modules.navigation as nav_mod
+                import src.core.Mini_Tabla as mini_mod
+                import src.utils.Esperas as esperas_mod
+                import src.utils.Direcciones as dirs_mod
+                
                 importlib.reload(ma)
+                importlib.reload(driver_mod)
+                importlib.reload(waits_mod)
+                importlib.reload(core_mod)
+                importlib.reload(nav_mod)
+                importlib.reload(mini_mod)
+                importlib.reload(esperas_mod)
+                importlib.reload(dirs_mod)
                 importlib.reload(conexiones)
                 
                 from Utilidades.Mezclador.Conexiones import ejecutar_revision
-                self._log("✅ Módulos recargados y listos", level="OK")
+                self._log("✅ Módulos (Core + Mixins + Utils) recargados", level="OK")
             except ImportError as ie:
                 self._log(f"❌ Error importando módulos: {ie}", level="ERROR")
                 self._log("💡 Verifica que todos los archivos estén en su lugar", level="ERROR")
@@ -550,6 +628,15 @@ class RunnerView(ctk.CTkFrame):
         control.request_stop()
         self._transition_to(RunState.STOPPING)
     
+        control.request_stop()
+        self._transition_to(RunState.STOPPING)
+        
+    def _request_snapshot(self):
+        """Solicita un snapshot inmediato."""
+        from src.utils.ExecutionControl import get_execution_control
+        get_execution_control().request_snapshot()
+        self._log("📸 Solicitud de guardado enviada (se procesará al finalizar el paciente actual)", level="INFO")
+    
     def _export_results(self):
         """Exporta los resultados actuales a un archivo."""
         try:
@@ -569,6 +656,7 @@ class RunnerView(ctk.CTkFrame):
             
             terminal_content = self.term_console.get()
             debug_content = self.debug_console.get()
+            general_content = self.general_console.get()
             
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write("=" * 80 + "\n")
@@ -576,6 +664,7 @@ class RunnerView(ctk.CTkFrame):
                 f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write("=" * 80 + "\n\n")
                 f.write("TERMINAL:\n" + "-" * 80 + "\n" + terminal_content + "\n\n")
+                f.write("GENERAL:\n" + "-" * 80 + "\n" + general_content + "\n\n")
                 f.write("DEBUG:\n" + "-" * 80 + "\n" + debug_content)
             
             self._log(f"✅ Exportado: {filename}", level="OK")
@@ -586,6 +675,76 @@ class RunnerView(ctk.CTkFrame):
         """Limpia ambos paneles de logs."""
         self.term_console.clear()
         self.debug_console.clear()
+        self.general_console.clear()
+
+    # =========================================================================
+    #  SEARCH LOGIC (Context Aware)
+    # =========================================================================
+    
+    def _get_active_console(self):
+        """Devuelve el widget textbox activo según la pestaña seleccionada."""
+        try:
+            tab = self.log_tabs.get()
+            if tab == "💻 Terminal": return self.term_console
+            if tab == "🔧 Debug / Trace": return self.debug_console
+            if tab == "📝 General": return self.general_console
+        except:
+            pass
+        return None
+
+    def _do_search(self):
+        """Busca el texto en la consola ACTIVA."""
+        query = self.search_entry.get()
+        if not query:
+            return
+            
+        console = self._get_active_console()
+        if not console:
+            return
+            
+        # Limpiar tags previos
+        console.tag_remove("search_highlight", "1.0", "end")
+        
+        # Configurar tag (Amarillo neon)
+        console.tag_config("search_highlight", background="#f1c40f", foreground="black")
+        
+        # Buscar
+        start_pos = "1.0"
+        count_matches = 0
+        first_pos = None
+        
+        while True:
+            pos = console.search(query, start_pos, stopindex="end", nocase=True)
+            if not pos:
+                break
+            
+            # Calcular fin del match
+            end_pos = f"{pos}+{len(query)}c"
+            console.tag_add("search_highlight", pos, end_pos)
+            
+            if not first_pos:
+                first_pos = pos
+                
+            count_matches += 1
+            start_pos = end_pos
+            
+        # Scroll al primero
+        if first_pos:
+            console.see(first_pos)
+            self.search_btn.configure(text=f"{count_matches}")
+        else:
+            self.search_btn.configure(text="0")
+
+    def _clear_search(self):
+        """Limpia la búsqueda."""
+        self.search_entry.delete(0, "end")
+        self.search_btn.configure(text="Buscar")
+        
+        # Limpiar en TODAS las consolas por si acaso cambió de tab
+        for c in [self.term_console, self.debug_console, self.general_console]:
+            try:
+                c.tag_remove("search_highlight", "1.0", "end")
+            except: pass
 
     def update_colors(self, colors):
         """Actualiza colores sin recrear la vista (Vital para no matar el thread)."""
@@ -597,6 +756,7 @@ class RunnerView(ctk.CTkFrame):
         # Update Consoles
         self.term_console.update_colors(colors)
         self.debug_console.update_colors(colors)
+        self.general_console.update_colors(colors)
         
         # Update Frames (naive approach)
         for widget in self.winfo_children():

@@ -38,12 +38,12 @@ DEFAULT_THEME: Dict[str, Any] = {
     "colors": {
         "dark": {
             # Fondos con profundidad - Ultra smooth gradient
-            "bg_primary": "#0a0e14",       # Deep black with warmth
-            "bg_secondary": "#11161d",     # Slightly elevated, smooth
-            "bg_card": "#1a1f27",          # Card surface - subtle lift
-            "bg_elevated": "#252b35",      # Elevated elements - clear
-            "bg_hover": "#2d3540",         # Hover state - responsive
-            "bg_input": "#0f141a",         # Input fields - recessed
+            "bg_primary": "#0f1115",       # Deep black with warmth - Darker
+            "bg_secondary": "#161b22",     # Slightly elevated - Better contrast
+            "bg_card": "#1e242e",          # Card surface - Subtle blue tint
+            "bg_elevated": "#2a3241",      # Elevated elements - Clearer
+            "bg_hover": "#323b4a",         # Hover state - More responsive
+            "bg_input": "#0d1117",         # Input fields - Recessed
             
             # Textos - Alto contraste WCAG AAA
             "text_primary": "#f8fafc",     # Pure white with warmth
@@ -52,9 +52,9 @@ DEFAULT_THEME: Dict[str, Any] = {
             "text_accent": "#00f2c3",      # Accent text
             
             # Bordes - Sutiles pero definidos
-            "border": "#2d3540",           # Visible border
-            "border_light": "#1f2937",     # Subtle separation
-            "border_accent": "#00f2c350",  # Accent glow border
+            "border": "#30363d",           # Visible border - GitHub Dark style
+            "border_light": "#21262d",     # Subtle separation
+            "border_accent": "#00f2c380",  # Accent glow border - More visible
             
             # Estados - Vibrantes y claros
             "accent": "#00f2c3",           # Primary accent (turquesa)
@@ -331,20 +331,29 @@ _cached_theme: Dict[str, Any] = None
 #                          FUNCIONES DE TEMA
 # =============================================================================
 
-def load_theme() -> Dict[str, Any]:
-    """Carga el tema desde el archivo de configuración."""
+def load_theme(force_reload: bool = False) -> Dict[str, Any]:
+    """
+    Carga el tema desde el archivo de configuración.
+    Usa caché en memoria para evitar I/O excesivo.
+    """
     global _cached_theme
+    
+    # Retornar caché si existe y no se fuerza recarga
+    if _cached_theme is not None and not force_reload:
+        return _cached_theme
+        
     if os.path.exists(THEME_CONFIG_PATH):
         try:
             with open(THEME_CONFIG_PATH, "r", encoding="utf-8") as f:
-                _cached_theme = json.load(f)
+                loaded = json.load(f)
                 # Merge con defaults para asegurar todas las keys existen
                 merged = DEFAULT_THEME.copy()
-                merged.update(_cached_theme)
+                merged.update(loaded)
                 _cached_theme = merged
                 return _cached_theme
         except Exception:
             pass
+            
     _cached_theme = DEFAULT_THEME.copy()
     return _cached_theme
 

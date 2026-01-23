@@ -265,28 +265,148 @@ class MissionsView(ctk.CTkFrame):
             self.after(1500, lambda: self.save_btn.configure(text="💾 Guardar"))
     
     def _load_as_current(self):
-        """Copia a Mision_Actual.py y recarga el módulo SIN REINICIAR."""
+        """Carga una misión parseando el .py y escribiendo a mission_config.json."""
         if not self.current_file:
             return
         
         if messagebox.askyesno("Confirmar", "¿Cargar esta misión como actual?\nSe aplicará INMEDIATAMENTE sin reiniciar."):
             try:
                 content = self.code_text.get("1.0", "end-1c")
-                target = os.path.join(ruta_proyecto, "Mision_Actual", "Mision_Actual.py")
                 
-                # Escribir archivo
-                with open(target, "w", encoding="utf-8") as f:
-                    f.write(content)
+                # --- NUEVA LÓGICA: Parsear .py a dict y escribir JSON ---
+                config_json_path = os.path.join(ruta_proyecto, "App", "config", "mission_config.json")
                 
-                # RECARGAR MÓDULO para aplicar cambios inmediatamente
+                # 1. Parsear contenido del archivo Python en un namespace temporal
+                namespace = {}
                 try:
-                    import Mision_Actual.Mision_Actual as MA
-                    importlib.reload(MA)
-                except:
-                    pass
+                    exec(content, namespace)
+                except Exception as parse_err:
+                    messagebox.showerror("Error de Sintaxis", f"El archivo de misión tiene errores:\n{parse_err}")
+                    return
                 
-                self.load_btn.configure(text="✅ ¡Aplicado!")
-                messagebox.showinfo("Éxito", "Misión cargada y aplicada.\nLos cambios están activos ahora.")
+                # 2. Extraer variables conocidas del namespace
+                keys_to_extract = [
+                    "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
+                    "DIRECCION_DEBUG_EDGE", "EDGE_DRIVER_PATH",
+                    "INDICE_COLUMNA_FECHA", "INDICE_COLUMNA_RUT", "INDICE_COLUMNA_NOMBRE",
+                    "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
+                    "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
+                    "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES",
+                    "FILAS_IPD", "FILAS_OA", "FILAS_APS", "FILAS_SIC",
+                    "HABILITANTES_MAX", "EXCLUYENTES_MAX",
+                    "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR",
+                    "FOLIO_VIH", "FOLIO_VIH_CODIGOS", "MISSIONS"
+                ]
+                
+                new_config = {}
+                for key in keys_to_extract:
+                    if key in namespace:
+                        new_config[key] = namespace[key]
+                
+                if not new_config:
+                    messagebox.showerror("Error", "No se encontraron configuraciones válidas en el archivo.")
+                    return
+                
+                # 3. Escribir al JSON
+                import json
+                with open(config_json_path, "w", encoding="utf-8") as f:
+                    json.dump(new_config, f, indent=2, ensure_ascii=False)
+                
+                # 4. 🔥 RESTAURAR ADAPTADOR en Mision_Actual.py
+                # Esto asegura que el backend (runner) lea el JSON actualizado y no una versión vieja hardcoded
+                adapter_code = '''# Misiones/Mision_Actual.py
+# -*- coding: utf-8 -*-
+"""
+==============================================================================
+                    MISION_ACTUAL.PY - ADAPTER (JSON)
+==============================================================================
+⚠️ ADVERTENCIA: NO EDITAR ESTE ARCHIVO MANUALMENTE.
+La configuración ahora se carga desde: App/config/mission_config.json
+"""
+import json
+import os
+import sys
+
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_CURRENT_DIR)
+_CONFIG_PATH = os.path.join(_PROJECT_ROOT, "App", "config", "mission_config.json")
+
+def _load_config():
+    if not os.path.exists(_CONFIG_PATH):
+        raise FileNotFoundError(f"No config found: {_CONFIG_PATH}")
+    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+# Cargar configuración
+_config = _load_config()
+
+# MAPEO DE VARIABLES
+NOMBRE_DE_LA_MISION = _config.get("NOMBRE_DE_LA_MISION", "Unknown")
+RUTA_ARCHIVO_ENTRADA = _config.get("RUTA_ARCHIVO_ENTRADA", "")
+RUTA_CARPETA_SALIDA = _config.get("RUTA_CARPETA_SALIDA", "")
+DIRECCION_DEBUG_EDGE = _config.get("DIRECCION_DEBUG_EDGE", "")
+EDGE_DRIVER_PATH = _config.get("EDGE_DRIVER_PATH", "")
+
+INDICE_COLUMNA_FECHA = _config.get("INDICE_COLUMNA_FECHA", 0)
+INDICE_COLUMNA_RUT = _config.get("INDICE_COLUMNA_RUT", 1)
+INDICE_COLUMNA_NOMBRE = _config.get("INDICE_COLUMNA_NOMBRE", 2)
+
+VENTANA_VIGENCIA_DIAS = _config.get("VENTANA_VIGENCIA_DIAS", 30)
+MAX_REINTENTOS_POR_PACIENTE = _config.get("MAX_REINTENTOS_POR_PACIENTE", 3)
+
+REVISAR_IPD = _config.get("REVISAR_IPD", False)
+REVISAR_OA = _config.get("REVISAR_OA", False)
+REVISAR_APS = _config.get("REVISAR_APS", False)
+REVISAR_SIC = _config.get("REVISAR_SIC", False)
+
+REVISAR_HABILITANTES = _config.get("REVISAR_HABILITANTES", False)
+REVISAR_EXCLUYENTES = _config.get("REVISAR_EXCLUYENTES", False)
+
+FILAS_IPD = _config.get("FILAS_IPD", 1)
+FILAS_OA = _config.get("FILAS_OA", 1)
+FILAS_APS = _config.get("FILAS_APS", 1)
+FILAS_SIC = _config.get("FILAS_SIC", 1)
+
+HABILITANTES_MAX = _config.get("HABILITANTES_MAX", 1)
+EXCLUYENTES_MAX = _config.get("EXCLUYENTES_MAX", 1)
+
+OBSERVACION_FOLIO_FILTRADA = _config.get("OBSERVACION_FOLIO_FILTRADA", False)
+CODIGOS_FOLIO_BUSCAR = _config.get("CODIGOS_FOLIO_BUSCAR", [])
+
+FOLIO_VIH = _config.get("FOLIO_VIH", False)
+FOLIO_VIH_CODIGOS = _config.get("FOLIO_VIH_CODIGOS", [])
+
+MISSIONS = _config.get("MISSIONS", [])
+'''
+                target = os.path.join(ruta_proyecto, "Mision_Actual", "Mision_Actual.py")
+                with open(target, "w", encoding="utf-8") as f:
+                    f.write(adapter_code)
+
+                # 5. Recargar módulo Mision_Actual para que tome los nuevos valores
+                import Mision_Actual.Mision_Actual as MA
+                importlib.reload(MA)
+                
+                # 5. ✨ Forzar recarga ROBUSTA en todas las vistas activas
+                refresh_count = 0
+                try:
+                    app = self.winfo_toplevel()
+                    if hasattr(app, "view_manager"):
+                        vm = app.view_manager
+                        for name, view in vm._instances.items():
+                            # Verificar si tiene controller con caché
+                            if hasattr(view, "controller") and hasattr(view.controller, "_cached_config"):
+                                view.controller._cached_config = None
+                            
+                            # Forzar recarga de UI si soporta el protocolo
+                            if hasattr(view, "reload_ui"):
+                                view.reload_ui()
+                                refresh_count += 1
+                                
+                except Exception as refresh_err:
+                    print(f"⚠️ Error en refresh masivo: {refresh_err}")
+                
+                self.load_btn.configure(text=f"✅ ¡Aplicado! ({refresh_count})")
+                messagebox.showinfo("Éxito", f"Misión cargada y aplicada.\nSe actualizaron {refresh_count} vistas activas.")
                 self.after(2000, lambda: self.load_btn.configure(text="⚡ Usar Ahora"))
                 
             except Exception as e:
@@ -343,8 +463,12 @@ class MissionsView(ctk.CTkFrame):
             return
         
         if messagebox.askyesno("Confirmar", f"¿Eliminar {os.path.basename(self.current_file)}?"):
-            os.remove(self.current_file)
-            self.current_file = None
-            self._load_mission_tree()
-            self.code_text.delete("1.0", "end")
-            self.file_label.configure(text="Selecciona una misión")
+            try:
+                os.remove(self.current_file)
+                self.current_file = None
+                self._load_mission_tree()
+                self.code_text.delete("1.0", "end")
+                self.file_label.configure(text="Selecciona una misión")
+                messagebox.showinfo("Éxito", "Misión eliminada correctamente.")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar la misión:\n{e}")
