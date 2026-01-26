@@ -21,6 +21,7 @@
   "FILAS_SIC": 1,
   "HABILITANTES_MAX": 1,
   "EXCLUYENTES_MAX": 1,
+  "MOSTRAR_FUTURAS": true,
   "OBSERVACION_FOLIO_FILTRADA": false,
   "CODIGOS_FOLIO_BUSCAR": [],
   "FOLIO_VIH": false,
@@ -41,7 +42,9 @@
         "0801001",
         "801101"
       ],
-      "excluyentes": [],
+      "excluyentes": [
+        "[]"
+      ],
       "familia": "3",
       "especialidad": "13-04-02",
       "frecuencia": "Mensual",

@@ -113,6 +113,8 @@ XPATHS: Dict[str, Any] = {
         "//*[@id='root']/main/div[3]/div[3]/div/div/div[1]/div/button/p", # User Absolute (to P - Priority 2)
         "//button[@class='botonBase botonStand2']", # User Class Specific
         "//button[.//p[normalize-space()='Buscar RUN']]",
+        "//button[contains(., 'Buscar')]", # Generic Fallback 1
+        "//p[contains(text(), 'Buscar')]/ancestor::button", # Generic Fallback 2
     ],
     "EDAD_PACIENTE": [
         "//*[@id='root']/main/div[3]/div[3]/div/div[1]/div[7]/div[2]/div/p", # User Absolute

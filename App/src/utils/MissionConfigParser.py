@@ -35,8 +35,9 @@ class MissionConfigHandler:
         simple_vars = [
             "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
             "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
-            "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES",
-            "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE"
+            "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES", "MOSTRAR_FUTURAS",
+            "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
+            "DEBUG_MODE"
         ]
         
         # Ejecutar el archivo en entorno seguro para extraer valores reales
@@ -76,6 +77,8 @@ class MissionConfigHandler:
             "VENTANA_VIGENCIA_DIAS": new_data.get("VENTANA_VIGENCIA_DIAS"),
             "REVISAR_IPD": new_data.get("REVISAR_IPD"),
             "REVISAR_OA": new_data.get("REVISAR_OA"),
+            "MOSTRAR_FUTURAS": new_data.get("MOSTRAR_FUTURAS"),
+            "DEBUG_MODE": new_data.get("DEBUG_MODE"),
         }
         
         for key, val in global_map.items():
@@ -155,6 +158,24 @@ class MissionConfigHandler:
                      kw_str = str(mdata["keywords"])
                      pattern = re.compile(r'"keywords":\s*\[.*?\]', re.DOTALL)
                      content = pattern.sub(f'"keywords": {kw_str}', content)
+
+                # Objetivos (lista)
+                if "objetivos" in mdata:
+                     obj_str = str(mdata["objetivos"])
+                     pattern = re.compile(r'"objetivos":\s*\[.*?\]', re.DOTALL)
+                     content = pattern.sub(f'"objetivos": {obj_str}', content)
+
+                # Habilitantes (lista)
+                if "habilitantes" in mdata:
+                     hab_str = str(mdata["habilitantes"])
+                     pattern = re.compile(r'"habilitantes":\s*\[.*?\]', re.DOTALL)
+                     content = pattern.sub(f'"habilitantes": {hab_str}', content)
+
+                # Excluyentes (lista)
+                if "excluyentes" in mdata:
+                     excl_str = str(mdata["excluyentes"])
+                     pattern = re.compile(r'"excluyentes":\s*\[.*?\]', re.DOTALL)
+                     content = pattern.sub(f'"excluyentes": {excl_str}', content)
 
         # Guardar
         with open(self.filepath, "w", encoding="utf-8") as f:

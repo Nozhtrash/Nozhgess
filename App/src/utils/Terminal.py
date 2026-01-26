@@ -161,25 +161,20 @@ def safe_print(msg: str) -> None:
 
 def log_info(msg: str) -> None:
     """Log de información general."""
-    # FILTRO: Solo muestra si DEBUG_MODE está activo
-    if DEBUG_MODE:
-        safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} {msg}")
+    # SIEMPRE imprimir para que el runner capture y filtre
+    safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} {msg}")
     _log_to_file("INFO", msg)
 
 
 def log_ok(msg: str) -> None:
     """Log de operación exitosa."""
-    # FILTRO: Solo muestra si DEBUG_MODE está activo
-    if DEBUG_MODE:
-        safe_print(f"{Fore.GREEN}[OK]{Style.RESET_ALL} {msg}")
+    safe_print(f"{Fore.GREEN}[OK]{Style.RESET_ALL} {msg}")
     _log_to_file("OK", msg)
 
 
 def log_warn(msg: str) -> None:
     """Log de advertencia."""
-    # FILTRO: Solo muestra si DEBUG_MODE está activo
-    if DEBUG_MODE:
-        safe_print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} {msg}")
+    safe_print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} {msg}")
     _log_to_file("WARN", msg)
 
 
@@ -216,8 +211,11 @@ def log_debug(msg: str) -> None:
     
     full_msg = f"[{timestamp}]{stats} {msg}"
     
-    # Escribir siempre al log (DEBUG se filtra en el handler si es necesario, pero aquí forzamos INFO para que se guarde)
-    # Usamos prefijo [DEBUG] para que el parser de runner.py lo detecte
+    # ⚡ NEW: Si DEBUG_MODE es True, imprimir en terminal (Debug Console)
+    # AHORA: Siempre imprimir [DEBUG] para que el runner lo capture y lo mande a la pestaña Debug
+    safe_print(f"{Fore.LIGHTBLACK_EX}[DEBUG] {full_msg}{Style.RESET_ALL}")
+
+    # Escribir siempre al log
     _log_to_file("INFO", f"[DEBUG] {full_msg}")
 
 
@@ -239,11 +237,9 @@ def log_step(paso: str, rut: str = None, extra: str = None) -> None:
     ctx = f" | {' | '.join(ctx_parts)}" if ctx_parts else ""
     
     # En debug mode, añadir stats al paso
-    if DEBUG_MODE:
-        stats = get_system_stats()
-        msg = f"📌 {paso}{ctx}{stats}"
-    else:
-        msg = f"📌 {paso}{ctx}"
+    stats = get_system_stats()
+    msg = f"📌 {paso}{ctx}{stats}"
+    # log_info ya imprime siempre
     log_info(msg)
 
 
@@ -254,8 +250,8 @@ def log_separator(titulo: str = None) -> None:
     else:
         sep = "━" * 50
     
-    if DEBUG_MODE:
-        safe_print(f"{Fore.LIGHTBLACK_EX}{sep}{Style.RESET_ALL}")
+    # Siempre imprimir separadores
+    safe_print(f"{Fore.LIGHTBLACK_EX}{sep}{Style.RESET_ALL}")
     _log_to_file("INFO", sep)
 
 
@@ -270,29 +266,21 @@ from contextlib import contextmanager
 def timing_block(nombre: str, show_start: bool = True):
     """
     Context manager para medir y mostrar tiempo de ejecución.
-    
-    Uso:
-        with timing_block("Leer IPD"):
-            # código que se mide...
-        # Automáticamente imprime: "└─ Leer IPD → 123ms"
-    
-    Args:
-        nombre: Nombre de la operación para mostrar
-        show_start: Si mostrar mensaje de inicio (default: True)
     """
     from src.utils.DEBUG import should_show_timing
     
     t0 = time.time()
     
-    if show_start and should_show_timing():
+    # Siempre mostrar inicio (runner filtrará)
+    if show_start:
         safe_print(f"{Fore.LIGHTBLACK_EX}  └─ {nombre}...{Style.RESET_ALL}")
     
     try:
         yield
     finally:
         dt = (time.time() - t0) * 1000
-        if should_show_timing():
-            safe_print(f"{Fore.LIGHTBLACK_EX}  └─ {nombre} → {dt:.0f}ms{Style.RESET_ALL}")
+        # Siempre mostrar fin (runner filtrará)
+        safe_print(f"{Fore.LIGHTBLACK_EX}  └─ {nombre} → {dt:.0f}ms{Style.RESET_ALL}")
         # Siempre loguear a archivo
         _log_to_file("INFO", f"⏱️ {nombre}: {dt:.0f}ms")
 
@@ -402,6 +390,60 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
             sic_col = C_SI if sic_val == "Sí" else C_NO
             sic_str = f" {b} 📨 {color_lbl}SIC:{RESET} {sic_col}{sic_val}{RESET}"
 
+        # --- NUEVO: Habilitantes y Excluyentes (Granular) ---
+        
+        # Habilitante (Hab)
+        # Lógica: Si hay códigos habilitantes encontrados ("C Hab"), es Sí.
+        hab_txt = res.get("C Hab", "")
+        if hab_txt:
+            hab_val = "Sí"
+            hab_col = C_SI # Verde
+        else:
+            hab_val = "No" 
+            hab_col = C_NO # Rojo (Asumiendo que se busca habilitante)
+            # Ojo: Si la misión no revisa habilitantes, esto podría ser confuso.
+            # Verificamos si se configuró revisar habilitantes? 
+            # res no trae la config, pero si "C Hab" existe es porque se buscó?
+            # Si no se buscó, será "No" o vacío. Asumimos "No".
+            
+        hab_str = f" {b} 🛡️ {color_lbl}Hab:{RESET} {hab_col}{hab_val}{RESET}"
+
+        # Excluyente (Excl)
+        # Lógica: Si hay excluyentes ("C Excluyente"), es Sí (Malo).
+        excl_txt = res.get("C Excluyente", "")
+        if excl_txt:
+            excl_val = "Sí"
+            excl_col = C_NO # Rojo (Excluyente encontrado es malo para la admisión)
+        else:
+            excl_val = "No"
+            excl_col = C_SI # Verde (No hay excluyentes es bueno)
+            
+        excl_str = f" {b} 🚫 {color_lbl}Excl:{RESET} {excl_col}{excl_val}{RESET}"
+
+        # --- NUEVO: Fallecido y Variedad (Premium UX) ---
+        
+        # Fallecido
+        fall_val = res.get("Fallecido", "NO")
+        if fall_val == "SI":
+            fall_col = C_NO # Rojo (Alerta)
+            fall_ico = "☠️"
+        else:
+            fall_col = C_SI # Verde (OK)
+            fall_ico = "❤️"
+            
+        fall_str = f" {b} {fall_ico} {color_lbl}Fall:{RESET} {fall_col}{fall_val}{RESET}"
+        
+        # Variedad (Cantidad de casos)
+        var_val = res.get("Variedad", "0")
+        # Si hay más de 1 caso, color naranja para alertar
+        try:
+            var_int = int(var_val)
+            var_col = C_NARANJA if var_int > 1 else C_INDICE
+        except:
+            var_col = C_INDICE
+            
+        var_str = f" {b} 👥 {color_lbl}Var:{RESET} {var_col}{var_val}{RESET}"
+
         # Resultado de la misión
         mini_found = (res.get("Caso") or "Sin caso") != "Sin caso"
         obs_txt = res.get("Observación", "")
@@ -415,10 +457,12 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
             st_msg, st_col = "✅ OK ✅", C_EXITO
 
         # Construir línea completa de la misión
+        # Formato: 📋 M1: Sí | Hab: Sí | Excl: No | Fall: No | Var: 1 | IPD...
         linea_mision = (
-            f"📋 {color_lbl}M{m_num}:{RESET} {mini_col}{mini_val}{RESET}"
+            f"📋 {color_lbl}M{m_num} Caso:{RESET} {mini_col}{mini_val}{RESET}"
+            f"{hab_str}{excl_str}{fall_str}{var_str}"
             f"{ipd_str}{oa_str}{aps_str}{sic_str}"
-            f" {b} 📊 {color_lbl}M{m_num}:{RESET} {st_col}{st_msg}{RESET}"
+            f" {b} 📊 {color_lbl}Estado:{RESET} {st_col}{st_msg}{RESET}"
         )
         lineas_misiones.append(linea_mision)
 
@@ -432,24 +476,45 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
 
     # IMPRIMIR TODO
     # IMPRIMIR TODO
+
+    # Función helper para imprimir raw y loguear raw
+    # Importante para que aparezca en General Terminal sin tags molestos (o con tags de archivo)
+    import re
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    
+    def log_summary_line(msg=""):
+        safe_print(msg)
+        clean = ansi_escape.sub('', msg)
+        # Loguear como INFO, aparecerá [INFO] clean en archivo, es aceptable.
+        # Si msg es vacío, solo loguear espacio
+        if not clean.strip():
+             _log_to_file("INFO", "")
+        else:
+             _log_to_file("INFO", clean)
+
     try:
-        print(linea_info)
-        print()
+        # Separación visual PREVIA al bloque del paciente
+        log_summary_line()
+        log_summary_line()
         
-        # Imprimir cada misión en su propia línea con separación
-        for i_m, linea_m in enumerate(lineas_misiones):
-            print(linea_m)
-            # Siempre espacio después de misión
-            print() 
+        log_summary_line(linea_info)
+        log_summary_line()
         
-        # Si hay error especial, mostrarlo
+        # Imprimir cada misión
+        for linea_m in lineas_misiones:
+            log_summary_line(linea_m)
+            # Siempre espacio
+            log_summary_line()
+        
+        # Si hay error especial
         if linea_resultado_especial:
-            print(linea_resultado_especial)
-            print() # Espacio
+            log_summary_line(linea_resultado_especial)
+            log_summary_line()
         
-        # Separación extra para el siguiente paciente (Total 2-3 espacios visuales)
-        print() 
-        print() # Espacio extra solicitado 
+        # Separación extra
+        log_summary_line() 
+        log_summary_line() 
+ 
         
     except Exception:
         # Fallback simple si falla el formateo
@@ -470,6 +535,7 @@ def mostrar_banner(mision: str, archivo: str, total_filas: int) -> None:
     """
     archivo_corto = os.path.basename(archivo) if archivo else "N/A"
     
+    # ASCII Art Banner
     banner = f"""
 {Fore.CYAN}╔══════════════════════════════════════════════════════════════════════════════╗
 ║                           🔥 NOZHGESS v1.0 🔥                                 ║
@@ -479,7 +545,12 @@ def mostrar_banner(mision: str, archivo: str, total_filas: int) -> None:
 ║  👥 Pacientes: {Fore.MAGENTA}{total_filas:<57}{Fore.CYAN} ║
 ╚══════════════════════════════════════════════════════════════════════════════╝{Style.RESET_ALL}
 """
+    # Imprimir y Loguear (Loguear versión limpia para archivo)
     safe_print(banner)
+    
+    import re
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    _log_to_file("INFO", ansi_escape.sub('', banner))
 
 
 # =============================================================================

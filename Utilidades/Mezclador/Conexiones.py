@@ -50,8 +50,10 @@ from Mision_Actual import (
     REVISAR_OA,
     REVISAR_APS,
     REVISAR_SIC,
+    REVISAR_SIC,
     REVISAR_HABILITANTES,
     REVISAR_EXCLUYENTES,
+    MOSTRAR_FUTURAS, # New import
     FILAS_IPD,
     FILAS_OA,
     FILAS_APS,
@@ -132,10 +134,15 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
             candidatos.append(c)
             continue
             
+            continue
+            
         for kw in kws:
             if kw.lower() in nombre:
                 candidatos.append(c)
+                log_debug(f"✅ Match keyword '{kw}' en '{nombre}'")
                 break
+        else:
+             log_debug(f"❌ '{nombre}' descartado (No contiene {kws})")
     
     if not candidatos:
         return None
@@ -166,6 +173,7 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
             mejor_puntaje = score
             mejor_caso = c
             
+    log_debug(f"🏆 Caso seleccionado: {mejor_caso.get('caso') if mejor_caso else 'Ninguno'} (Score: {mejor_puntaje})")
     return mejor_caso
 
 
@@ -234,28 +242,37 @@ def buscar_inteligencia_historia(sigges, root, estado_caso: str) -> Dict[str, st
 
 
 def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str], 
-                        fobj: Optional[datetime]) -> List[Tuple[str, datetime]]:
+                        fobj: Optional[datetime], mostrar_futuras: bool = False) -> List[Tuple[str, datetime, bool]]:
     """
     Busca habilitantes en la lista de prestaciones.
-    
-    Args:
-        prest: Lista de prestaciones {fecha, codigo, glosa, ref}
-        cods: Códigos de habilitantes a buscar
-        fobj: Fecha de la nómina (para filtrar)
-        
-    Returns:
-        Lista de tuplas (codigo, fecha) ordenadas por fecha desc
+    Returns: List of (code, date, is_future)
     """
     cods_norm = {normalizar_codigo(c) for c in (cods or []) if str(c).strip()}
     out = []
 
     for p in prest or []:
-        c_norm = normalizar_codigo(p.get("codigo", ""))
+        raw_c = p.get("codigo", "")
+        c_norm = normalizar_codigo(raw_c)
+        
+        # Check 1: Código coincide?
         if not c_norm or c_norm not in cods_norm:
             continue
-        f = dparse(p.get("fecha", ""))
-        if f and (not fobj or f <= fobj):
-            out.append((c_norm, f))
+            
+        f_str = p.get("fecha", "")
+        f = dparse(f_str)
+        
+        # Check 2: Fecha válida?
+        if not f:
+            continue
+            
+        # Check 3: Vigencia (Fecha Prest <= Fecha Objetivo)
+        is_future = False
+        if fobj and f > fobj:
+             if not mostrar_futuras:
+                 continue
+             is_future = True
+             
+        out.append((c_norm, f, is_future))
 
     return sorted(out, key=lambda x: x[1], reverse=True)
 
@@ -383,6 +400,14 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     """
     res = vac_row(m, fecha, rut, nombre, "")
     res["Edad"] = str(edad_paciente) if edad_paciente is not None else ""
+
+    # --- NUEVOS INDICADORES ---
+    # Variedad: Cantidad de casos candidatos disponibles
+    count_vars = len(casos_data) if casos_data else 0
+    res["Variedad"] = str(count_vars)
+    
+    # Fallecido: Boolean explícito
+    res["Fallecido"] = "SI" if fall_dt else "NO"
 
     # Buscar caso INTELIGENTE
     caso_seleccionado = seleccionar_caso_inteligente(casos_data, m.get("keywords", []))
@@ -593,15 +618,52 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     else:
         res["Mensual"] = "Sin Día"
 
+    # =========================================================================
+    # 🧠 POOL DE BÚSQUEDA UNIFICADO (PRESTACIONES + OAs)
+    # =========================================================================
+    # Muchas veces los habilitantes (ej 0801001) están en las OAs y no en prestaciones facturadas.
+    # Unificamos todo en una sola lista para buscar códigos.
+    
+    pool_busqueda = list(prestaciones) # Copia base
+    
+    if folios_oa_encontrados:
+        for fol_data in folios_oa_encontrados:
+            # fol_data = (folio, dt_oa, codigo, derivado, fecha_str)
+            try:
+                # Convertir a formato dict compatible con funciones de búsqueda
+                item_oa = {
+                    "codigo": fol_data[2],          # Código OA
+                    "fecha": fol_data[4],           # Fecha string
+                    "glosa": f"OA {fol_data[0]} ({fol_data[3]})", # Glosa informativa
+                    "ref": "OA"                     # Origen
+                }
+                # Solo agregar si tiene código
+                if item_oa["codigo"]:
+                    pool_busqueda.append(item_oa)
+            except Exception:
+                continue
+
     # ===== HABILITANTES =====
     habs_cfg = m.get("habilitantes", []) or []
     if REVISAR_HABILITANTES and habs_cfg:
-        habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj)
+        # CORRECCIÓN: Usar SOLO PRESTACIONES (PO) para habilitantes, NO OAs.
+        # El usuario especificó: "debe extraerlos de la tabla de prestaciones otorgadas ( PO )"
+        habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj, MOSTRAR_FUTURAS)
 
         if habs_found:
             top = habs_found[:HABILITANTES_MAX]
             res["C Hab"] = join_clean([h[0] for h in top])
-            res["F Hab"] = join_clean([h[1].strftime("%d/%m/%Y") for h in top])
+            
+            # Formatear Fechas (con marcador ! si es futuro)
+            fechas_fmt = []
+            for h in top:
+                # h = (codigo, fecha, is_future)
+                f_str = h[1].strftime("%d/%m/%Y")
+                if h[2]: # is_future
+                    f_str = "! " + f_str
+                fechas_fmt.append(f_str)
+            
+            res["F Hab"] = join_clean(fechas_fmt)
 
             hab_vigentes = [h for h in habs_found if en_vigencia(fobj, h[1], VENTANA_VIGENCIA_DIAS)] if fobj else habs_found
 
@@ -620,7 +682,8 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
 
     if excl_norm:
         excl_found = []
-        for p in prestaciones:
+        # USAR POOL UNIFICADO
+        for p in pool_busqueda:
             c_norm = normalizar_codigo(p.get("codigo", ""))
             if c_norm in excl_norm:
                 f_txt = (p.get("fecha", "") or "").strip()

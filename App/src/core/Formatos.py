@@ -180,7 +180,9 @@ def normalizar_codigo(c: str) -> str:
     Returns:
         Solo dígitos
     """
-    return re.sub(r"\D", "", (c or "").strip())
+    s = re.sub(r"\D", "", (c or "").strip())
+    # Eliminar ceros a la izquierda para comparaciones robustas (0801001 == 801101)
+    return s.lstrip("0")
 
 
 # =============================================================================

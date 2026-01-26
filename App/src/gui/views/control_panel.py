@@ -333,6 +333,7 @@ class ControlPanelView(ctk.CTkFrame):
             ("REVISAR_IPD", "Revisar IPD"), ("REVISAR_OA", "Revisar OA"),
             ("REVISAR_APS", "Revisar APS"), ("REVISAR_SIC", "Revisar SIC"),
             ("REVISAR_HABILITANTES", "Habilitantes"), ("REVISAR_EXCLUYENTES", "Excluyentes"),
+            ("MOSTRAR_FUTURAS", "Mostrar Futuros"), # New switch
         ]
         for i, (key, label) in enumerate(switches):
              fr = FormRow(grid, label=label, input_type="switch", value=config.get(key, False), colors=self.colors)
@@ -575,7 +576,9 @@ class ControlPanelView(ctk.CTkFrame):
                             
                             # Auto-convert lists (Fix compatibility)
                             if field in ["keywords", "objetivos", "habilitantes", "excluyentes"] and isinstance(val, str):
-                                val = [x.strip() for x in val.split(",") if x.strip()]
+                                # Limpieza robusta: eliminar corchetes y comillas si el usuario pegó una lista de Python
+                                clean_val = val.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+                                val = [x.strip() for x in clean_val.split(",") if x.strip()]
                                 
                             missions_updates[idx][field] = val
                 else:

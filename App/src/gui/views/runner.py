@@ -10,7 +10,8 @@ import queue
 import subprocess
 import sys
 import os
-import time  # FIX: Missing import
+import time
+import logging  # Required for GuiLogHandler
 from src.gui.components import LogConsole, StatusBadge
 from src.core.states import RunState
 
@@ -162,8 +163,6 @@ class RunnerView(ctk.CTkFrame):
         )
         self.clear_btn.pack(side="left")
 
-        self.clear_btn.pack(side="left")
-
         # Botón Guardar Ahora (Snapshot)
         self.snapshot_btn = ctk.CTkButton(
             exec_buttons,
@@ -230,9 +229,9 @@ class RunnerView(ctk.CTkFrame):
         self.log_tabs.pack(fill="both", expand=True, padx=30, pady=(10, 20))
         
         # Crear pestañas
-        self.tab_term = self.log_tabs.add("💻 Terminal")
-        self.tab_debug = self.log_tabs.add("🔧 Debug / Trace")
-        self.tab_general = self.log_tabs.add("📝 General")
+        self.tab_term = self.log_tabs.add("💻 Terminal Principal")
+        self.tab_debug = self.log_tabs.add("🔧 Terminal Debug")
+        self.tab_general = self.log_tabs.add("📝 Terminal General")
         
         # Configurar Tab Terminal
         # Usar Segoe UI Emoji para soporte completo de emojis en Windows
@@ -336,13 +335,44 @@ class RunnerView(ctk.CTkFrame):
         """
         self.log_queue.put((message, level))
     
+    # =========================================================================
+    # LOGGING HANDLER PERSONALIZADO
+    # =========================================================================
+    class GuiLogHandler(logging.Handler):
+        """Captura logs del módulo logging y los envía a la GUI como 'GENERAL'."""
+        def __init__(self, queue_ref):
+            super().__init__()
+            self.queue_ref = queue_ref
+            # Formateador idéntico al del archivo
+            self.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S'))
+
+        def emit(self, record):
+            try:
+                msg = self.format(record)
+                self.queue_ref.put((msg, "FILE")) # Nivel especial 'FILE'
+            except:
+                self.handleError(record)
+
     def _poll_logs(self):
         """Procesa mensajes de la cola de logs y los rutea inteligentemente."""
         try:
             while True:
                 msg, level = self.log_queue.get_nowait()
                 
-                # Limpieza ANSI robusta
+                # ================================================================
+                # CASO 1: LOG GENERAL (Viene del logging handler, espejo del archivo)
+                # ================================================================
+                if level == "FILE":
+                    try:
+                        self.general_console.append(msg + "\n")
+                    except: pass
+                    continue # Detener procesamiento aquí para estos mensajes
+
+                # ================================================================
+                # CASO 2: STDOUT (Viene de prints/safe_print, para Terminal/Debug)
+                # ================================================================
+                
+                # Limpieza ANSI para análisis
                 import re
                 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
                 clean_msg = ansi_escape.sub('', msg)
@@ -350,76 +380,59 @@ class RunnerView(ctk.CTkFrame):
                 # ================================================================
                 # RUTEO INTELIGENTE: Separar Terminal de Debug de General
                 # ================================================================
-                to_terminal = False  # Por defecto, NO va a terminal
-                to_debug = True      # Por defecto, SÍ va a debug
-                to_general = True    # Por defecto, SÍ va a general (Log completo mirror del archivo)
+                to_terminal = False
+                to_debug = False
+                to_general = False
                 
-                # REGLA 1: Resúmenes de pacientes van a Terminal
-                if "🔥" in clean_msg and "|" in clean_msg:
+                # --- LÓGICA DE FILTRADO ESTRICTO (SEGÚN DOCUMENTACIÓN) ---
+                
+                # 1. TERMINAL PRINCIPAL: Solo resumen y negocio
+                # Prefijos autorizados:
+                term_prefixes = ("🔥", "║", "╔", "╠", "╚", "📊", "📋", "🤹🏻", "🪪", "🗓️", "✅", "❌", "🚨", "⚠️", "❤️", "☠️", "👥", "🛡️", "🚫")
+                
+                if clean_msg.startswith(term_prefixes):
                     to_terminal = True
+                
+                # Permitir líneas de "M1: Si | OA: No" que empiezan con texto o cuadros
+                if "M1:" in clean_msg and "|" in clean_msg:
+                    to_terminal = True
+                    
+                # 2. TERMINAL DEBUG: Pasos, Tiempos, Acciones, Detalles
+                # Prefijos autorizados (Añadido '✓' y '⏳' que faltaban)
+                debug_prefixes = ("[DEBUG]", "⏱️", "⏳", "✓", "└─", "├─", "🔍", "⌨️", "📜", "📂", "📚", "ℹ️", "🤔")
+                if clean_msg.startswith(debug_prefixes) or "[DEBUG]" in clean_msg:
+                    to_debug = True
+                    
+                # Palabras clave de Debug
+                if any(k in clean_msg for k in ["JS Extraction", "System Check", "Score logic", "Found", "Parsed", "Transición"]):
+                    to_debug = True
+                    
+                # 3. EXCLUSIONES MUTUAS y CORRECCIONES
+                
+                # Si es un header de paciente "🤹🏻 MARCELA", también puede ir a Debug para contexto
+                if "🤹🏻" in clean_msg:
                     to_debug = True
                 
-                # REGLA 2: Línea de status del paciente (M1, IPD, OA, etc.)
-                elif "� M1:" in clean_msg or ("IPD:" in clean_msg and "OA:" in clean_msg):
-                    to_terminal = True
-                    to_debug = True
-                
-                # REGLA 3: Banners y títulos importantes
-                elif any(x in clean_msg for x in ["NOZHGESS v1.0", "Misión:", "Pacientes:"]):
-                    to_terminal = True
-                    to_debug = True
-                
-                # REGLA 4: Mensajes de inicio/fin
-                elif any(x in clean_msg for x in [
-                    "Iniciando revisión",
-                    "Revisión completada",
-                    "Verificando pre-requisitos",
-                    "Edge debug detectado",
-                    "Módulos cargados",
-                    "Configuración Validada",
-                    "RESUMEN FINAL",
-                    "Exitosos:",
-                    "Guardado en:"
-                ]):
-                    to_terminal = True
-                    to_debug = True
-                
-                # ================================================================
-                # 3. FILTRADO ESTRICTO DE DESTINO (SEGÚN PETICIÓN USUARIO)
-                # ================================================================
-                
-                # A. TERMINAL: SOLO Resumen Visual (Tablas, Emojis de reporte)
-                summary_indicators = ["🔥", "📋", "📊", "RESUMEN FINAL", "Exitosos:", "Guardado en:"]
-                if any(x in clean_msg for x in summary_indicators):
-                    to_terminal = True
-                    to_debug = True # Summary is useful in debug too
-                    to_general = False # Wait, better to have everything in General. Let's set it True.
-                    to_general = True 
-                
-                # B. DEBUG: Pasos técnicos, Tiempos, Trazas
-                # Estos mensajes suelen ser ruidosos para la terminal principal, pero vitales para Debug
-                elif any(x in clean_msg for x in ["⏳", "✓", "⏱️", "└─", "├─", "INICIO TIMING", "TOTAL:", "System Check"]):
+                # Corrección: "⏳" y "✓" son exclusivos de DEBUG, no deben ir a Principal
+                # Si por error entraron a terminal, sacarlos
+                if clean_msg.startswith(("⏳", "✓", "⏱️")):
                     to_terminal = False
                     to_debug = True
-                    to_general = True # FIXED: General needs these logs too!
-                
-                # C. GENERAL: Todo lo demás
-                else:
-                    # Catch-all para logs de sistema (Driver, JS extraction, etc)
-                    to_terminal = False
-                    to_debug = False # Keep pure system noise out of specific debug tab if preferred, or True
-                    to_general = True
 
-                
                 # ================================================================
-                # INSERTAR EN LOS TEXTBOXES CORRESPONDIENTES
+                # INSERTAR EN PANTALLAS
+                # ================================================================
+
+
+                # ================================================================
+                # INSERTAR EN PANTALLAS
                 # ================================================================
                 if to_terminal:
                     self.term_console.append(clean_msg + "\n")
                     if self.terminal_log_handle:
                         try:
-                            self.terminal_log_handle.write(clean_msg + "\n")
-                            self.terminal_log_handle.flush()
+                             self.terminal_log_handle.write(clean_msg + "\n")
+                             self.terminal_log_handle.flush()
                         except: pass
                     
                 if to_debug:
@@ -434,23 +447,20 @@ class RunnerView(ctk.CTkFrame):
                     try:
                         self.general_console.append(clean_msg + "\n")
                     except: pass
-
-                    
+                        
         except queue.Empty:
             pass
         
-        self.after(150, self._poll_logs)  # 150ms - balance entre responsividad y CPU
+        self.after(150, self._poll_logs)
     
     def _safe_start_run(self):
         """Wrapper seguro para iniciar ejecución con logging de errores."""
         try:
-            print("🔘 BOTÓN INICIAR PRESIONADO")  # Debug
             self._log("🔘 Botón Iniciar presionado - Iniciando proceso...")
             self._start_run()
         except Exception as e:
             import traceback
             error_msg = f"❌ ERROR AL INICIAR: {e}\n{traceback.format_exc()}"
-            print(error_msg)
             self._log(error_msg, level="ERROR")
     
     def _start_run(self):
@@ -462,18 +472,22 @@ class RunnerView(ctk.CTkFrame):
         from src.utils.ExecutionControl import reset_execution_control
         reset_execution_control()
         
-        self.start_time = time.time()  # Para cálculo de ETA
+        self.start_time = time.time()
         self._transition_to(RunState.RUNNING)
         
-        # Abrir archivos de log
+        # Abrir archivos de log dedicados (si se usan)
         try:
             self.terminal_log_handle = open(self.terminal_log_file, "w", encoding="utf-8")
             self.debug_log_handle = open(self.debug_log_file, "w", encoding="utf-8")
-        except Exception as e:
-            self._log(f"⚠️ No se pudieron crear archivos de log: {e}", level="WARN")
+        except: pass
+        
+        # Limpiar consolas visuales
+        self.term_console.clear()
+        self.debug_console.clear()
+        self.general_console.clear()
         
         self._log("=" * 50)
-        self._log("🚀 Iniciando revisión (Dual Terminal Mode)...")
+        self._log("🚀 Iniciando revisión...")
         self._log("=" * 50)
         
         thread = threading.Thread(target=self._run_revision, daemon=True)
@@ -483,96 +497,93 @@ class RunnerView(ctk.CTkFrame):
         """Ejecuta la revisión (en thread separado)."""
         old_stdout = sys.stdout
         old_stderr = sys.stderr
+        gui_handler = None
         
         try:
-            # Pre-flight checks
+            # 1. Pre-flight checks
             self._log("🔍 Verificando pre-requisitos...", level="INFO")
             
             # Check 1: Edge debug running
             try:
+                self._log("🤔 Comprobando puerto 9222... (Si tarda, revisar Edge)", level="DEBUG")
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(0.5)
+                sock.settimeout(1.0) # Increased timeout slightly for stability
                 result = sock.connect_ex(('127.0.0.1', 9222))
                 sock.close()
-                
                 if result != 0:
                     self._log("❌ Edge debug NO está ejecutándose en puerto 9222", level="ERROR")
-                    self._log("💡 Por favor presiona 'Iniciar Edge Debug' primero", level="ERROR")
                     return
-                else:
-                    self._log("✅ Edge debug detectado en puerto 9222", level="OK")
+                self._log("✅ Edge Debug Online.", level="DEBUG")
             except Exception as e:
-                self._log(f"⚠️ No se pudo verificar Edge debug: {e}", level="WARN")
+                 self._log(f"⚠️ Warning chequeo puerto: {e}", level="WARN")
+                 pass
             
-            # Check 2: Import validation & Reload
-            self._log("📦 Cargando módulos y configuración...", level="INFO")
+            # Check 2: Reload Modules & Config Loggers
+            self._log("📦 Cargando módulos...", level="INFO")
             try:
                 import importlib
-                # Ensure Mision Actual is in path for imports
+                # Ensure paths
                 ma_path = os.path.join(ruta_proyecto, "Mision Actual")
-                if ma_path not in sys.path:
-                    sys.path.insert(0, ma_path)
+                if ma_path not in sys.path: sys.path.insert(0, ma_path)
+                
                 import Mision_Actual as ma
                 import Utilidades.Mezclador.Conexiones as conexiones
-                
-                # RECARGA CRÍTICA: Asegurar que se usen los nuevos parches de estabilidad
-                # Sin esto, los cambios en las firmas de métodos (kwargs) no se ven
                 import src.core.Driver as driver_mod
                 import src.core.waits as waits_mod
                 import src.core.modules.core as core_mod
                 import src.core.modules.navigation as nav_mod
                 import src.core.Mini_Tabla as mini_mod
                 import src.utils.Esperas as esperas_mod
-                import src.utils.Direcciones as dirs_mod
+                import src.utils.Terminal as term_mod
                 
                 importlib.reload(ma)
+                # CRITICO: Reload Terminal reinicia basicConfig(force=True), borrando handlers previos.
+                # Por eso attachamos el GuiLogHandler DESPUÉS de este bloque.
+                importlib.reload(term_mod) 
+                
                 importlib.reload(driver_mod)
                 importlib.reload(waits_mod)
                 importlib.reload(core_mod)
                 importlib.reload(nav_mod)
                 importlib.reload(mini_mod)
                 importlib.reload(esperas_mod)
-                importlib.reload(dirs_mod)
                 importlib.reload(conexiones)
                 
                 from Utilidades.Mezclador.Conexiones import ejecutar_revision
-                self._log("✅ Módulos (Core + Mixins + Utils) recargados", level="OK")
-            except ImportError as ie:
-                self._log(f"❌ Error importando módulos: {ie}", level="ERROR")
-                self._log("💡 Verifica que todos los archivos estén en su lugar", level="ERROR")
+            except Exception as e:
+                self._log(f"❌ Error importando: {e}", level="ERROR")
                 return
-            
-            # Redirect output
-            self._log("🚀 Iniciando ejecución de revisión...", level="INFO")
+
+            # 2. Attach GUI Log Handler (AHORA, post-reload)
+            import logging
+            logger = logging.getLogger()
+            gui_handler = self.GuiLogHandler(self.log_queue)
+            logger.addHandler(gui_handler)
+
+            # 3. Redirect stdout/stderr (Visual Debug Stream)
             sys.stdout = StreamRedirector(self._log)
             sys.stderr = StreamRedirector(lambda m: self._log(m, level="ERROR"))
             
-            # Execute!
+            # 4. Execute
             ejecutar_revision()
-            
-            # Restore streams
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-            self._log("\n✅ Revisión completada exitosamente", level="OK")
-            
-        except KeyboardInterrupt:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-            self._log("\n⚠️ Ejecución cancelada por el usuario", level="WARN")
             
         except Exception as e:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
             import traceback
-            error_detail = traceback.format_exc()
-            self._log(f"\n❌ Error durante la ejecución: {e}", level="ERROR")
-            self._log(f"\n🔧 Detalles técnicos:\n{error_detail}", level="DEBUG")
+            self._log(f"\n❌ Error fatal: {e}\n{traceback.format_exc()}", level="ERROR")
         
         finally:
-            # Ensure streams are restored
+            # Restore streams
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            
+            # Remove handler
+            if gui_handler:
+                import logging
+                logging.getLogger().removeHandler(gui_handler)
+            
             self.after(0, self._on_run_complete)
     
     def _on_run_complete(self):
@@ -691,9 +702,9 @@ class RunnerView(ctk.CTkFrame):
         """Devuelve el widget textbox activo según la pestaña seleccionada."""
         try:
             tab = self.log_tabs.get()
-            if tab == "💻 Terminal": return self.term_console
-            if tab == "🔧 Debug / Trace": return self.debug_console
-            if tab == "📝 General": return self.general_console
+            if tab == "💻 Terminal Principal": return self.term_console
+            if tab == "🔧 Terminal Debug": return self.debug_console
+            if tab == "📝 Terminal General": return self.general_console
         except:
             pass
         return None

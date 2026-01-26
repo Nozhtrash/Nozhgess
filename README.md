@@ -13,10 +13,13 @@ Para mantener este manual limpio, hemos dividido la información técnica en doc
 
 | Icono | Documento | Descripción |
 | :--- | :--- | :--- |
-| 🛠️ | **[Guía de Desarrollo](DEVELOPMENT.md)** | Arquitectura, diagramas, lógica interna y filosofía de código. |
-| 🚑 | **[Solución de Problemas](TROUBLESHOOTING.md)** | Guía rápida para resolver errores, bloqueos y dudas comunes. |
-| 📜 | **[Historial de Cambios](CHANGELOG.md)** | Lista detallada de cada mejora, corrección y nueva funcionalidad. |
-| 📥 | **[Instalación](Documentacion/Instalacion.md)** | Pasos para desplegar Nozhgess en una nueva máquina. |
+| 🛠️ | **[Guía de Desarrollo](Documentacion/DEVELOPMENT.md)** | Filosofía de código y estructura del proyecto. |
+| 🏗️ | **[Arquitectura Técnica](Documentacion/Arquitectura_Tecnica.md)** | Manual interno: Logs, Misiones y Drivers. |
+| 🐛 | **[Bitácora de Errores](Documentacion/Bitacora_Errores.md)** | Historia de bugs críticos y soluciones profundas. |
+| 🔮 | **[Estado y Futuro](Documentacion/Estado_Actual_y_Futuro.md)** | Roadmap, debilidades y cómo hacer rollback. |
+| 🚑 | **[Solución de Problemas](Documentacion/TROUBLESHOOTING.md)** | Guía rápida para el usuario final. |
+| 📜 | **[Historial de Cambios](Documentacion/CHANGELOG.md)** | Lista de versiones y mejoras. |
+| 📥 | **[Instalación](Documentacion/Instalacion.md)** | Pasos para desplegar. |
 
 ---
 
@@ -62,7 +65,7 @@ Nozhgess es altamente personalizable a través de `App/config/mission_config.jso
 *   **Códigos Habilitantes/Excluyentes:** Controla con precisión quirúrgica qué casos procesar.
 *   **Tiempos de Espera:** Ajusta la velocidad según la latencia de tu red hospitalaria.
 
-*(Ver [Guía de Desarrollo](DEVELOPMENT.md) para detalles sobre la estructura JSON)*
+*(Ver [Guía de Desarrollo](Documentacion/DEVELOPMENT.md) para detalles sobre la estructura JSON)*
 
 ---
 

@@ -180,6 +180,15 @@ def _aplicar_estilos(ws) -> None:
     # Estilizar celdas de datos - Centrado horizontal y vertical
     for row in ws.iter_rows(min_row=2):
         for cell in row:
+            val = str(cell.value or "")
+            
+            # Detección de Prestaciones Futuras (! )
+            if val.startswith("! "):
+                # Aplicar color naranja "Advertencia/Futuro"
+                cell.fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid") # Naranja claro
+                # Quitar marcador para que quede limpio
+                cell.value = val[2:]
+                
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = thin_border
             cell.font = Font(size=9)

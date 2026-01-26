@@ -468,6 +468,44 @@ class SiggesDriver:
 
         return True
 
+    def type(self, element, text: str, safe: bool = True) -> bool:
+        """
+        Escribe texto en un elemento con logging detallado.
+        """
+        if not element:
+            return False
+        try:
+            # Mask text if sensitive (optional logic here if needed)
+            display_text = text if len(text) < 50 else text[:47] + "..."
+            
+            try:
+                ident = f"<{element.tag_name}>"
+            except:
+                ident = "<?>"
+
+            if safe:
+                element.clear()
+            
+            log_debug(f"⌨️ Typing in {ident}: '{display_text}'")
+            element.send_keys(text)
+            return True
+        except Exception as e:
+            log_warn(f"⚠️ Error typing '{text}': {e}")
+            return False
+
+    def scroll_to(self, element, align: str = "center") -> bool:
+        """
+        scrolls to element with logging.
+        """
+        try:
+            log_debug(f"📜 Scrolling to element ({align})...")
+            block = "{block:'center'}" if align == "center" else "{block:'start'}"
+            self.driver.execute_script(f"arguments[0].scrollIntoView({block});", element)
+            return True
+        except Exception as e:
+            log_warn(f"⚠️ Scroll failed: {e}")
+            return False
+
     # =========================================================================
     #                          NAVEGACIÓN
     # =========================================================================
@@ -494,12 +532,9 @@ class SiggesDriver:
         if not input_el:
             raise Exception("Input RUT visible pero no clickable (Estado inconsistente)")
             
-        # 3. Escribir RUT
-        try:
-            input_el.clear()
-            input_el.send_keys(rut)
-        except Exception as e:
-            raise Exception(f"Error escribiendo RUT: {e}")
+        # 3. Escribir RUT (USANDO NUEVO WRAPPER)
+        if not self.type(input_el, rut):
+            raise Exception(f"Error escribiendo RUT: {rut}")
             
         # 4. Click en Buscar
         if not self._click(XPATHS["BTN_BUSCAR"], wait_spinner=True):
@@ -1475,6 +1510,11 @@ class SiggesDriver:
             
             # Verificar si ya está expandido (checked)
             if not checkbox.is_selected():
+                log_debug(f"📂 Expanding case {i}...")
+                
+                # Scroll usando helper seguro
+                self.scroll_to(checkbox)
+                
                 # Click en el checkbox para expandir
                 try:
                     checkbox.click()
@@ -1485,6 +1525,8 @@ class SiggesDriver:
                 # Esperar a que se expanda
                 time.sleep(0.5)
                 self._wait_smart("spinner")
+            else:
+                log_debug(f"📂 Case {i} already expanded")
             
             return root
         except Exception as e:
@@ -1517,18 +1559,60 @@ class SiggesDriver:
     # =========================================================================
 
     def _prestaciones_tbody(self, i: int) -> Optional[Any]:
-        """Obtiene el tbody de prestaciones de un caso."""
-        return self._find([
-            f"({XPATHS['CONT_CARTOLA']})/div[{i + 1}]/div[6]/div[2]/div/table/tbody",
-            f"({XPATHS['CONT_CARTOLA']})/div[{i + 1}]//table/tbody"
-        ], "presence", "table_prest_find")
+        """
+        Obtiene el tbody de prestaciones de un caso usando búsqueda semántica robusta.
+        Prioriza encontrar el label 'Prestaciones otorgadas' dentro del caso.
+        """
+        # 1. Obtener raíz del caso
+        root = self._case_root(i)
+        if not root:
+             log_debug(f"⚠️ Could not find case root for index {i}")
+             return None
+             
+        # 2. Buscar por Label "Prestaciones otorgadas"
+        # Esto es inmune a cambios estructurales (div[5] vs div[6])
+        lbl = self._find_section_label_p(root, "Prestaciones otorgadas")
+        if lbl:
+            tb = self._tbody_from_label_p(lbl)
+            if tb:
+                log_debug(f"🔍 Found PO table via Label strategy")
+                return tb
+        
+        # 3. Fallback: Buscar tabla genérica dentro del container de secciones
+        # Asume que es la tabla visible más grande o la primera en la sección de contenido
+        try:
+             # Estrategia: Buscar cualquier tabla que tenga un header "Código"
+             tables = root.find_elements(By.TAG_NAME, "table")
+             for t in tables:
+                 if "Código" in (t.get_attribute("innerText") or ""):
+                     log_debug(f"🔍 Found PO table via Header Content strategy")
+                     return t.find_element(By.TAG_NAME, "tbody")
+        except: 
+            pass
+
+        # 4. Fallback final: XPath rígido relativo al root (lo que tenía el usuario pero relativo)
+        # root es el div.contRow del caso.
+        # Usuario: .../div[6]/div[2]/div/table
+        # Intentamos selectores relativos comunes
+        for xp in [
+            ".//div[contains(@class,'contRowBox')]//table/tbody",
+            ".//div[6]//table/tbody", # User structure suggestion
+        ]:
+            try:
+                el = root.find_element(By.XPATH, xp)
+                if el:
+                    log_debug(f"🔍 Found PO table via Fallback XPath: {xp}")
+                    return el
+            except:
+                continue
+                
+        log_debug(f"❌ FAILED to find PO table for case {i}")
+        return None
 
     def leer_prestaciones_desde_tbody(self, tbody: Any) -> List[Dict[str, str]]:
         """
         Lee prestaciones desde un tbody.
-        
-        Returns:
-            Lista de dicts con: fecha, codigo, glosa, ref
+        v2.1: Robustez NASA (Stability Wait + Force Scroll + Audit Logs).
         """
         out = []
         if not tbody:
@@ -1537,28 +1621,129 @@ class SiggesDriver:
         _ddmmyyyy = re.compile(r"\b(\d{2}/\d{2}/\d{4})\b", re.I)
         
         try:
-            for tr in reversed(tbody.find_elements(By.TAG_NAME, "tr")):
+            # 1. FORCE SCROLL & STABILITY WAIT
+            # A veces la tabla carga lento o lazy.
+            # Scroll al final del elemento (si es posible) para gatillar lazy load
+            try:
+                self.driver.execute_script("arguments[0].scrollIntoView(false);", tbody)
+            except: pass
+
+            import time
+            rows = []
+            last_count = 0
+            stability_counter = 0
+            
+            # Intentar hasta 5 segundos, buscando estabilidad (1s sin cambios)
+            for _ in range(10): 
+                try:
+                    current_rows = tbody.find_elements(By.TAG_NAME, "tr")
+                    cnt = len(current_rows)
+                    
+                    if cnt > 0 and cnt == last_count:
+                        stability_counter += 1
+                        if stability_counter >= 2: # 1 segundo estable
+                            rows = current_rows
+                            break
+                    else:
+                        stability_counter = 0 # Reset si cambia
+                        
+                    last_count = cnt
+                except: pass
+                time.sleep(0.5)
+            
+            # Si falló la estabilidad, usar lo que tenga
+            if not rows and last_count > 0:
+                rows = current_rows
+
+            log_debug(f"📚 Found {len(rows)} rows in PO table (Stable State)")
+            
+            # === INTELIGENCIA: MAPEO DINÁMICO DE COLUMNAS ===
+            # Default indices (fallback)
+            idx_date = 2  # Fecha Inicio
+            idx_code = 7  # Código
+            idx_glosa = 8 # Glosa
+            idx_ref = 0   # Referencia
+            
+            try:
+                # Buscar el thead (hermano anterior o hijo de table padre)
+                table = tbody.find_element(By.XPATH, "..")
+                theads = table.find_elements(By.TAG_NAME, "th")
+                if theads:
+                    headers = [(h.get_attribute("innerText") or "").lower().strip() for h in theads]
+                    # print(f"DEBUG MAP: Headers found: {headers}")
+                    
+                    found_d, found_c = False, False
+                    for i, h in enumerate(headers):
+                        if "inicio" in h and "fecha" in h: 
+                            idx_date = i
+                            found_d = True
+                        elif "código" in h or "codigo" in h: 
+                            idx_code = i
+                            found_c = True
+                        elif "glosa" in h: 
+                            idx_glosa = i
+                        elif "referencia" in h: 
+                            idx_ref = i
+                            
+                    if found_d and found_c:
+                         log_debug(f"🧠 Dynamic Column Map APPLIED -> Date:{idx_date}, Code:{idx_code}, Glosa:{idx_glosa}")
+                    else:
+                         log_debug("🧠 Dynamic Map incomplete, using defaults/hybrids.")
+            except Exception as e:
+                log_debug(f"⚠️ Column Mapping Failed ({e}), using defaults.")
+
+            for i, tr in enumerate(reversed(rows)):
                 tds = tr.find_elements(By.TAG_NAME, "td")
-                if len(tds) <= 8:
+                
+                # Check bounds
+                max_idx = max(idx_date, idx_code, idx_glosa, idx_ref)
+                if len(tds) <= max_idx:
                     continue
                 
-                f = (tds[2].text.strip().split(" ")[0] if len(tds) > 2 else "")
+                # USAR innerText (Robustez contra scroll)
+                def get_text(el):
+                    return (el.get_attribute("innerText") or "").strip()
+                
+                f = (get_text(tds[idx_date]).split(" ")[0] if len(tds) > idx_date else "")
+                
+                # Fallback fecha flexible (si falla columna mapeada, buscar en todas)
                 if not dparse(f):
                     for c in tds:
-                        m = _ddmmyyyy.search(c.text or "")
+                        m = _ddmmyyyy.search(get_text(c))
                         if m:
                             f = m.group(1)
                             break
                 
+                # Columnas críticas mapeadas
+                raw_code = get_text(tds[idx_code])
+                raw_glosa = get_text(tds[idx_glosa])
+                ref_text = get_text(tds[idx_ref])
+                
+                # === AUDITORÍA ===
+                # Si el código viene vacío pero la fecha existe, es SOSPECHOSO.
+                # O si es el código reportado como problemático.
+                if not raw_code and f:
+                     html_snap = tr.get_attribute("outerHTML")[:200]
+                     log_warn(f"⚠️ AUDIT: Row {i} has DATE but NO CODE. HTML Snap: {html_snap}")
+
+                # print(f"DEBUG: PO Row -> Date: {f} | Code: '{raw_code}' | Glosa: '{raw_glosa[:20]}...'")
+                
                 out.append({
                     "fecha": f,
-                    "codigo": (tds[7].text or "").strip(),
-                    "glosa": (tds[8].text or "").strip(),
-                    "ref": (tds[0].text or "").strip()
+                    "codigo": raw_code,
+                    "glosa": raw_glosa,
+                    "ref": ref_text
                 })
-        except Exception:
-            pass
-        return out
+
+            # RESUMEN FINAL DE LA TABLA (Evidence)
+            all_codes = [x["codigo"] for x in out if x["codigo"]]
+            log_debug(f"📊 EVIDENCE: Total PO loaded: {len(out)}. Codes found: {all_codes}")
+            
+            return out
+
+        except Exception as e:
+            log_warn(f"❌ Error reading PO table: {e}")
+            return []
 
     # =========================================================================
     #                    HELPERS PARA SECCIONES
@@ -1650,12 +1835,14 @@ class SiggesDriver:
             if n and n > 0:
                 parsed = parsed[:n]
 
+            log_debug(f"🔍 IPD: Found {len(rows)} | Parsed {len(parsed)}")
             return (
                 [p[1] for p in parsed],
                 [p[2] for p in parsed],
                 [p[3] for p in parsed]
             )
-        except Exception:
+        except Exception as e:
+            log_warn(f"⚠️ Error IPD: {e}")
             return [], [], []
 
     # =========================================================================
@@ -1717,6 +1904,7 @@ class SiggesDriver:
             if n and n > 0:
                 parsed = parsed[:n]
 
+            log_debug(f"🔍 OA: Found {len(rows)} | Parsed {len(parsed)}")
             return (
                 [p[1] for p in parsed],  # Fecha
                 [p[2] for p in parsed],  # Derivado
@@ -1724,7 +1912,8 @@ class SiggesDriver:
                 [p[4] for p in parsed],  # Código
                 [p[5] for p in parsed],  # Folio
             )
-        except Exception:
+        except Exception as e:
+            log_warn(f"⚠️ Error OA: {e}")
             return [], [], [], [], []
 
     # =========================================================================
@@ -1810,9 +1999,11 @@ class SiggesDriver:
             if n and n > 0:
                 parsed = parsed[:n]
 
+            log_debug(f"🔍 APS: Found {len(rows)} | Parsed {len(parsed)}")
             return ([p[1] for p in parsed], [p[2] for p in parsed])
 
-        except Exception:
+        except Exception as e:
+            log_warn(f"⚠️ Error APS: {e}")
             return [], []
 
     # =========================================================================
@@ -1878,8 +2069,10 @@ class SiggesDriver:
             if n and n > 0:
                 parsed = parsed[:n]
 
+            log_debug(f"🔍 SIC: Found {len(rows)} | Parsed {len(parsed)}")
             return ([p[1] for p in parsed], [p[2] for p in parsed])
 
-        except Exception:
+        except Exception as e:
+            log_warn(f"⚠️ Error SIC: {e}")
             return [], []
 

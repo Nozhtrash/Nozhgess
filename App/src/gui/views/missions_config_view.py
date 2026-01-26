@@ -83,14 +83,27 @@ class MissionsConfigView(ctk.CTkFrame):
         self.entry_esp = self._field("Especialidad (SIGGES)", m.get("especialidad", ""))
         
         # Keywords (List to String)
-        kws = ", ".join(m.get("keywords", []))
+        kws = ", ".join([str(x) for x in m.get("keywords", [])])
         self.entry_kws = self._field("Palabras Clave (separar por coma)", kws)
+        
+        # Objetivos
+        objs = ", ".join([str(x) for x in m.get("objetivos", [])])
+        self.entry_objs = self._field("Objetivos (separar por coma)", objs)
+        
+        # Habilitantes
+        habs = ", ".join([str(x) for x in m.get("habilitantes", [])])
+        self.entry_habs = self._field("Habilitantes (separar por coma)", habs)
+        
+        # Excluyentes
+        excl = ", ".join([str(x) for x in m.get("excluyentes", [])])
+        self.entry_excl = self._field("Excluyentes (separar por coma)", excl)
         
         # 3. Toggles de Motor
         self._section("⚙️ Motor de Revisión")
         
         self.var_ipd = self._switch("Revisar IPD", d.get("REVISAR_IPD", True))
         self.var_oa = self._switch("Revisar OA", d.get("REVISAR_OA", True))
+        self.var_futuras = self._switch("Mostrar Prest. Futuras", d.get("MOSTRAR_FUTURAS", False))
         self.entry_reintentos = self._field("Max Reintentos", str(d.get("MAX_REINTENTOS_POR_PACIENTE", 5)))
 
     # --- Helpers de UI ---
@@ -165,12 +178,16 @@ class MissionsConfigView(ctk.CTkFrame):
             "MAX_REINTENTOS_POR_PACIENTE": int(self.entry_reintentos.get()),
             "REVISAR_IPD": self.var_ipd.get(),
             "REVISAR_OA": self.var_oa.get(),
+            "MOSTRAR_FUTURAS": self.var_futuras.get(),
             # Mission Data struct
             "mission_data": {
                 "nombre": self.entry_name.get(), # Sync with global
                 "familia": self.entry_fam.get(),
                 "especialidad": self.entry_esp.get(),
-                "keywords": [k.strip() for k in self.entry_kws.get().split(",") if k.strip()]
+                "keywords": [k.strip() for k in self.entry_kws.get().split(",") if k.strip()],
+                "objetivos": [o.strip() for o in self.entry_objs.get().split(",") if o.strip()],
+                "habilitantes": [h.strip() for h in self.entry_habs.get().split(",") if h.strip()],
+                "excluyentes": [e.strip() for e in self.entry_excl.get().split(",") if e.strip()]
             }
         }
         
