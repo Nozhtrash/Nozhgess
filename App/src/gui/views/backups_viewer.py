@@ -217,7 +217,7 @@ class BackupsViewerView(ctk.CTkFrame):
         try:
             from datetime import datetime
             
-            source = os.path.join(ruta_proyecto, "Mision_Actual", "Mision_Actual.py")
+            source = os.path.join(ruta_proyecto, "Mision Actual", "Mision_Actual.py")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             dest = os.path.join(BACKUPS_PATH, f"Mision_Actual_{timestamp}.py")
             
@@ -237,12 +237,12 @@ class BackupsViewerView(ctk.CTkFrame):
         
         if messagebox.askyesno("Confirmar", "¿Restaurar este backup?\nSe aplicará INMEDIATAMENTE."):
             try:
-                dest = os.path.join(ruta_proyecto, "Mision_Actual", "Mision_Actual.py")
+                dest = os.path.join(ruta_proyecto, "Mision Actual", "Mision_Actual.py")
                 shutil.copy2(self.current_file, dest)
                 
                 # Recargar módulo
                 try:
-                    import Mision_Actual.Mision_Actual as MA
+                    import Mision_Actual as MA
                     importlib.reload(MA)
                 except:
                     pass

@@ -8,7 +8,7 @@ Verifica que Mision_Actual.py esté saludable antes de iniciar.
 import os
 from typing import List, Tuple
 from colorama import Fore, Style
-import Mision_Actual.Mision_Actual as config
+import Mision_Actual as config
 
 def validar_configuracion() -> Tuple[bool, List[str]]:
     """

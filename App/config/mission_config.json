@@ -1,6 +1,6 @@
 {
   "NOMBRE_DE_LA_MISION": "Tamizajes",
-  "RUTA_ARCHIVO_ENTRADA": "C:\\Users\\usuariohgf\\OneDrive\\Documentos\\Tamizajes Enero 2026 (Hasta 14-01).xlsx",
+  "RUTA_ARCHIVO_ENTRADA": "C:\\Users\\knoth\\OneDrive\\Documentos\\Tamizajes Enero 2026 (Hasta 14-01).xlsx",
   "RUTA_CARPETA_SALIDA": "C:\\Users\\usuariohgf\\OneDrive\\Documentos\\Trabajo Oficina\\Revisiones, Falta Enviar, CM, Listos\\Revisiones\\Revisiones Nóminas",
   "DIRECCION_DEBUG_EDGE": "localhost:9222",
   "EDGE_DRIVER_PATH": "C:\\Windows\\System32\\msedgedriver.exe",
@@ -22,7 +22,9 @@
   "HABILITANTES_MAX": 1,
   "EXCLUYENTES_MAX": 1,
   "OBSERVACION_FOLIO_FILTRADA": false,
-  "CODIGOS_FOLIO_BUSCAR": [],
+  "CODIGOS_FOLIO_BUSCAR": [
+    "[]"
+  ],
   "FOLIO_VIH": false,
   "FOLIO_VIH_CODIGOS": [
     "0305091",
@@ -32,13 +34,17 @@
   "MISSIONS": [
     {
       "nombre": "Cáncer Cervicouterino",
-      "keywords": "Cáncer Cervicouterino, Cáncer Cervicouterino Segmento",
-      "objetivos": "",
+      "keywords": [
+        "Cáncer Cervicouterino",
+        "Cáncer Cervicouterino Segmento"
+      ],
+      "objetivos": [],
       "habilitantes": [
-        "0801001"
+        "['0801001'",
+        "'801101']"
       ],
       "excluyentes": [
-        ""
+        "['']"
       ],
       "familia": "3",
       "especialidad": "13-04-02",
@@ -50,40 +56,16 @@
       "RUTA_CARPETA_SALIDA": "C:/Users/knoth/OneDrive/Documentos"
     },
     {
-      "NOMBRE_DE_LA_MISION": "",
-      "RUTA_ARCHIVO_ENTRADA": "",
-      "RUTA_CARPETA_SALIDA": "",
-      "keywords": "[]",
-      "objetivos": "[]",
+      "nombre": "Nueva Misión 2",
+      "keywords": [],
+      "objetivos": [],
+      "habilitantes": [],
+      "excluyentes": [],
       "familia": "",
       "especialidad": "",
       "frecuencia": "Mensual",
-      "edad_min": "",
-      "edad_max": ""
-    },
-    {
-      "NOMBRE_DE_LA_MISION": "",
-      "RUTA_ARCHIVO_ENTRADA": "",
-      "RUTA_CARPETA_SALIDA": "",
-      "keywords": "[]",
-      "objetivos": "[]",
-      "familia": "",
-      "especialidad": "",
-      "frecuencia": "Mensual",
-      "edad_min": "",
-      "edad_max": ""
-    },
-    {
-      "NOMBRE_DE_LA_MISION": "",
-      "RUTA_ARCHIVO_ENTRADA": "",
-      "RUTA_CARPETA_SALIDA": "",
-      "keywords": "[]",
-      "objetivos": "[]",
-      "familia": "",
-      "especialidad": "",
-      "frecuencia": "Mensual",
-      "edad_min": "",
-      "edad_max": ""
+      "edad_min": null,
+      "edad_max": null
     }
   ]
 }

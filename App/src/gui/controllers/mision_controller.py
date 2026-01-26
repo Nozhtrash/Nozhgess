@@ -39,7 +39,9 @@ class MisionController:
         "CODIGOS_FOLIO_BUSCAR": "Códigos OA específicos a buscar si el filtro está activo.",
         "FOLIO_VIH": "Activar lógica específica para VIH.",
         "FOLIO_VIH_CODIGOS": "Códigos específicos para lógica VIH.",
-        "DEBUG_MODE": "Modo debug: logs detallados en terminal."
+        "DEBUG_MODE": "Modo debug: logs detallados en terminal.",
+        "habilitantes": "Códigos habilitantes (vacío = no buscar).",
+        "excluyentes": "Códigos excluyentes que invalidan el caso."
     }
 
     def __init__(self, project_root: str):
@@ -53,6 +55,11 @@ class MisionController:
         # Asegurar path para importación (necesario para el reload de Mision_Actual)
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
+        
+        # Add Mision Actual folder to path
+        self.ma_path = os.path.join(project_root, "Mision Actual")
+        if self.ma_path not in sys.path:
+            sys.path.insert(0, self.ma_path)
 
     def load_config(self, force_reload: bool = False) -> Dict[str, Any]:
         """
@@ -144,7 +151,7 @@ class MisionController:
                     self.toggle_debug()
 
             # 5. Hot Reload de Mision_Actual.py para que el backend se entere
-            import Mision_Actual.Mision_Actual as ma
+            import Mision_Actual as ma
             importlib.reload(ma)
             
             # 6. Invalidar caché local
@@ -298,7 +305,7 @@ class MisionController:
             import re
             
             # Determinar carpeta destino (Reportes o Nóminas)
-            base_folder = os.path.join(self.project_root, "A_Lista de Misiones")
+            base_folder = os.path.join(self.project_root, "Lista de Misiones")
             target_folder = ""
             
             if folder_type.lower() == "reportes":

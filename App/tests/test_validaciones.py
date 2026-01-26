@@ -6,11 +6,28 @@ Tests RUT validation, date validation, and name validation.
 """
 import pytest
 from datetime import datetime
-from Utilidades.Principales.Validaciones import (
-    validar_rut,
-    validar_fecha,
-    validar_nombre,
-)
+# Import corregido para compatibilidad IDE y App
+import sys
+from pathlib import Path
+
+# Agregar paths para imports relativos
+app_root = Path(__file__).parent.parent
+sys.path.insert(0, str(app_root))
+sys.path.insert(0, str(app_root.parent / "Z_Utilidades" / "Principales"))
+
+try:
+    from Validaciones import (
+        validar_rut,
+        validar_fecha,
+        validar_nombre,
+    )
+except ImportError:
+    # Fallback para IDE
+    from Z_Utilidades.Principales.Validaciones import (
+        validar_rut,
+        validar_fecha,
+        validar_nombre,
+    )
 
 
 class TestValidarRut:

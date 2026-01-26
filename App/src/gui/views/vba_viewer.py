@@ -14,7 +14,7 @@ ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
-VBA_PATH = os.path.join(ruta_proyecto, "A_Lista de Misiones", "VBA")
+VBA_PATH = os.path.join(ruta_proyecto, "Lista de Misiones", "VBA")
 
 
 class VbaViewerView(ctk.CTkFrame):

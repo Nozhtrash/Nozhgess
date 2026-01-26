@@ -41,7 +41,7 @@ Hemos organizado Nozhgess para que sea limpio y fácil de navegar:
 | **[`App/`](file:///App)** | El "Cerebro". Código fuente, lógica de automatización y UI. |
 | **[`Documentacion/`](file:///Documentacion)** | El "Manual". Guías detalladas, transparencia y aspectos legales. |
 | **[`Lista de Misiones/`](file:///Lista%20de%20Misiones)** | Tu biblioteca de tareas configuradas. |
-| **[`Mision_Actual/`](file:///Mision_Actual)** | Donde ocurre la magia en este momento. |
+| **[`Mision Actual/`](file:///Mision%20Actual)** | Donde ocurre la magia en este momento. |
 | **[`Logs/`](file:///Logs)** | Registro histórico de cada acción realizada. |
 
 ---

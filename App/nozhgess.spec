@@ -25,7 +25,7 @@ block_cipher = None
 # Archivos de datos a incluir
 datas = [
     # Configuración
-    (os.path.join(PROJECT_ROOT, 'Mision_Actual'), 'Mision_Actual'),
+    (os.path.join(PROJECT_ROOT, 'Mision Actual'), 'Mision Actual'),
     
     # Extras (VBA, docs)
     (os.path.join(PROJECT_ROOT, 'Extras'), 'Extras'),

@@ -112,7 +112,10 @@ try:
     # Intentar importar desde la raíz del proyecto
     if BASE_DIR not in sys.path:
         sys.path.insert(0, BASE_DIR)
-    import Mision_Actual.Mision_Actual as ma
+    ma_path = os.path.join(BASE_DIR, "Mision Actual")
+    if ma_path not in sys.path:
+        sys.path.insert(0, ma_path)
+    import Mision_Actual as ma
     DEBUG_MODE = ma.DEBUG_MODE if hasattr(ma, "DEBUG_MODE") else False
 except ImportError:
     DEBUG_MODE = False  # Default: modo producción (logs limpios)

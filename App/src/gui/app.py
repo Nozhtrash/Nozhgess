@@ -22,6 +22,11 @@ if ruta_proyecto not in sys.path:
 if ruta_app not in sys.path:
     sys.path.insert(0, ruta_app)
 
+# Soporte para carpeta con espacios
+ruta_mision_actual = os.path.join(ruta_proyecto, "Mision Actual")
+if ruta_mision_actual not in sys.path:
+    sys.path.insert(0, ruta_mision_actual)
+
 import customtkinter as ctk
 
 from src.gui.theme import (
@@ -42,6 +47,14 @@ class NozhgessApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # 0. Fix Icono en Barra de Tareas (Windows)
+        try:
+            import ctypes
+            myappid = 'nozhtrash.nozhgess.gui.v3.0' # Identificador único
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
+        
         # 1. Config Manager
         self.config = get_config()
         
@@ -60,6 +73,21 @@ class NozhgessApp(ctk.CTk):
              
         if self.config.get("window.always_on_top"):
             self.attributes("-topmost", True)
+            
+        # Icono de aplicación
+        try:
+            icon_path = os.path.join(ruta_app, "assets", "icon.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+            
+            # Fallback/Extra para barra de tareas en algunos casos o ventanas hijas
+            png_path = os.path.join(ruta_app, "assets", "icon.png")
+            if os.path.exists(png_path):
+                 from PIL import ImageTk, Image
+                 icon_img = ImageTk.PhotoImage(file=png_path)
+                 self.iconphoto(False, icon_img)
+        except Exception as e:
+            print(f"⚠️ No se pudo cargar el icono: {e}")
         
         # 3. Cargar Tema
         self._apply_theme()

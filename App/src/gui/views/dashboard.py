@@ -518,7 +518,7 @@ class DashboardView(ctk.CTkFrame):
     def _open_input(self):
         """Abre archivo de entrada."""
         try:
-            from Mision_Actual.Mision_Actual import RUTA_ARCHIVO_ENTRADA
+            from Mision_Actual import RUTA_ARCHIVO_ENTRADA
             if os.path.exists(RUTA_ARCHIVO_ENTRADA):
                 os.startfile(RUTA_ARCHIVO_ENTRADA)
         except:
@@ -527,7 +527,7 @@ class DashboardView(ctk.CTkFrame):
     def _open_output(self):
         """Abre carpeta de salida."""
         try:
-            from Mision_Actual.Mision_Actual import RUTA_CARPETA_SALIDA
+            from Mision_Actual import RUTA_CARPETA_SALIDA
             if os.path.exists(RUTA_CARPETA_SALIDA):
                 os.startfile(RUTA_CARPETA_SALIDA)
         except:

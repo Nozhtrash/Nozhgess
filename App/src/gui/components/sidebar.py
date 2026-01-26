@@ -20,9 +20,9 @@ class Sidebar(ctk.CTkFrame):
         self.buttons: Dict[str, dict] = {}
         self.active_view: Optional[str] = None
         
-        # Config visual
-        self.WIDTH = 150
-        self.BUTTON_HEIGHT = 40  # 10% más grande
+        # Config visual - AUMENTADO EN 15% Y CORREGIDO
+        self.WIDTH = 173  # 150 * 1.15 = 173 (15% más ancho)
+        self.BUTTON_HEIGHT = 40  # Mantener altura pero más espacio
 
         
         # Container scrollable para asegurar que todos los botones son visibles
@@ -98,20 +98,21 @@ class Sidebar(ctk.CTkFrame):
     
     def _btn(self, vid: str, icon: str, label: str):
         """Botón compacto con icon y texto simétricos."""
-        # Frame contenedor para mejor control de alineación
+        # Frame contenedor para mejor control de alineación con más espacio
         btn_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=2, padx=4)
+        btn_frame.pack(fill="x", pady=1, padx=2)  # Más espacio vertical y horizontal
         
         btn = ctk.CTkButton(
             btn_frame, 
-            text=f"  {icon}    {label}",  # Más espacio y mejor distribución
-            font=ctk.CTkFont(family="Segoe UI", size=13), # Un poco más grande
+            text=f" {icon}  {label}",  # Espaciado optimizado para texto completo
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="normal"), # Tamaño ajustado
             fg_color="transparent",
             text_color=self.colors["text_secondary"],
             hover_color=self.colors.get("bg_card", "#1a1f27"),
             height=self.BUTTON_HEIGHT,
             corner_radius=8,
-            anchor="w",
+            anchor="w",  # Alineación izquierda para mejor legibilidad
+            width=165,  # Ancho explícito para asegurar espacio
             command=lambda v=vid: self._nav(v)
         )
         btn.pack(fill="x")

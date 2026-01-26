@@ -15,6 +15,15 @@ import sys
 import subprocess
 from typing import List, Tuple, Optional
 
+# Garantizar acceso a Mision Actual
+ruta_bootstrap = os.path.dirname(os.path.abspath(__file__))
+ruta_src_b = os.path.dirname(ruta_bootstrap)
+ruta_app_b = os.path.dirname(ruta_src_b)
+ruta_proj_b = os.path.dirname(ruta_app_b)
+ruta_ma_b = os.path.join(ruta_proj_b, "Mision Actual")
+if ruta_ma_b not in sys.path:
+    sys.path.insert(0, ruta_ma_b)
+
 # Dependencias requeridas
 REQUIRED_PACKAGES = [
     ("customtkinter", "customtkinter>=5.0.0"),

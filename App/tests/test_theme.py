@@ -6,18 +6,44 @@ Tests color definitions, theme loading/saving, and utility functions.
 """
 import pytest
 import os
-from Utilidades.GUI.theme import (
-    ACCENT_COLORS,
-    SHADOWS,
-    GRADIENTS,
-    TYPOGRAPHY,
-    SPACING,
-    RADIUS,
-    get_colors,
-    get_mode,
-    load_theme,
-    get_gradient_colors,
-    get_animation_duration,
+# Import corregido para compatibilidad IDE y App
+import sys
+from pathlib import Path
+
+# Agregar paths para imports relativos
+app_root = Path(__file__).parent.parent
+sys.path.insert(0, str(app_root))
+sys.path.insert(0, str(app_root.parent / "Z_Utilidades" / "GUI"))
+
+try:
+    from theme import (
+        ACCENT_COLORS,
+        SHADOWS,
+        GRADIENTS,
+        TYPOGRAPHY,
+        SPACING,
+        RADIUS,
+        get_colors,
+        get_mode,
+        load_theme,
+        get_gradient_colors,
+        get_animation_duration,
+    )
+except ImportError:
+    # Fallback para IDE
+    from Z_Utilidades.GUI.theme import (
+        ACCENT_COLORS,
+        SHADOWS,
+        GRADIENTS,
+        TYPOGRAPHY,
+        SPACING,
+        RADIUS,
+        get_colors,
+        get_mode,
+        load_theme,
+        get_gradient_colors,
+        get_animation_duration,
+    )
     get_spacing,
     get_radius,
     create_hover_color,

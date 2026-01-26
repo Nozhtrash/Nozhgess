@@ -18,7 +18,7 @@ if ruta_proyecto not in sys.path:
 
 MISSIONS_BASE = os.path.join(ruta_proyecto, "Lista de Misiones")
 MISSION_FOLDERS = {
-    "🎯 Misión Actual": os.path.join(ruta_proyecto, "Mision_Actual"),
+    "🎯 Misión Actual": os.path.join(ruta_proyecto, "Mision Actual"),
     "🆕 Plantillas Base": os.path.join(MISSIONS_BASE, "Base Mision"),
     "📊 Nóminas": os.path.join(MISSIONS_BASE, "Nóminas"),
     "📈 Reportes": os.path.join(MISSIONS_BASE, "Reportes"),
@@ -378,12 +378,12 @@ FOLIO_VIH_CODIGOS = _config.get("FOLIO_VIH_CODIGOS", [])
 
 MISSIONS = _config.get("MISSIONS", [])
 '''
-                target = os.path.join(ruta_proyecto, "Mision_Actual", "Mision_Actual.py")
+                target = os.path.join(ruta_proyecto, "Mision Actual", "Mision_Actual.py")
                 with open(target, "w", encoding="utf-8") as f:
                     f.write(adapter_code)
 
                 # 5. Recargar módulo Mision_Actual para que tome los nuevos valores
-                import Mision_Actual.Mision_Actual as MA
+                import Mision_Actual as MA
                 importlib.reload(MA)
                 
                 # 5. ✨ Forzar recarga ROBUSTA en todas las vistas activas

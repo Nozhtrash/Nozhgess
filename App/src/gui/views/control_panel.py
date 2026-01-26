@@ -380,6 +380,8 @@ class ControlPanelView(ctk.CTkFrame):
             
             _add(c_mis.content, f"{prefix}keywords", "Keywords (sep. coma)")
             _add(c_mis.content, f"{prefix}objetivos", "Objetivos (sep. coma)")
+            _add(c_mis.content, f"{prefix}habilitantes", "Habilitantes (sep. coma)")
+            _add(c_mis.content, f"{prefix}excluyentes", "Excluyentes (sep. coma)")
             
             meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
             meta.grid_columnconfigure((0, 1), weight=1)
@@ -569,6 +571,11 @@ class ControlPanelView(ctk.CTkFrame):
                             idx = int(idx_str)
                             if idx not in missions_updates:
                                 missions_updates[idx] = {}
+                            
+                            # Auto-convert lists (Fix compatibility)
+                            if field in ["keywords", "objetivos", "habilitantes", "excluyentes"] and isinstance(val, str):
+                                val = [x.strip() for x in val.split(",") if x.strip()]
+                                
                             missions_updates[idx][field] = val
                 else:
                     main_config_data[key] = val

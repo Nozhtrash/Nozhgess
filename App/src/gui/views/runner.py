@@ -507,7 +507,11 @@ class RunnerView(ctk.CTkFrame):
             self._log("📦 Cargando módulos y configuración...", level="INFO")
             try:
                 import importlib
-                import Mision_Actual.Mision_Actual as ma
+                # Ensure Mision Actual is in path for imports
+                ma_path = os.path.join(ruta_proyecto, "Mision Actual")
+                if ma_path not in sys.path:
+                    sys.path.insert(0, ma_path)
+                import Mision_Actual as ma
                 import Utilidades.Mezclador.Conexiones as conexiones
                 
                 # RECARGA CRÍTICA: Asegurar que se usen los nuevos parches de estabilidad

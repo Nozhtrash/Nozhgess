@@ -103,7 +103,7 @@ def analizar_misiones(
 ):
     """Devuelve lista de filas (una por misión)."""
 
-    from Mision_Actual.Mision_Actual import (
+    from Mision_Actual import (
         MISSIONS,
         VENTANA_VIGENCIA_DIAS,
         REVISAR_HISTORIA_COMPLETA,
