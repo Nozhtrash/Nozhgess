@@ -31,6 +31,7 @@ class ControlPanelView(ctk.CTkFrame):
         self.colors = colors
         self.controller = MisionController(ruta_proyecto)
         self.rows = {} 
+        self.mission_cards = [] # Tracker para recarga inteligente 
         
         # Header
         self._setup_header()
@@ -129,31 +130,42 @@ class ControlPanelView(ctk.CTkFrame):
         self.reload_btn.pack(side="right", padx=(5, 0))
 
     def on_show(self):
-        """Hook al mostrar la vista - no recarga automáticamente para mejor rendimiento."""
-        pass  # Removed auto-reload: self._on_reload(silent=True)
+        """Hook al mostrar la vista."""
+        # Auto-reload silencioso para detectar cambios externos
+        self.reload_ui(force_refresh=True, silent=True)
 
-    def reload_ui(self):
-        """Recarga los valores del formulario sin reconstruir la UI."""
+    def reload_ui(self, force_refresh: bool = False, silent: bool = False):
+        """
+        Recarga la interfaz.
+        force_refresh: Forzar lectura de disco (bypass cache).
+        silent: No mostrar errores menores.
+        """
         try:
-            config = self.controller.load_config()
-            mission_data = self.controller.get_active_mission_data()
+            # 1. Cargar Configuración (Forzando si es pedido)
+            config = self.controller.load_config(force_reload=force_refresh)
             
-            # Si NO hay filas construidas, construir todo (primera carga)
-            if not self.rows:
-                self._build_form(config, mission_data)
+            # 2. Detectar cambios estructurales (Cantidad de misiones)
+            missions_list = config.get("MISSIONS", [])
+            current_widgets_count = len(self.mission_cards)
+            
+            # Si hay diferencia en la cantidad de misiones O si es un forzado explícito,
+            # reconstruimos el formulario completo para asegurar consistencia.
+            # (Es más seguro reconstruir que intentar parchear widgets)
+            if len(missions_list) != current_widgets_count or force_refresh:
+                self._build_form(config)
             else:
-                # Si YA existen, solo actualizar valores
-                self._update_form_values(config, mission_data)
+                # Si solo cambiaron valores, actualizamos in-place
+                self._update_form_values(config)
                 
         except Exception as e:
-            self._show_error(f"Error cargando configuración: {e}")
+            if not silent:
+                self._show_error(f"Error cargando configuración: {e}")
 
-    def _update_form_values(self, config: dict, mission_data: Any):
+    def _update_form_values(self, config: dict):
         """Actualiza solo los valores de los inputs existentes."""
-        # Handle mission_data which might be list
         missions_list = config.get("MISSIONS", [])
-        if not missions_list and isinstance(mission_data, dict) and mission_data:
-             missions_list = [mission_data]
+        if not missions_list:
+             missions_list = [{}]
              
         combined = config.copy()
         for i, m in enumerate(missions_list):
@@ -195,28 +207,17 @@ class ControlPanelView(ctk.CTkFrame):
                          if val: row.entry.select()
                          else: row.entry.deselect()
 
-    def _build_form(self, config: dict, mission_data: Any):
-        """Construye los grupos y filas de forma diferida (Máximo Rendimiento)."""
+    def _build_form(self, config: dict):
+        """Construye los grupos y filas de forma completa."""
         
         for widget in self.scroll.winfo_children(): widget.destroy()
         self.rows.clear()
+        self.mission_cards = [] # Reset cards tracking
         
         # Clear shortcuts
         for widget in self.shortcuts_frame.winfo_children(): widget.destroy()
         
-        # Handle mission_data: It should be a LIST of missions now, but let's be robust
-        # The controller.get_active_mission_data() currently returns just dict of active mission.
-        # We need ALL missions. Let's fix that by reading directly from config if needed
-        # or assuming mission_data passed here is the config["MISSIONS"] list if we change the caller.
-        
-        # Actually, let's look at how we call this. reload_ui calls:
-        # mission_data = self.controller.get_active_mission_data()
-        # We should change that control flow in reload_ui first or here.
-        
-        # Let's rely on config["MISSIONS"] which should exist
         missions_list = config.get("MISSIONS", [])
-        if not missions_list and isinstance(mission_data, dict) and mission_data:
-             missions_list = [mission_data] # Fallback
         if not missions_list:
              missions_list = [{}] # At least one empty mission
              
@@ -434,7 +435,7 @@ class ControlPanelView(ctk.CTkFrame):
         """Agrega una nueva misión vacía."""
         try:
             self.controller.add_empty_mission()
-            self._on_reload(silent=True)
+            self.reload_ui(force_refresh=True) # Rebuild UI to show new mission
             get_notifications().show_success("Misión agregada correctamente")
             # Scroll to bottom?
             self.after(100, lambda: self.scroll._parent_canvas.yview_moveto(1.0))
@@ -471,7 +472,7 @@ class ControlPanelView(ctk.CTkFrame):
         def _confirm():
             try:
                 self.controller.delete_mission(index)
-                self._on_reload(silent=True)
+                self.reload_ui(force_refresh=True) # Rebuild UI
                 get_notifications().show_success(f"Misión {index+1} eliminada")
                 dialog.destroy()
             except Exception as e:
@@ -581,7 +582,9 @@ class ControlPanelView(ctk.CTkFrame):
                     main_config_data[key] = val
             
             # Reconstruct MISSIONS
-            current_config = self.controller.load_config()
+            # Usar force_reload para asegurar que usamos la base más reciente del disco
+            # y no sobrescribimos misiones agregadas externamente con datos viejos de caché.
+            current_config = self.controller.load_config(force_reload=True)
             current_missions = current_config.get("MISSIONS", [])
             
             final_missions = []
@@ -621,7 +624,7 @@ class ControlPanelView(ctk.CTkFrame):
 
     def _on_reload(self, silent=False):
         """Solicita recarga de UI."""
-        self.reload_ui()
+        self.reload_ui(force_refresh=True, silent=silent)
         if not silent:
             get_notifications().show_info("Configuración recargada", toast=True)
             self.reload_btn.configure(text="✅ Recargado!")

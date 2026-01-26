@@ -1,57 +1,78 @@
 # ⚕️ Nozhgess v3.0 LEGENDARY
-> **Automatización Inteligente y Resiliente para Datos Médicos (SIGGES)**
+> **La Suite Definitiva de Automatización para SIGGES**
 
-## 🌟 La Visión de Nozhgess
-Nozhgess no es solo un script; es una **plataforma de automatización de grado industrial** diseñada para eliminar la carga administrativa en el procesamiento de datos del sistema SIGGES. Construido bajo los pilares de la **transparencia, resiliencia y eficiencia**, Nozhgess permite a los profesionales de la salud enfocarse en lo que realmente importa: los pacientes.
+![Estado](https://img.shields.io/badge/Estado-Estable-success) ![Versión](https://img.shields.io/badge/Versión-3.0.0-blue) ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)
 
----
-
-## 🛠️ ¿Qué hace Nozhgess? (Transparencia Total)
-La aplicación actúa como un **operador virtual** que interactúa con la plataforma SIGGES de forma segura y controlada. Sus funciones principales incluyen:
-
-*   **Procesamiento Masivo**: Automatiza la gestión de nóminas de pacientes, reduciendo horas de trabajo manual a minutos.
-*   **Validación de Datos**: Realiza verificaciones en tiempo real de RUTs, fechas y coherencia de registros clínicos.
-*   **Filtrado Inteligente**: Aplica reglas de negocio personalizables (IPD, OA, APS, SIC) para priorizar casos y evitar errores humanos.
-*   **NASA Luxury Resilience**: Sistema de "Circuit Breaker" y esperas inteligentes para una estabilidad extrema en plataformas médicas.
-*   **Zero-Byte Clean**: Arquitectura de vanguardia optimizada para la resiliencia y libre de errores de codificación.
+**Nozhgess** es una obra de ingeniería diseñada para transformar la gestión de datos médicos. No es simplemente un script de automatización; es un **asistente virtual autónomo** capaz de navegar, interpretar y gestionar la plataforma SIGGES con una precisión superior a la humana y una velocidad inigualable.
 
 ---
 
-## 🚀 Inicio Rápido
+## 📚 Documentación Exclusiva
 
-### 💻 Para Usuarios (Modo Aplicación)
-Si solo deseas usar la herramienta, no necesitas tocar una sola línea de código:
-1.  **Instala**: Ejecuta `INSTALAR.bat` para tener el ícono en tu escritorio.
-2.  **Inicia**: Usa `INICIAR_NOZHGESS.bat` para abrir la interfaz gráfica premium.
-3.  **Aprende**: Lee la [Guía de Instalación Express](file:///Documentacion/Instalacion.md).
+Para mantener este manual limpio, hemos dividido la información técnica en documentos especializados. **Por favor, léelos según tu rol:**
 
-### ⌨️ Para Desarrolladores (Modo IDE)
-Si deseas extender Nozhgess o usarlo desde tu entorno de desarrollo:
-1.  **Dependencias**: `pip install -r App/requirements.txt`.
-2.  **Entrada**: El punto de acceso es [`App/Nozhgess.pyw`](file:///App/Nozhgess.pyw).
-3.  **Configuración**: Todas las misiones y logs se gestionan desde la raíz para tu comodidad.
+| Icono | Documento | Descripción |
+| :--- | :--- | :--- |
+| 🛠️ | **[Guía de Desarrollo](DEVELOPMENT.md)** | Arquitectura, diagramas, lógica interna y filosofía de código. |
+| 🚑 | **[Solución de Problemas](TROUBLESHOOTING.md)** | Guía rápida para resolver errores, bloqueos y dudas comunes. |
+| 📜 | **[Historial de Cambios](CHANGELOG.md)** | Lista detallada de cada mejora, corrección y nueva funcionalidad. |
+| 📥 | **[Instalación](Documentacion/Instalacion.md)** | Pasos para desplegar Nozhgess en una nueva máquina. |
 
 ---
 
-## 📂 Anatomía del Proyecto
-Hemos organizado Nozhgess para que sea limpio y fácil de navegar:
+## 🌟 Características Principales
 
-| Carpeta | Propósito |
-| :--- | :--- |
-| **[`App/`](file:///App)** | El "Cerebro". Código fuente, lógica de automatización y UI. |
-| **[`Documentacion/`](file:///Documentacion)** | El "Manual". Guías detalladas, transparencia y aspectos legales. |
-| **[`Lista de Misiones/`](file:///Lista%20de%20Misiones)** | Tu biblioteca de tareas configuradas. |
-| **[`Mision Actual/`](file:///Mision%20Actual)** | Donde ocurre la magia en este momento. |
-| **[`Logs/`](file:///Logs)** | Registro histórico de cada acción realizada. |
+### 🧠 Inteligencia Artificial Simulata
+Nozhgess no sigue coordenadas ciegas. Utiliza **Reconocimiento Dinámico del DOM** para entender qué está pasando en la pantalla.
+*   Detector de Spinners (`_wait_smart`): Sabe cuándo SIGGES está "pensando" y espera pacientemente.
+*   Navegación Resiliente: Si un menú falla, intenta rutas alternativas (URL directa) automáticamente.
 
----
+### 🛡️ Seguridad de Grado Militar
+*   **Ejecución Local:** Tus credenciales y datos de pacientes NUNCA salen de tu red. Todo ocurre en `localhost`.
+*   **Logs Forenses:** Cada acción queda registrada en auditorías inmutables en la carpeta `Logs/`.
 
-## 🔒 Seguridad y Privacidad
-*   **Sin Almacenamiento Remoto**: Nozhgess procesa los datos localmente en tu computadora. Nada se sube a la nube.
-*   **Transparencia de Código**: Todo el motor es visible en la carpeta `App/src`, permitiendo auditorías de seguridad completas.
+### ⚡ Rendimiento "Zero-Latency"
+*   **Hot-Reloading:** Modifica las reglas de la misión (códigos a buscar) y aplícalas sin reiniciar el programa.
+*   **Parallel Logging:** Visualiza resúmenes limpios en tiempo real mientras el sistema graba trazas técnicas en segundo plano.
 
 ---
 
-### 🎨 Créditos y Copyright
-Desarrollado con ♥ por **Nozhtrash**.  
-© 2026. Todos los derechos reservados. Licencia MIT.
+## 🚀 Cómo Empezar
+
+### Requisitos Previos
+*   Sistema Operativo: Windows 10/11.
+*   Navegador: Microsoft Edge (Chromium).
+*   Acceso: Credenciales activas de SIGGES.
+
+### Ejecución
+1.  **Doble clic** en `INICIAR_NOZHGESS.bat`.
+2.  Se abrirá el **Dashboard de Control**.
+3.  Selecciona tu Misión en el panel izquierdo o configura una nueva.
+4.  Presiona **"Iniciar Edge Debug"** para abrir el navegador seguro.
+5.  Loguéate en SIGGES.
+6.  Presiona **"▶ Iniciar"** en Nozhgess.
+7.  *Relájate y observa la magia.*
+
+---
+
+## ⚙️ Configuración Avanzada
+
+Nozhgess es altamente personalizable a través de `App/config/mission_config.json`.
+*   **Keywords:** Define qué palabras clave buscar en las observaciones.
+*   **Códigos Habilitantes/Excluyentes:** Controla con precisión quirúrgica qué casos procesar.
+*   **Tiempos de Espera:** Ajusta la velocidad según la latencia de tu red hospitalaria.
+
+*(Ver [Guía de Desarrollo](DEVELOPMENT.md) para detalles sobre la estructura JSON)*
+
+---
+
+## 🤝 Contribuir y Soporte
+
+Este proyecto es mantenido por **Nozhtrash**.
+*   ¿Encontraste un bug? Revisa `TROUBLESHOOTING.md` primero.
+*   ¿Tienes una idea? Abre un "Issue" en nuestro repositorio privado.
+
+---
+
+Copyright © 2026 Nozhtrash.  
+*Diseñado para la excelencia. Construido para durar.*

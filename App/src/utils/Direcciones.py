@@ -263,10 +263,12 @@ XPATHS: Dict[str, Any] = {
     # =========================================================================
     #                           SPINNER
     # =========================================================================
-    "SPINNER_CSS": "dialog.loading",
+    "SPINNER_CSS": "dialog.loading[open], dialog.loading, div.circulo, dialog[open] .circulo",
     "SPINNER_XPATH": [
+        "//dialog[contains(@class,'loading')][@open]",  # Most precise
         "//dialog[@class='loading']",
-        "/html/body/div/dialog[2]",
+        "/html/body/div/dialog[2]", # Absolute
+        "//*[@id='root']/dialog[2]", # Fallback Absolute
     ],
     "SPINNER_DIV": [
         "//dialog[@class='loading']/div[@class='circulo']",

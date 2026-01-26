@@ -35,7 +35,7 @@ from colorama import Fore, Style, init as colorama_init
 import pandas as pd
 
 # Local - Configuración
-from Mision_Actual.Mision_Actual import (
+from Mision_Actual import (
     NOMBRE_DE_LA_MISION,
     RUTA_ARCHIVO_ENTRADA,
     RUTA_CARPETA_SALIDA,

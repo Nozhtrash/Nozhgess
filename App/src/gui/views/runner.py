@@ -392,20 +392,22 @@ class RunnerView(ctk.CTkFrame):
                 summary_indicators = ["🔥", "📋", "📊", "RESUMEN FINAL", "Exitosos:", "Guardado en:"]
                 if any(x in clean_msg for x in summary_indicators):
                     to_terminal = True
-                    to_debug = False # No ensuciar debug con resumen repetido
-                    to_general = False # No ensuciar general
+                    to_debug = True # Summary is useful in debug too
+                    to_general = False # Wait, better to have everything in General. Let's set it True.
+                    to_general = True 
                 
                 # B. DEBUG: Pasos técnicos, Tiempos, Trazas
+                # Estos mensajes suelen ser ruidosos para la terminal principal, pero vitales para Debug
                 elif any(x in clean_msg for x in ["⏳", "✓", "⏱️", "└─", "├─", "INICIO TIMING", "TOTAL:", "System Check"]):
                     to_terminal = False
                     to_debug = True
-                    to_general = False
+                    to_general = True # FIXED: General needs these logs too!
                 
-                # C. GENERAL: Logs de sistema, backend, errores puros
+                # C. GENERAL: Todo lo demás
                 else:
                     # Catch-all para logs de sistema (Driver, JS extraction, etc)
                     to_terminal = False
-                    to_debug = False # Opcional: poner True si se quiere todo en debug
+                    to_debug = False # Keep pure system noise out of specific debug tab if preferred, or True
                     to_general = True
 
                 

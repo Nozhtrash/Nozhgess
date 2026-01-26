@@ -281,7 +281,7 @@ class SiggesDriver:
         # SEGURIDAD: 1.5s da margen para páginas lentas
         try:
             css = XPATHS.get("SPINNER_CSS", "dialog.loading")
-            WebDriverWait(self.driver, 1.5).until(  # OPTIMIZADO: 1.5s (antes 3s)
+            WebDriverWait(self.driver, 3.0).until(  # RESTAURADO: 3s para seguridad en redes lentas
                 EC.invisibility_of_element_located((By.CSS_SELECTOR, css))
             )
         except TimeoutException:
@@ -291,11 +291,27 @@ class SiggesDriver:
 
     def _wait_smart(self, spinner_clave: str = "spinner") -> None:
         """
-        🧠 SMART: Retorna instantáneo si no hay spinner.
+        🧠 SMART: Espera inteligente con 'grace period'.
+        
+        Da un pequeño margen (150ms) para que el spinner aparezca tras una acción.
+        Si aparece, espera a que se vaya.
         """
-        if self.hay_spinner():
-            self.esperar_spinner(clave_espera=spinner_clave)
-        # Si no hay spinner, retorna en ~1ms
+        # Grace period: Esperar brevemente a que el JS reactivo muestre el spinner
+        try:
+             # Check rápido inicial
+             if self.hay_spinner():
+                 self.esperar_spinner(clave_espera=spinner_clave)
+                 return
+
+             # Si no está, dar 150ms de gracia por si la red/JS tarda en reaccionar
+             time.sleep(0.15)
+             
+             # Re-check
+             if self.hay_spinner():
+                 self.esperar_spinner(clave_espera=spinner_clave)
+                 
+        except Exception:
+             pass
 
     # =========================================================================
     #                       FIND / CLICK GENÉRICOS
@@ -901,7 +917,10 @@ class SiggesDriver:
         # =================================================================
         log_warn("⚠️ Navegación por menú falló, usando URL directa...")
         try:
-            self.ir(XPATHS["BUSQUEDA_URL"])
+            # Bypass interception logic in self.ir to prevent infinite recursion
+            url = XPATHS["BUSQUEDA_URL"]
+            self.driver.get(url)
+            self._wait_smart()
             time.sleep(1.0)
             
             if ya_en_busqueda(self.driver, XPATHS, timeout=2.0):

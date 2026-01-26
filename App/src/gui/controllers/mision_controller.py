@@ -254,7 +254,7 @@ class MisionController:
     def add_empty_mission(self) -> None:
         """Agrega una misión vacía a la configuración."""
         try:
-            cfg = self.load_config()
+            cfg = self.load_config(force_reload=True)
             missions = cfg.get("MISSIONS", [])
             
             # Plantilla vacía
@@ -283,7 +283,7 @@ class MisionController:
     def delete_mission(self, index: int) -> None:
         """Elimina una misión por índice."""
         try:
-            cfg = self.load_config()
+            cfg = self.load_config(force_reload=True) # Siempre trabajar sobre fresco
             missions = cfg.get("MISSIONS", [])
             
             if 0 <= index < len(missions):

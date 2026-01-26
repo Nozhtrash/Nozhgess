@@ -399,7 +399,12 @@ MISSIONS = _config.get("MISSIONS", [])
                             
                             # Forzar recarga de UI si soporta el protocolo
                             if hasattr(view, "reload_ui"):
-                                view.reload_ui()
+                                try:
+                                    # Intentar llamada con argumento de fuerza
+                                    view.reload_ui(force_refresh=True)
+                                except TypeError:
+                                    # Fallback para vistas que no soporten el argumento
+                                    view.reload_ui()
                                 refresh_count += 1
                                 
                 except Exception as refresh_err:
