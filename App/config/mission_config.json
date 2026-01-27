@@ -23,7 +23,9 @@
   "EXCLUYENTES_MAX": 1,
   "MOSTRAR_FUTURAS": true,
   "OBSERVACION_FOLIO_FILTRADA": false,
-  "CODIGOS_FOLIO_BUSCAR": [],
+  "CODIGOS_FOLIO_BUSCAR": [
+    "['[]']"
+  ],
   "FOLIO_VIH": false,
   "FOLIO_VIH_CODIGOS": [
     "0305091",
@@ -39,12 +41,9 @@
       ],
       "objetivos": [],
       "habilitantes": [
-        "0801001",
-        "801101"
+        "0801001"
       ],
-      "excluyentes": [
-        "[]"
-      ],
+      "excluyentes": [],
       "familia": "3",
       "especialidad": "13-04-02",
       "frecuencia": "Mensual",
@@ -53,6 +52,43 @@
       "NOMBRE_DE_LA_MISION": "Tamizajes",
       "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
       "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos"
+    },
+    {
+      "nombre": "Nueva Misión 2",
+      "keywords": [
+        "Invasor"
+      ],
+      "objetivos": [],
+      "habilitantes": [],
+      "excluyentes": [],
+      "familia": "3",
+      "especialidad": "13-04-02",
+      "frecuencia": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "NOMBRE_DE_LA_MISION": "CACU Invasor",
+      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
+      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes"
+    },
+    {
+      "nombre": "Nueva Misión 3",
+      "keywords": [
+        "Segmento",
+        "Cervicouterino segmento"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "801101"
+      ],
+      "excluyentes": [],
+      "familia": "3",
+      "especialidad": "13-04-02",
+      "frecuencia": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "NOMBRE_DE_LA_MISION": "Tamizajes Antiguos",
+      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
+      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes"
     }
   ]
 }

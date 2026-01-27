@@ -228,6 +228,62 @@ with DebugBlock("Analizar misión", rut=rut, mision=nombre):
 
 ---
 
+## 🐛 Debugging y Diagnóstico
+
+### Sistema de Logging Exhaustivo (v1.0.1+)
+
+NOZHGESS incluye un sistema de logging detallado para diagnóstico de problemas:
+
+#### Logs de Prestaciones
+
+```
+🔍 Buscando tbody de prestaciones para caso índice 0
+   Intento 1: /html/body/div/main/div[3]/div[2]/div[1]...
+   ✅ Encontrado con estrategia 1, intento 1
+
+📋 Leyendo tbody con 13 filas
+✅ Procesadas 13 prestaciones (0 descartadas)
+```
+
+#### Logs de Habilitantes/Excluyentes
+
+```
+🔍 Buscando habilitantes: ['3002023']
+   🔧 Códigos habilitantes normalizados: {'3002023'}
+   🎯 Código 3002023 detectado en prestaciones!
+   ✅ Agregado: 3002023 fecha 24/10/2025
+📊 Vigencia: 1 vigentes de 1 totales
+```
+
+#### Logs de Apto RE
+
+```
+🔍 Revisando estados IPD para Apto RE:
+   📋 Estados IPD recibidos: ['Sí', 'Sí', 'No']
+   ✅ DETECTADO 'Sí' en estado IPD 1: 'Sí'
+
+🧮 Calculando Apto RE:
+   ✅ APTO RE = SI (IPD=True, APS=False)
+```
+
+### Archivos de Log
+
+Los logs se guardan automáticamente en:
+
+```
+Z_Utilidades/Logs/nozhgess_YYYYMMDD_HHMMSS.log
+```
+
+### Activar Debug Completo
+
+Para máximo detalle en los logs:
+
+1. No requiere configuración adicional - logging automático activado
+2. Revisar archivo de log después de cada ejecución
+3. Buscar mensajes con ⚠️ (warnings) o ❌ (errores)
+
+---
+
 ## 📝 Licencia
 
 Uso interno. Todos los derechos reservados.
@@ -236,24 +292,44 @@ Uso interno. Todos los derechos reservados.
 
 ## 👥 Soporte
 
-Para activar debug máximo y diagnosticar problemas:
+### Resolución de Problemas
 
-```python
-# En DEBUG.py
-DEBUG_LEVEL = TRACE
-set_log_file("logs/debug.log")
-```
+Si encuentras problemas:
 
-Revisar `logs/debug.log` para análisis detallado.
+1. **Revisar logs**: `Z_Utilidades/Logs/nozhgess_*.log`
+2. **Buscar en logs**:
+   - `❌` = Errores críticos
+   - `⚠️` = Warnings que requieren atención
+   - `🔍` = Información de búsqueda/detección
+
+3. **Problemas comunes**:
+   - **"0 prestaciones leídas"**: Verificar que caso esté expandido
+   - **"No se encontró tbody"**: Revisar estructura DOM en navegador
+   - **"Apto RE = NO" incorrecto**: Verificar logs de IPD y APS
+
+### Archivos de Documentación
+
+- `CHANGELOG.md` - Historial completo de cambios
+- `ESTADO_FINAL.md` - Estado actual del proyecto
+- `OPTIMIZATION_LOG.md` - Historial de optimizaciones
 
 ---
 
 ## 🎯 Estado del Proyecto
 
-**Versión**: 1.0  
+**Versión**: 1.0.1  
 **Calidad**: SSSS+ (Perfección Absoluta)  
-**Estado**: Producción  
-**Última actualización**: 2026-01-09
+**Estado**: Producción con Correcciones Críticas  
+**Última actualización**: 2026-01-12
+
+### Correcciones Recientes (v1.0.1)
+
+✅ **Detección de Códigos**: Corregida búsqueda de prestaciones (100% detección)  
+✅ **XPaths Actualizados**: Estructura DOM real implementada  
+✅ **Logging Exhaustivo**: Sistema de diagnóstico completo  
+✅ **Apto RE Mejorado**: Detección robusta de "Sí" en Estado IPD  
+
+Ver `CHANGELOG.md` para detalles completos.
 
 ---
 

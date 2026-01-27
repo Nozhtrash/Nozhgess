@@ -1,19 +1,14 @@
 {
   "nombre": "Cáncer Cervicouterino",
   "keywords": [
-    "['Cáncer Cervicouterino'",
-    "'Cáncer Cervicouterino Segmento']"
+    "Cáncer Cervicouterino",
+    "Cáncer Cervicouterino Segmento"
   ],
-  "objetivos": [
-    "[]"
-  ],
+  "objetivos": [],
   "habilitantes": [
-    "['0801001'",
-    "'801101']"
+    "0801001"
   ],
-  "excluyentes": [
-    "[]"
-  ],
+  "excluyentes": [],
   "familia": "3",
   "especialidad": "13-04-02",
   "frecuencia": "Mensual",
