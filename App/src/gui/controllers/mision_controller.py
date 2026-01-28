@@ -310,10 +310,13 @@ class MisionController:
             
             if folder_type.lower() == "reportes":
                 target_folder = os.path.join(base_folder, "Reportes")
-            elif folder_type.lower() == "nominas":
-                target_folder = os.path.join(base_folder, "Nóminas") # Cuidado con tilde
+            elif folder_type.lower() == "nominas" or folder_type.lower() == "nóminas":
+                target_folder = os.path.join(base_folder, "Nóminas")
             else:
-                target_folder = base_folder # Fallback
+                # Fallback safer: Default to Nóminas or error? 
+                # Let's default to Nóminas to avoid root pollution, or create "Desclasificados"
+                target_folder = os.path.join(base_folder, "Nóminas") 
+
                 
             os.makedirs(target_folder, exist_ok=True)
             
@@ -329,6 +332,48 @@ class MisionController:
                 json.dump(mission_data, f, indent=2, ensure_ascii=False)
                 
             return path
+
+        except Exception as e:
+            raise Exception(f"Error exportando misión: {e}")
+
+    def export_mission_package(self, full_config: Dict[str, Any], folder_type: str, custom_name: str) -> str:
+        """
+        Exporta TODA la configuración (multiple misiones) a un solo archivo JSON.
+        folder_type: 'reportes' | 'nominas'
+        custom_name: Nombre del archivo sin extensión (ej: 'Mis_Misiones_Enero')
+        """
+        try:
+            import re
+            
+            # Determinar carpeta destino
+            base_folder = os.path.join(self.project_root, "Lista de Misiones")
+            target_folder = ""
+            
+            if folder_type.lower() == "reportes":
+                target_folder = os.path.join(base_folder, "Reportes")
+            elif folder_type.lower() == "nominas" or folder_type.lower() == "nóminas":
+                target_folder = os.path.join(base_folder, "Nóminas")
+            else:
+                target_folder = os.path.join(base_folder, "Nóminas") 
+
+            os.makedirs(target_folder, exist_ok=True)
+            
+            # Limpiar nombre
+            safe_name = re.sub(r'[\\/*?:"<>|]', "", custom_name).strip().replace(" ", "_")
+            if not safe_name:
+                safe_name = "Paquete_Misiones"
+            
+            filename = f"{safe_name}.json"
+            path = os.path.join(target_folder, filename)
+            
+            # Guardar la configuración COMPLETA
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(full_config, f, indent=2, ensure_ascii=False)
+                
+            return path
+            
+        except Exception as e:
+            raise Exception(f"Error exportando paquete: {e}")
             
         except Exception as e:
             raise Exception(f"Error exportando misión: {e}")

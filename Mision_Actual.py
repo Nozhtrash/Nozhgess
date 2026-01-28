@@ -1,10 +1,11 @@
 # Mision_Actual.py
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
-#                     ARCHIVO DE CONFIGURACIÓN DE LA MISIÓN
+#                     ⚠️ ARCHIVO GENERADO AUTOMÁTICAMENTE ⚠️
 # -----------------------------------------------------------------------------
-# Este archivo es generado automáticamente por el panel de control.
-# Define las variables globales que usará el script para la misión actual.
+# ¡NO EDITAR MANUALMENTE ESTE ARCHIVO!
+# Será sobrescrito por el Panel de Control cada vez que guardes o cargues una misión.
+# Si necesitas cambiar estos valores, usa la interfaz gráfica (Nozhgess.pyw).
 # -----------------------------------------------------------------------------
 
 # =============================================================================

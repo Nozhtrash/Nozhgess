@@ -25,6 +25,7 @@ MISSION_FOLDERS = {
 }
 
 
+
 class MissionsView(ctk.CTkFrame):
     """Vista para gestionar misiones con importar/exportar."""
     
@@ -210,11 +211,15 @@ class MissionsView(ctk.CTkFrame):
             ).pack(anchor="w", padx=6)
             
             try:
-                files = [f for f in os.listdir(folder_path) if f.endswith(".py") and not f.startswith("__")]
+                # Support both .py and .json
+                files = [f for f in os.listdir(folder_path) if (f.endswith(".py") or f.endswith(".json")) and not f.startswith("__")]
                 files.sort()
                 
                 for filename in files:
-                    display = filename.replace(".py", "")
+                    display = filename.replace(".py", "").replace(".json", "")
+                    # Mark JSON distinctly to avoid confusion if duplicate names exist
+                    if filename.endswith(".json"):
+                        display += " (JSON)"
                     
                     btn = ctk.CTkButton(
                         self.folder_scroll,
@@ -273,35 +278,46 @@ class MissionsView(ctk.CTkFrame):
             try:
                 content = self.code_text.get("1.0", "end-1c")
                 
-                # --- NUEVA LÓGICA: Parsear .py a dict y escribir JSON ---
+                # --- NUEVA LÓGICA: Soporte Híbrido JSON / PYTHON ---
                 config_json_path = os.path.join(ruta_proyecto, "App", "config", "mission_config.json")
-                
-                # 1. Parsear contenido del archivo Python en un namespace temporal
-                namespace = {}
-                try:
-                    exec(content, namespace)
-                except Exception as parse_err:
-                    messagebox.showerror("Error de Sintaxis", f"El archivo de misión tiene errores:\n{parse_err}")
-                    return
-                
-                # 2. Extraer variables conocidas del namespace
-                keys_to_extract = [
-                    "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
-                    "DIRECCION_DEBUG_EDGE", "EDGE_DRIVER_PATH",
-                    "INDICE_COLUMNA_FECHA", "INDICE_COLUMNA_RUT", "INDICE_COLUMNA_NOMBRE",
-                    "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
-                    "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
-                    "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES",
-                    "FILAS_IPD", "FILAS_OA", "FILAS_APS", "FILAS_SIC",
-                    "HABILITANTES_MAX", "EXCLUYENTES_MAX",
-                    "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR",
-                    "FOLIO_VIH", "FOLIO_VIH_CODIGOS", "MISSIONS"
-                ]
+                import json
                 
                 new_config = {}
-                for key in keys_to_extract:
-                    if key in namespace:
-                        new_config[key] = namespace[key]
+
+                if self.current_file.lower().endswith(".json"):
+                    # === MODO JSON ===
+                    try:
+                        new_config = json.loads(content)
+                    except Exception as json_err:
+                         messagebox.showerror("Error JSON", f"El archivo JSON es inválido:\n{json_err}")
+                         return
+                else:
+                    # === MODO PYTHON (LEGACY) ===
+                    # 1. Parsear contenido del archivo Python en un namespace temporal
+                    namespace = {}
+                    try:
+                        exec(content, namespace)
+                    except Exception as parse_err:
+                        messagebox.showerror("Error de Sintaxis", f"El archivo de misión tiene errores:\n{parse_err}")
+                        return
+                    
+                    # 2. Extraer variables conocidas del namespace
+                    keys_to_extract = [
+                        "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
+                        "DIRECCION_DEBUG_EDGE", "EDGE_DRIVER_PATH",
+                        "INDICE_COLUMNA_FECHA", "INDICE_COLUMNA_RUT", "INDICE_COLUMNA_NOMBRE",
+                        "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
+                        "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
+                        "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES",
+                        "FILAS_IPD", "FILAS_OA", "FILAS_APS", "FILAS_SIC",
+                        "HABILITANTES_MAX", "EXCLUYENTES_MAX",
+                        "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR",
+                        "FOLIO_VIH", "FOLIO_VIH_CODIGOS", "MISSIONS"
+                    ]
+                    
+                    for key in keys_to_extract:
+                        if key in namespace:
+                            new_config[key] = namespace[key]
                 
                 if not new_config:
                     messagebox.showerror("Error", "No se encontraron configuraciones válidas en el archivo.")
@@ -422,12 +438,16 @@ MISSIONS = _config.get("MISSIONS", [])
         from tkinter import simpledialog
         name = simpledialog.askstring("Nueva Misión", "Nombre de la nueva misión:")
         if name:
+            # Check if template is py or json
             template_path = os.path.join(MISSIONS_BASE, "Base Mision")
-            templates = [f for f in os.listdir(template_path) if f.endswith(".py")]
+            templates = [f for f in os.listdir(template_path) if f.endswith(".py") or f.endswith(".json")]
+            
             if templates:
                 src = os.path.join(template_path, templates[0])
-                dest = os.path.join(MISSIONS_BASE, "Nóminas", f"{name}.py")
+                ext = os.path.splitext(src)[1]
+                dest = os.path.join(MISSIONS_BASE, "Nóminas", f"{name}{ext}")
                 shutil.copy2(src, dest)
+
                 self._load_mission_tree()
                 messagebox.showinfo("Creado", f"Misión '{name}' creada en Nóminas.")
     
@@ -435,7 +455,7 @@ MISSIONS = _config.get("MISSIONS", [])
         """Importa una misión."""
         filepath = filedialog.askopenfilename(
             title="Importar misión",
-            filetypes=[("Python", "*.py"), ("Todos", "*.*")]
+            filetypes=[("Misiones", "*.py *.json"), ("Python", "*.py"), ("JSON", "*.json"), ("Todos", "*.*")]
         )
         if filepath:
             dest = os.path.join(MISSIONS_BASE, "Nóminas", os.path.basename(filepath))
@@ -449,7 +469,7 @@ MISSIONS = _config.get("MISSIONS", [])
         
         dest = filedialog.asksaveasfilename(
             title="Exportar misión",
-            defaultextension=".py",
+            defaultextension=os.path.splitext(self.current_file)[1],
             initialfile=os.path.basename(self.current_file)
         )
         if dest:

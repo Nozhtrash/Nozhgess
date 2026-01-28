@@ -182,11 +182,11 @@ class SettingsView(ctk.CTkFrame):
         
         # Insertar acciones manualmente en el grid
         actions_w = create_actions(card.content)
-        actions_w.grid(row=row_idx, column=0, columnspan=2, fill="x", padx=16, pady=12)
+        actions_w.grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=16, pady=12)
         row_idx += 1
         
         # Separador Manual
-        ctk.CTkFrame(card.content, height=1, fg_color=self.colors.get("border", "#30363d")).grid(row=row_idx, column=0, columnspan=2, fill="x", padx=16, pady=8)
+        ctk.CTkFrame(card.content, height=1, fg_color=self.colors.get("border", "#30363d")).grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=16, pady=8)
         row_idx += 1
         
         # Export/Import
@@ -198,7 +198,7 @@ class SettingsView(ctk.CTkFrame):
             return actions2
 
         actions2_w = create_actions2(card.content)
-        actions2_w.grid(row=row_idx, column=0, columnspan=2, fill="x", padx=16, pady=12)
+        actions2_w.grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=16, pady=12)
 
 
     def _build_perf_content(self, card):
@@ -278,7 +278,7 @@ class SettingsView(ctk.CTkFrame):
              )
         
         # Separador Manual
-        ctk.CTkFrame(card.content, height=1, fg_color=self.colors.get("border", "#30363d")).grid(row=row_idx, column=0, columnspan=2, fill="x", padx=16, pady=8)
+        ctk.CTkFrame(card.content, height=1, fg_color=self.colors.get("border", "#30363d")).grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=16, pady=8)
         row_idx += 1
         
         # Botones
@@ -290,7 +290,7 @@ class SettingsView(ctk.CTkFrame):
             return buttons
 
         buttons_w = create_buttons(card.content)
-        buttons_w.grid(row=row_idx, column=0, columnspan=2, fill="x", padx=16, pady=12)
+        buttons_w.grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=16, pady=12)
         row_idx += 1
         
         # Nota final

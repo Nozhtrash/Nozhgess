@@ -1,7 +1,7 @@
 # ⚕️ Nozhgess v3.0 LEGENDARY
 > **La Suite Definitiva de Automatización para SIGGES**
 
-![Estado](https://img.shields.io/badge/Estado-Estable-success) ![Versión](https://img.shields.io/badge/Versión-3.0.0-blue) ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)
+![Estado](https://img.shields.io/badge/Estado-Estable-success) ![Versión](https://img.shields.io/badge/Versión-3.1.2-blue) ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)
 
 **Nozhgess** es una obra de ingeniería diseñada para transformar la gestión de datos médicos. No es simplemente un script de automatización; es un **asistente virtual autónomo** capaz de navegar, interpretar y gestionar la plataforma SIGGES con una precisión superior a la humana y una velocidad inigualable.
 
@@ -48,7 +48,7 @@ Nozhgess no sigue coordenadas ciegas. Utiliza **Reconocimiento Dinámico del DOM
 *   Acceso: Credenciales activas de SIGGES.
 
 ### Ejecución
-1.  **Doble clic** en `INICIAR_NOZHGESS.bat`.
+1.  **Doble clic** en `Lanzar Nozhgess.bat` (Recomendado) o `INICIAR_NOZHGESS.bat`.
 2.  Se abrirá el **Dashboard de Control**.
 3.  Selecciona tu Misión en el panel izquierdo o configura una nueva.
 4.  Presiona **"Iniciar Edge Debug"** para abrir el navegador seguro.
