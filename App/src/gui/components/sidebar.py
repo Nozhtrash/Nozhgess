@@ -6,6 +6,7 @@ Versión mejorada con transiciones suaves y bordes premium.
 """
 import customtkinter as ctk
 import os
+import sys
 from typing import Callable, Dict, Optional
 
 
@@ -86,6 +87,11 @@ class Sidebar(ctk.CTkFrame):
         self._btn("settings", "⚙️", "Ajustes")
         self._btn("about", "ℹ️", "Info")
         
+        self._sep()
+        
+        # Grupo 5: Acciones
+        self._action_btn("🔄", "Reiniciar App", self._restart_app, hover_color="#451a1a")
+        
         self.pack_propagate(False)
         self.configure(width=self.WIDTH)
     
@@ -119,6 +125,32 @@ class Sidebar(ctk.CTkFrame):
         
         # Guardar referencia
         self.buttons[vid] = {"btn": btn}
+
+    def _action_btn(self, icon: str, label: str, command: Callable, hover_color: str = None):
+        """Botón de acción directa (no navegación)."""
+        btn_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=1, padx=2)
+        
+        btn = ctk.CTkButton(
+            btn_frame, 
+            text=f" {icon}  {label}",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="normal"),
+            fg_color="transparent",
+            text_color=self.colors["text_secondary"],
+            hover_color=hover_color or self.colors.get("bg_card", "#1a1f27"),
+            height=self.BUTTON_HEIGHT,
+            corner_radius=8,
+            anchor="w",
+            width=165,
+            command=command
+        )
+        btn.pack(fill="x")
+
+    def _restart_app(self):
+        """Reinicia la aplicación suavemente."""
+        # Se puede añadir un diálogo de confirmación si se desea
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
     
     def _nav(self, vid: str):
