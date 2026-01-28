@@ -44,36 +44,33 @@ except ImportError:
 
 # Colores profesionales para headers - AGRUPADOS
 COLORS = {
-    # Grupo Básico (Fecha, Rut, Edad) - Verde Oscuro con texto blanco en negrita
-    "grupo_basico":      {"fill": "228B22", "font": "FFFFFF", "bold": True},
-    
-    # Grupo Objetivos (F Obj 1/2/3/4) - Celeste con texto blanco
-    "grupo_objetivos":   {"fill": "00B0F0", "font": "FFFFFF", "bold": True},
-    
-    # Grupo Clasificación (Familia, Especialidad) - Amarillo con texto negro
-    "grupo_clasificacion": {"fill": "FFFF00", "font": "000000", "bold": True},
-    
-    # Grupo Estado (Caso Encontrado, Mensual) - Morado con texto blanco
-    "grupo_estado":      {"fill": "7030A0", "font": "FFFFFF", "bold": True},
-    
-    # Grupo Habilitantes (C Hab, F Hab, Hab Vi) - Naranjo con texto negro en negrita
-    "grupo_habilitantes": {"fill": "FF8C00", "font": "000000", "bold": True},
-    
-    # Grupo Excluyentes (C Excluyente, F Excluyente) - Azul con texto blanco
-    "grupo_excluyentes": {"fill": "4472C4", "font": "FFFFFF", "bold": True},
-    
-    # Grupo IPD (Fecha IPD, Estado IPD, Diagnóstico IPD) - Rojo fuerte con texto negro en negrita
-    "grupo_ipd":         {"fill": "FF0000", "font": "000000", "bold": True},
-    
-    # Grupo OA (Código OA, Fecha OA, Folio OA, etc.) - Azul oscuro con texto blanco en negrita
-    "grupo_oa":          {"fill": "00008B", "font": "FFFFFF", "bold": True},
-    
-    # Grupo APS (Fecha APS, Estado APS) - Amarillo con texto negro
-    "grupo_aps":         {"fill": "FFC000", "font": "000000", "bold": True},
-    
-    # Grupo Observaciones (Observación, Observación Folio) - Rosado con texto negro en negrita
-    "grupo_observacion": {"fill": "FFB6C1", "font": "000000", "bold": True},
-    
+    # Grupo 1: Fecha, Rut, Edad - Azul Oscuro (#1C00EA)
+    "grupo_azul_oscuro": {"fill": "1C00EA", "font": "FFFFFF", "bold": True},
+
+    # Grupo 2: Familia, Especialidad, Fecha SIC, Derivado SIC - Verde (#00B050)
+    "grupo_verde":       {"fill": "00B050", "font": "FFFFFF", "bold": True},
+
+    # Grupo 3: Caso, Estado - Verde Claro (#00FA71)
+    "grupo_verde_claro": {"fill": "00FA71", "font": "FFFFFF", "bold": True},
+
+    # Grupo 4: Apertura, Apto SE/RE, Observaciones - Rosado Fuerte (#FF25D0)
+    "grupo_rosado":      {"fill": "FF25D0", "font": "FFFFFF", "bold": True},
+
+    # Grupo 5: Mensual - Amarillo Mostaza (#B4B800)
+    "grupo_mostaza":     {"fill": "B4B800", "font": "FFFFFF", "bold": True},
+
+    # Grupo 6: Habilitantes, IPD - Rojo (#FF0000)
+    "grupo_rojo":        {"fill": "FF0000", "font": "FFFFFF", "bold": True},
+
+    # Grupo 7: Excluyentes, OA - Azul (#0101FF) - Nota: Es casi igual al primero pero user pidió 0101FF
+    "grupo_azul":        {"fill": "0101FF", "font": "FFFFFF", "bold": True},
+
+    # Grupo 8: APS - Naranjo (#F26D00)
+    "grupo_naranjo":     {"fill": "F26D00", "font": "FFFFFF", "bold": True},
+
+    # Grupo 9: Fallecido, Carga Masiva - Cyan (#1DF4FF)
+    "grupo_cyan":        {"fill": "1DF4FF", "font": "FFFFFF", "bold": True},
+
     # Colores de celdas (para datos)
     "exito":             "C6EFCE",   # Verde claro
     "advertencia":       "FFEB9C",   # Amarillo claro
@@ -98,48 +95,51 @@ def _get_header_style(column_name: str) -> dict:
     """
     name = (column_name or "").lower().strip()
     
-    # Grupo Básico: Fecha, Rut, Edad
+    name = (column_name or "").lower().strip()
+    
+    # Grupo 1: Fecha, Rut, Edad
     if name in ["fecha", "rut", "edad"]:
-        return COLORS["grupo_basico"]
+        return COLORS["grupo_azul_oscuro"]
     
-    # Grupo Objetivos: F Obj 1/2/3/4
-    if name.startswith("f obj") or "objetivo" in name:
-        return COLORS["grupo_objetivos"]
-    
-    # Grupo Clasificación: Familia, Especialidad
+    # Grupo 2: Familia, Especialidad
     if name in ["familia", "especialidad"]:
-        return COLORS["grupo_clasificacion"]
+        return COLORS["grupo_verde"]
     
-    # Grupo Estado: Caso Encontrado, Estado Caso, Fecha Apertura, Fecha Cierre, Mensual
-    if name in ["caso encontrado", "estado caso", "fecha apertura", "fecha cierre", "mensual"]:
-        return COLORS["grupo_estado"]
+    # Grupo 3: Caso, Estado, SIC, Fallecido
+    if name in ["caso", "estado", "fallecido"] or "sic" in name:
+        return COLORS["grupo_verde_claro"]
     
-    # Grupo Habilitantes: C Hab, F Hab, Hab Vi
-    if "hab" in name and "exclu" not in name:
-        return COLORS["grupo_habilitantes"]
-    
-    # Grupo Excluyentes: C Excluyente, F Excluyente
-    if "excluy" in name:
-        return COLORS["grupo_excluyentes"]
-    
-    # Grupo IPD
-    if "ipd" in name:
-        return COLORS["grupo_ipd"]
-    
-    # Grupo OA
-    if " oa" in name or name.endswith("oa") or name.startswith("código oa") or name.startswith("fecha oa") or name.startswith("folio oa") or name.startswith("derivado oa") or name.startswith("diagnóstico oa"):
-        return COLORS["grupo_oa"]
-    
-    # Grupo APS
+    # Grupo 4: Apertura, Apto SE, Apto RE, Observaciones
+    if name in ["apertura", "apto se", "apto re"] or "observ" in name:
+        return COLORS["grupo_rosado"]
+
+    # Grupo 5: Mensual
+    if name == "mensual":
+        return COLORS["grupo_mostaza"]
+
+    # Grupo 6: Habilitantes, IPD
+    if ("hab" in name and "excl" not in name) or "ipd" in name:
+        return COLORS["grupo_rojo"]
+
+    # Grupo 7: Excluyentes, OA
+    if "excl" in name or " oa" in name or name.endswith("oa") or "código oa" in name:
+        return COLORS["grupo_azul"]
+
+    # Grupo 8: APS
     if "aps" in name:
-        return COLORS["grupo_aps"]
+        return COLORS["grupo_naranjo"]
     
-    # Grupo Observaciones
-    if "observ" in name:
-        return COLORS["grupo_observacion"]
+    # Grupo 9: Carga Masiva (Solo referencia para la otra función, Fallecido movido arriba)
+    if name == "carga masiva":
+        return COLORS["grupo_cyan"]
+
+    # Objetivos (Default Azul similar a OA por consistencia o a definir, user no especificó Obj explícitamente pero usualmente son importantes)
+    # Asumiré Grupo Azul para mantener consistencia con "Código OA" que es similar lógica de "Códigos"
+    if name.startswith("f obj") or "objetivo" in name:
+        return COLORS["grupo_azul"]
     
-    # Default: usar grupo básico
-    return COLORS["grupo_basico"]
+    # Default: usar grupo azul oscuro
+    return COLORS["grupo_azul_oscuro"]
 
 
 # =============================================================================
@@ -166,9 +166,15 @@ def _aplicar_estilos(ws) -> None:
         bottom=Side(style='thin', color='D0D0D0')
     )
     
+    # Detectar si es Carga Masiva por el nombre de la hoja
+    es_carga_masiva = (ws.title == "Carga Masiva")
+
     # Estilizar headers (fila 1)
     for cell in ws[1]:
-        style = _get_header_style(str(cell.value or ""))
+        if es_carga_masiva:
+            style = COLORS["grupo_cyan"]
+        else:
+            style = _get_header_style(str(cell.value or ""))
         
         cell.fill = PatternFill(start_color=style["fill"], end_color=style["fill"], fill_type="solid")
         # Usar negrita según configuración del estilo

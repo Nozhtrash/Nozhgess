@@ -331,7 +331,8 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     # Columnas de caso (nombres actualizados)
     # Apto SE = Seguimiento (estado o historial OA/SIC)
     # Apto RE = Resolución/Evaluación (IPD con Sí o APS creado)
-    cols += ["Familia", "Especialidad", "Caso", "Estado", "Apertura", "¿Cerrado?", "Apto SE", "Apto RE", "Mensual"]
+    # Apto RE = Resolución/Evaluación (IPD con Sí o APS creado)
+    cols += ["Familia", "Especialidad", "Caso", "Estado", "Apertura", "Apto SE", "Apto RE", "Mensual"]
 
     # Habilitantes (controlado por toggle global)
     if REVISAR_HABILITANTES and m.get("habilitantes"):
@@ -372,7 +373,6 @@ def vac_row(m: Dict[str, Any], fecha: str, rut: str, nombre: str,
     r["Caso"] = "Sin caso"
     r["Estado"] = ""
     r["Apertura"] = ""
-    r["¿Cerrado?"] = ""
     r["Apto SE"] = ""
     r["Apto RE"] = ""
     r["Mensual"] = "Sin Día"
@@ -400,11 +400,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     """
     res = vac_row(m, fecha, rut, nombre, "")
     res["Edad"] = str(edad_paciente) if edad_paciente is not None else ""
-
-    # --- NUEVOS INDICADORES ---
-    # Variedad: Cantidad de casos candidatos disponibles
-    count_vars = len(casos_data) if casos_data else 0
-    res["Variedad"] = str(count_vars)
     
     # Fallecido: Boolean explícito
     res["Fallecido"] = "SI" if fall_dt else "NO"
@@ -422,7 +417,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     res["Caso"] = caso_seleccionado.get("caso", "")
     res["Estado"] = caso_seleccionado.get("estado", "")
     res["Apertura"] = caso_seleccionado.get("apertura", "")
-    res["¿Cerrado?"] = caso_seleccionado.get("cierre", "NO")
     
     # Índice para expandir
     idx = caso_seleccionado.get("indice", 0)
