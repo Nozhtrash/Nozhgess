@@ -44,6 +44,10 @@ class ControlPanelView(ctk.CTkFrame):
         )
         self.scroll.pack(fill="both", expand=True, padx=20, pady=10)
         
+        # Container interno para gestión segura de widgets (evita destruir scrollbars)
+        self.form_container = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        self.form_container.pack(fill="x", expand=True)
+        
         # Cargar UI inicial
         self.reload_ui()
         
@@ -80,25 +84,40 @@ class ControlPanelView(ctk.CTkFrame):
         )
         self.debug_btn.pack(side="right", padx=5)
 
-        # Shortcuts Bar
-        self.shortcuts_frame = ctk.CTkFrame(header, fg_color="transparent")
-        self.shortcuts_frame.pack(fill="x", pady=(10, 0))
+        # Search & Add Row
+        tools_row = ctk.CTkFrame(header, fg_color="transparent")
+        tools_row.pack(fill="x", pady=(10, 0))
         
-        # We will populate shortcuts dynamically in reload_ui or a specific method
+        # Search Entry
+        self.search_var = ctk.StringVar()
+        self.search_var.trace("w", self._on_search_change)
         
-        # Add Mission Button (Right of shortcuts)
+        self.search_entry = ctk.CTkEntry(
+            tools_row,
+            textvariable=self.search_var,
+            width=200,
+            height=28,
+            placeholder_text="🔍 Filtrar misión...",
+            fg_color=self.colors["bg_card"],
+            text_color=self.colors["text_primary"],
+            border_width=0
+        )
+        self.search_entry.pack(side="left", padx=(0, 10))
+        
+        # Shortcuts Container (Horizontal Scroll if needed, or wrap)
+        self.shortcuts_frame = ctk.CTkFrame(tools_row, fg_color="transparent")
+        self.shortcuts_frame.pack(side="left", fill="x", expand=True)
+
         self.add_mission_btn = ctk.CTkButton(
-            header,
+            tools_row,
             text="+",
             width=30,
-            height=24,
+            height=28,
             font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=self.colors["accent"],
             command=self._add_mission
         )
-        # Pack relative to shortcuts? No, put in same row or separate.
-        # Let's repack shortcuts frame to handle this cleanly.
-        self.add_mission_btn.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-5) 
+        self.add_mission_btn.pack(side="right") 
 
 
 
@@ -207,64 +226,56 @@ class ControlPanelView(ctk.CTkFrame):
                          if val: row.entry.select()
                          else: row.entry.deselect()
 
+    def _add_row(self, parent, key, label, combined_data, type="entry", help_txt=None):
+        """Helper para agregar filas al formulario."""
+        val = combined_data.get(key)
+        
+        if not help_txt:
+            # Try to get help from clean key (removing MIS_x_)
+            clean_key = key
+            if key.startswith("MIS_"):
+                parts = key.split("_", 2)
+                if len(parts) > 2:
+                    clean_key = parts[2]
+            
+            if hasattr(MisionController, "HELP_TEXTS"):
+                 help_txt = MisionController.HELP_TEXTS.get(clean_key, MisionController.HELP_TEXTS.get(key))
+
+        row = FormRow(parent, label=label, input_type=type, value=val, help_text=help_txt, colors=self.colors)
+        row.pack(fill="x", padx=4, pady=2)
+        self.rows[key] = row
+        return row
+
     def _build_form(self, config: dict):
         """Construye los grupos y filas de forma completa."""
-        
-        for widget in self.scroll.winfo_children(): widget.destroy()
+        # Limpieza robusta usando container dedicado
+        if hasattr(self, 'form_container'):
+            for widget in self.form_container.winfo_children(): widget.destroy()
+        else:
+             for widget in self.scroll.winfo_children(): widget.destroy()
+
         self.rows.clear()
-        self.mission_cards = [] # Reset cards tracking
+        self.mission_cards = [] 
         
         # Clear shortcuts
         for widget in self.shortcuts_frame.winfo_children(): widget.destroy()
         
         missions_list = config.get("MISSIONS", [])
         if not missions_list:
-             missions_list = [{}] # At least one empty mission
+             missions_list = [{}] 
              
-        # Prepare combined dict for values: MIS_{i}_{key}
         combined = config.copy()
         
-        # Setup Shortcuts Buttons
-        for i, m in enumerate(missions_list):
-            m_name = m.get("NOMBRE_DE_LA_MISION", f"Misión {i+1}")
-            btn = ctk.CTkButton(
-                self.shortcuts_frame,
-                text=f"{i+1}. {m_name[:10]}..",
-                width=80,
-                height=24,
-                font=ctk.CTkFont(size=11),
-                fg_color=self.colors["bg_card"],
-                text_color=self.colors["text_primary"],
-                command=lambda idx=i: self._focus_mission(idx)
-            )
-            btn.pack(side="left", padx=2)
-            
-        # Helper to add rows
-        def _add(parent, key, label, type="entry", help_txt=None):
-            val = combined.get(key)
-            if not help_txt:
-                # Try to get help from clean key (removing MIS_x_)
-                # Example key: MIS_0_keywords -> keywords
-                clean_key = key
-                if key.startswith("MIS_"):
-                    parts = key.split("_", 2) # MIS, 0, keywords
-                    if len(parts) > 2:
-                        clean_key = parts[2]
-                
-                help_txt = MisionController.HELP_TEXTS.get(clean_key, MisionController.HELP_TEXTS.get(key))
-
-            row = FormRow(parent, label=label, input_type=type, value=val, help_text=help_txt, colors=self.colors)
-            row.pack(fill="x", padx=4, pady=2)
-            self.rows[key] = row
-            return row
+        self.current_missions_list = missions_list
+        self._refresh_shortcuts()
 
         # 1. Configuración General (Global)
-        c_gen = Card(self.scroll, "Configuración General 🛠️", colors=self.colors)
+        c_gen = Card(self.form_container, "Configuración General 🛠️", colors=self.colors)
         c_gen.pack(fill="x", pady=(0, 10))
 
         # --- A. Drivers & Debug ---
-        _add(c_gen.content, "DIRECCION_DEBUG_EDGE", "Debug Port")
-        _add(c_gen.content, "EDGE_DRIVER_PATH", "Driver Path", "path")
+        self._add_row(c_gen.content, "DIRECCION_DEBUG_EDGE", "Debug Port", combined)
+        self._add_row(c_gen.content, "EDGE_DRIVER_PATH", "Driver Path", combined, "path")
         
         # --- B. Excel Indices (Columnas) ---
         lbl_col = ctk.CTkLabel(c_gen.content, text="📍 Índices de Columnas (Excel Entrada)", 
@@ -289,7 +300,7 @@ class ControlPanelView(ctk.CTkFrame):
         
         # --- C. Reglas de Negocio & Límites ---
         lbl_rules = ctk.CTkLabel(c_gen.content, text="⚖️ Reglas y Límites", 
-                               font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_primary"])
+                                font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_primary"])
         lbl_rules.pack(anchor="w", padx=4, pady=(8, 2))
         
         rules_frame = ctk.CTkFrame(c_gen.content, fg_color="transparent")
@@ -312,13 +323,13 @@ class ControlPanelView(ctk.CTkFrame):
 
         # --- D. Filtros OA (Folio) ---
         lbl_folio = ctk.CTkLabel(c_gen.content, text="🔎 Filtro Folio OA", 
-                               font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_primary"])
+                                font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_primary"])
         lbl_folio.pack(anchor="w", padx=4, pady=(8, 2))
         
         self.rows["OBSERVACION_FOLIO_FILTRADA"] = FormRow(c_gen.content, label="Activar Filtro Folio", input_type="switch", value=combined.get("OBSERVACION_FOLIO_FILTRADA", False), colors=self.colors)
         self.rows["OBSERVACION_FOLIO_FILTRADA"].pack(fill="x", padx=4)
         
-        _add(c_gen.content, "CODIGOS_FOLIO_BUSCAR", "Códigos Folio (sep. coma)")
+        self._add_row(c_gen.content, "CODIGOS_FOLIO_BUSCAR", "Códigos Folio (sep. coma)", combined)
 
         # --- E. Toggles Generales ---
         lbl_toggles = ctk.CTkLabel(c_gen.content, text="🎚️ Secciones a Revisar", 
@@ -344,7 +355,6 @@ class ControlPanelView(ctk.CTkFrame):
         self.mission_cards = []
         
         for i, mission in enumerate(missions_list):
-            # Prefix for this mission
             prefix = f"MIS_{i}_"
             
             # Populate combined with this mission's data
@@ -352,14 +362,9 @@ class ControlPanelView(ctk.CTkFrame):
                 combined[f"{prefix}{k}"] = v
             
             m_name = mission.get("NOMBRE_DE_LA_MISION", f"Misión {i+1}")
-            c_mis = Card(self.scroll, f"Misión {i+1}: {m_name} 📋", colors=self.colors)
+            c_mis = Card(self.form_container, f"Misión {i+1}: {m_name} 📋", colors=self.colors)
             c_mis.pack(fill="x", pady=8)
             self.mission_cards.append(c_mis)
-            
-            # Botón Eliminar en el Header de la Card (Si es accesible)
-            # Como Card crea su propio header frame, insertamos el botón ahí si podemos, 
-            # o usamos un frame contenedor dentro del content como primera fila.
-            # Mejor opción: Header interno en el contenido
             
             header_actions = ctk.CTkFrame(c_mis.content, fg_color="transparent", height=30)
             header_actions.pack(fill="x", pady=(0, 5))
@@ -376,14 +381,14 @@ class ControlPanelView(ctk.CTkFrame):
             )
             btn_delete.pack(side="right")
             
-            _add(c_mis.content, f"{prefix}NOMBRE_DE_LA_MISION", "Nombre Misión")
-            _add(c_mis.content, f"{prefix}RUTA_ARCHIVO_ENTRADA", "Excel Entrada", "path")
-            _add(c_mis.content, f"{prefix}RUTA_CARPETA_SALIDA", "Carpeta Salida", "path_folder")
+            self._add_row(c_mis.content, f"{prefix}NOMBRE_DE_LA_MISION", "Nombre Misión", combined)
+            self._add_row(c_mis.content, f"{prefix}RUTA_ARCHIVO_ENTRADA", "Excel Entrada", combined, "path")
+            self._add_row(c_mis.content, f"{prefix}RUTA_CARPETA_SALIDA", "Carpeta Salida", combined, "path_folder")
             
-            _add(c_mis.content, f"{prefix}keywords", "Keywords (sep. coma)")
-            _add(c_mis.content, f"{prefix}objetivos", "Objetivos (sep. coma)")
-            _add(c_mis.content, f"{prefix}habilitantes", "Habilitantes (sep. coma)")
-            _add(c_mis.content, f"{prefix}excluyentes", "Excluyentes (sep. coma)")
+            self._add_row(c_mis.content, f"{prefix}keywords", "Keywords (sep. coma)", combined)
+            self._add_row(c_mis.content, f"{prefix}objetivos", "Objetivos (sep. coma)", combined)
+            self._add_row(c_mis.content, f"{prefix}habilitantes", "Habilitantes (sep. coma)", combined)
+            self._add_row(c_mis.content, f"{prefix}excluyentes", "Excluyentes (sep. coma)", combined)
             
             meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
             meta.grid_columnconfigure((0, 1), weight=1)
@@ -394,9 +399,6 @@ class ControlPanelView(ctk.CTkFrame):
             
             self.rows[f"{prefix}especialidad"] = FormRow(meta, label="Especialidad", value=mission.get("especialidad"), colors=self.colors)
             self.rows[f"{prefix}especialidad"].grid(row=0, column=1, padx=2, sticky="ew")
-            
-            # Module specific overrides could go here if missions were fully independent on modules
-            # For now keeping it simple as per original structure, but duplicated per mission.
             
             # --- Frecuencia y Demografía ---
             demo = ctk.CTkFrame(c_mis.content, fg_color="transparent")
@@ -411,26 +413,84 @@ class ControlPanelView(ctk.CTkFrame):
             
             self.rows[f"{prefix}edad_max"] = FormRow(demo, label="Edad Max", value=mission.get("edad_max"), colors=self.colors)
             self.rows[f"{prefix}edad_max"].grid(row=0, column=2, padx=2, sticky="ew")
+            
+    def _on_search_change(self, *args):
+        """Filtra los atajos de misión según el texto de búsqueda."""
+        self._refresh_shortcuts()
+
+    def _refresh_shortcuts(self):
+        """Regenera los botones de atajo basado en el filtro."""
+        for widget in self.shortcuts_frame.winfo_children(): widget.destroy()
+        
+        if not hasattr(self, 'current_missions_list'): return
+        
+        query = self.search_var.get().lower().strip()
+        
+        for i, m in enumerate(self.current_missions_list):
+            m_name = m.get("NOMBRE_DE_LA_MISION", f"Misión {i+1}")
+            
+            # Filter logic
+            if query and query not in m_name.lower() and str(i+1) not in query:
+                continue
+                
+            display_name = f"{i+1}. {m_name[:12]}.." if len(m_name) > 12 else f"{i+1}. {m_name}"
+            
+            btn = ctk.CTkButton(
+                self.shortcuts_frame,
+                text=display_name,
+                width=80,
+                height=24,
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors["bg_card"],
+                text_color=self.colors["text_primary"],
+                command=lambda idx=i: self._focus_mission(idx)
+            )
+            btn.pack(side="left", padx=2)
+        return
 
     def _focus_mission(self, index):
         """Scrolls to or focuses the selected mission card."""
-        # Simple implementation: Toggle visibility (Accordion-like) or just confirm
-        # Since created scrollable frame doesn't support easy 'scroll_to', we can
-        # collapse other cards or just flash the target.
-        # Let's try collapse others for 'focus' mode.
+        if not (0 <= index < len(self.mission_cards)):
+            return
+
+        target_card = self.mission_cards[index]
         
-        for i, card in enumerate(self.mission_cards):
-            if i == index:
-                # Ensure expanded
-                if hasattr(card, "toggle_content") and not card.is_expanded:
-                     card.toggle_content() # Assuming Card has this, or we just rely on it being open
-            else:
-                # Collapse others (Optional, user might want to see all)
-                # If Card has valid collapse method we'd use it.
-                # Assuming Card logic from common components.
-                pass
-        
-        get_notifications().show_info(f"Focuseando Misión {index+1} (Scroll no soportado nativamente)", toast=True)
+        # 1. Expandir si está colapsado (Asumiendo que Card tiene toggle)
+        if hasattr(target_card, "toggle_content") and not getattr(target_card, "is_expanded", True):
+             target_card.toggle_content()
+
+        # 2. Scroll Logic
+        try:
+            self.update_idletasks() # Asegurar coordenadas actualizadas
+            
+            # Encontrar el Canvas interno del CTkScrollableFrame
+            canvas = self.scroll._parent_canvas
+            
+            # Calcular la posición Y relativa del widget dentro del contenido scrolleable
+            # La tarjeta está dentro de form_container, que está dentro del frame del scroll
+            
+            # Obtener coordenadas absolutas (root)
+            card_y_root = target_card.winfo_rooty()
+            scroll_content_y_root = self.form_container.winfo_rooty() 
+            
+            # Calcular offset relativo al inicio del contenedor
+            relative_y = card_y_root - scroll_content_y_root
+            
+            # Obtener altura total del contenido scrolleable
+            # bbox("all") retorna (x1, y1, x2, y2)
+            _, _, _, total_height = canvas.bbox("all")
+            
+            if total_height > 0:
+                # Calcular fracción (0.0 a 1.0)
+                fraction = relative_y / total_height
+                canvas.yview_moveto(fraction)
+                
+            # Feedback visual sutil
+            target_card.configure(border_color=self.colors["accent"], border_width=2)
+            self.after(1000, lambda: target_card.configure(border_width=0))
+            
+        except Exception as e:
+            get_notifications().show_error(f"Error scrolleando: {e}")
 
     def _add_mission(self):
         """Agrega una nueva misión vacía."""
@@ -508,7 +568,10 @@ class ControlPanelView(ctk.CTkFrame):
         
         ctk.CTkLabel(dialog, text="¿Dónde deseas guardar las misiones?", 
                    font=ctk.CTkFont(size=16, weight="bold"),
-                   text_color=self.colors["text_primary"]).pack(pady=20)
+                   text_color=self.colors["text_primary"]).pack(pady=(20, 5))
+        
+        ctk.CTkLabel(dialog, text="Tip: Usa 'Reportes' o 'Nóminas' para guardar copias permanentes\nque aparecerán en Gestión de Misiones.", 
+                   font=ctk.CTkFont(size=11), text_color="gray").pack(pady=(0, 15))
                    
         def _save_action(target):
             try:
@@ -518,14 +581,21 @@ class ControlPanelView(ctk.CTkFrame):
                 # 2. Exportar si aplica
                 if target in ["reportes", "nominas"]:
                     missions = current_data.get("MISSIONS", [])
-                    # Exportar todas? O solo la activa?
-                    # "guardar misiones" -> Plural. Exportemos todas las que tengan nombre.
-                    saved_files = []
-                    for m in missions:
-                        path = self.controller.export_mission(m, target)
-                        saved_files.append(os.path.basename(path))
                     
-                    get_notifications().show_success(f"Guardado Local + Exportados: {', '.join(saved_files)}")
+                    # Si hay misiones, preguntar nombre para el PAQUETE COMPLETO
+                    if missions:
+                        name_dialog = ctk.CTkInputDialog(text="Nombre del Archivo (sin extensión):", title="Guardar Colección")
+                        # Fix para que aparezca encima
+                        name_dialog.geometry(f"+{self.winfo_rootx() + 50}+{self.winfo_rooty() + 50}")
+                        name = name_dialog.get_input()
+                        
+                        if not name:
+                            return # Cancelado por usuario
+                            
+                        path = self.controller.export_mission_package(current_data, target, name)
+                        get_notifications().show_success(f"Colección guardada: {os.path.basename(path)}")
+                    else:
+                        get_notifications().show_warning("No hay misiones para exportar.")
                 else:
                     get_notifications().show_success("Guardado Localmente Correctamente")
                 
@@ -542,7 +612,7 @@ class ControlPanelView(ctk.CTkFrame):
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        ctk.CTkButton(btn_frame, text="💿 Solo Local (mission_config.json)", 
+        ctk.CTkButton(btn_frame, text="⚙️ Solo aplicar actual (Temporal)", 
                     fg_color=self.colors["bg_card"], hover_color=self.colors["bg_secondary"],
                     command=lambda: _save_action("local")).pack(fill="x", pady=5)
 
@@ -582,6 +652,12 @@ class ControlPanelView(ctk.CTkFrame):
                                 
                             missions_updates[idx][field] = val
                 else:
+                    # Configuración Global
+                    # Auto-convertir listas globales conocidas
+                    if key in ["CODIGOS_FOLIO_BUSCAR", "FOLIO_VIH_CODIGOS"] and isinstance(val, str):
+                        clean_val = val.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+                        val = [x.strip() for x in clean_val.split(",") if x.strip()]
+                        
                     main_config_data[key] = val
             
             # Reconstruct MISSIONS
