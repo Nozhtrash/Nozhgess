@@ -185,7 +185,8 @@ class SplashScreen(ctk.CTkToplevel):
         if tasks is None:
             tasks = [
                 ("Cargando tema...", lambda: time.sleep(0.2)),
-                ("Inicializando audio...", lambda: time.sleep(0.2)),
+                # Audio deshabilitado: skip step
+                ("Audio deshabilitado", lambda: None),
                 ("Preparando interfaz...", lambda: time.sleep(0.3)),
                 ("Cargando componentes...", lambda: time.sleep(0.2)),
                 ("Verificando configuración...", lambda: time.sleep(0.2)),

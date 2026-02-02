@@ -26,12 +26,26 @@ Uso:
 import time
 import functools
 import sys
+import os
 from typing import Optional, Callable, Any
 from pathlib import Path
 from datetime import datetime
-from colorama import Fore, Style, init as colorama_init
 
-colorama_init(autoreset=True)
+# Colores opcionales (deshabilitados por defecto)
+USE_COLORS = os.getenv("NOZHGESS_COLOR", "0") == "1"
+if USE_COLORS:
+    try:
+        from colorama import Fore, Style, init as colorama_init
+        colorama_init(autoreset=True)
+    except Exception:
+        USE_COLORS = False
+
+if not USE_COLORS:
+    class Dummy:
+        RED = GREEN = YELLOW = WHITE = CYAN = ""
+        RESET_ALL = ""
+    Fore = Dummy()
+    Style = Dummy()
 
 # =============================================================================
 # NIVELES DE DEBUG

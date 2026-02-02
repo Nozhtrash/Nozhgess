@@ -4,6 +4,11 @@ import sys
 import json
 import importlib
 import traceback
+import ast
+import re
+import threading
+import queue
+import time
 from typing import Dict, Any, List, Optional
 
 class MisionController:
@@ -41,7 +46,18 @@ class MisionController:
         "FOLIO_VIH_CODIGOS": "Códigos específicos para lógica VIH.",
         "DEBUG_MODE": "Modo debug: logs detallados en terminal.",
         "habilitantes": "Códigos habilitantes (vacío = no buscar).",
-        "excluyentes": "Códigos excluyentes que invalidan el caso."
+        "excluyentes": "Códigos excluyentes que invalidan el caso.",
+        "keywords": "Keywords Principal: términos para encontrar el caso objetivo.",
+        "keywords_contra": "Keywords En Contra: casos que no debería tener; deja vacío para no usar.",
+        "frecuencia": "Frecuencia esperada (día/mes/año/vida/ninguno).",
+        "frecuencia_cantidad": "Cantidad esperada en la frecuencia (ej: 12 al año, 3 al mes).",
+        "periodicidad": "Periodicidad descriptiva (Anual, Cada Vez, Mensual, etc.).",
+        "requiere_ipd": "Para Apto Elección: exige IPD en 'Sí' para ser positivo.",
+        "requiere_aps": "Para Apto Elección: exige APS en 'Caso Confirmado' para ser positivo.",
+        "max_ipd": "Máximo de filas IPD a leer y exportar por paciente para esta misión.",
+        "max_oa": "Máximo de filas OA a leer y exportar por paciente para esta misión.",
+        "max_aps": "Máximo de filas APS a leer y exportar por paciente para esta misión.",
+        "max_sic": "Máximo de filas SIC a leer y exportar por paciente para esta misión."
     }
 
     def __init__(self, project_root: str):
@@ -60,6 +76,15 @@ class MisionController:
         self.ma_path = os.path.join(project_root, "Mision Actual")
         if self.ma_path not in sys.path:
             sys.path.insert(0, self.ma_path)
+
+        # Cola asíncrona de guardados para no bloquear la UI
+        self._save_queue: "queue.Queue[tuple]" = queue.Queue(maxsize=50)
+        self._save_worker = threading.Thread(
+            target=self._save_worker_loop,
+            name="mission-save-worker",
+            daemon=True
+        )
+        self._save_worker.start()
 
     def load_config(self, force_reload: bool = False) -> Dict[str, Any]:
         """
@@ -126,8 +151,18 @@ class MisionController:
                              
                     elif target_type == list:
                         if isinstance(v, str):
-                            # Convertir string separado por comas a lista
-                            current_config[k] = [x.strip() for x in v.split(",") if x.strip()]
+                            parsed_list: List[Any] = []
+                            # 1) Intentar literal_eval para soportar "['3102001','3102002']"
+                            try:
+                                obj = ast.literal_eval(v)
+                                if isinstance(obj, list):
+                                    parsed_list = [str(x).strip() for x in obj if str(x).strip()]
+                            except Exception:
+                                parsed_list = []
+                            # 2) Fallback split por coma/semicolon si literal_eval falló
+                            if not parsed_list:
+                                parsed_list = [x.strip() for x in re.split(r"[;,]", v) if x.strip()]
+                            current_config[k] = parsed_list
                         elif isinstance(v, list):
                              current_config[k] = v
                     else:
@@ -135,11 +170,19 @@ class MisionController:
                 else:
                     # Llave nueva, guardar tal cual
                     current_config[k] = v
-
-            # 3. Escribir JSON
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(current_config, f, indent=2, ensure_ascii=False)
-            
+                    # Normalizar tipos simples para nuevos campos de misión
+                    if k in ["keywords_contra"] and isinstance(current_config[k], str):
+                        try:
+                            obj = ast.literal_eval(current_config[k])
+                            if isinstance(obj, list):
+                                current_config[k] = [str(x).strip() for x in obj if str(x).strip()]
+                        except Exception:
+                            current_config[k] = [x.strip() for x in re.split(r"[;,]", current_config[k]) if x.strip()]
+                    if k in ["frecuencia_cantidad"]:
+                        try:
+                            current_config[k] = int(v) if str(v).strip() != "" else ""
+                        except Exception:
+                            current_config[k] = ""
             # 4. Manejar DEBUG_MODE si cambió
             if "DEBUG_MODE" in modified_data:
                 current_debug = self.is_debug_active()
@@ -150,15 +193,65 @@ class MisionController:
                 if current_debug != new_debug:
                     self.toggle_debug()
 
-            # 5. Hot Reload de Mision_Actual.py para que el backend se entere
+            # 5. Guardar a disco (persistir cambios)
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            try:
+                if os.path.exists(self.config_path):
+                    import shutil
+                    shutil.copy2(self.config_path, self.config_path + ".bak")
+            except Exception:
+                pass
+
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(current_config, f, ensure_ascii=False, indent=2)
+
+            # 6. Hot Reload de Mision_Actual.py para que el backend se entere
             import Mision_Actual as ma
             importlib.reload(ma)
             
-            # 6. Invalidar caché local
-            self._cached_config = None
+            # 7. Actualizar caché local
+            self._cached_config = current_config.copy()
 
         except Exception as e:
             raise Exception(f"Error guardando configuración: {e}")
+
+    # =========================================================
+    # Guardado asíncrono (no bloquea la UI)
+    # =========================================================
+    def queue_save(self, modified_data: Dict[str, Any], wait: bool = False) -> None:
+        """
+        Encola un guardado; si wait=True, espera a que termine.
+        """
+        done_evt = threading.Event()
+        err_box = {}
+        try:
+            self._save_queue.put_nowait((modified_data, done_evt, err_box))
+        except queue.Full:
+            # Si la cola está llena, usar guardado directo
+            self.save_config(modified_data)
+            return
+        if wait:
+            done_evt.wait()
+            if "error" in err_box:
+                raise err_box["error"]
+
+    def _save_worker_loop(self):
+        while True:
+            try:
+                data, done_evt, err_box = self._save_queue.get()
+            except Exception:
+                continue
+            try:
+                try:
+                    self.save_config(data)
+                except Exception as e:
+                    err_box["error"] = e
+            finally:
+                try:
+                    done_evt.set()
+                except Exception:
+                    pass
+                self._save_queue.task_done()
 
     def toggle_debug(self) -> bool:
         """Alterna el modo debug en DEBUG.py (Legacy file support)."""
@@ -241,12 +334,35 @@ class MisionController:
             missions[0] = active_mission
             full_config["MISSIONS"] = missions
             
-            # Guardar usando save_config genérico para triggers (ma reload, etc)
-            # Pero save_config espera top-level keys.
-            # Mejor llamar a la lógica de escritura directamente para setear MISSIONS completo
+            # --- SYNC TOP-LEVEL KEYS ---
+            # Sync critical keys to top level so Mision_Actual.py (which reads top-level) sees the changes
+            keys_to_sync = [
+                "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
+                "DIRECCION_DEBUG_EDGE", "EDGE_DRIVER_PATH",
+                "INDICE_COLUMNA_FECHA", "INDICE_COLUMNA_RUT", "INDICE_COLUMNA_NOMBRE",
+                "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
+                "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
+                "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES",
+                "FILAS_IPD", "FILAS_OA", "FILAS_APS", "FILAS_SIC",
+                "HABILITANTES_MAX", "EXCLUYENTES_MAX",
+                "MOSTRAR_FUTURAS", 
+                "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR",
+                "FOLIO_VIH", "FOLIO_VIH_CODIGOS"
+            ]
             
-            # Sobrescribir MISSIONS en el save genérico sería:
-            self.save_config({"MISSIONS": missions})
+            # Also sync new simple keys (strings/ints/bools) from the mission to top-level
+            for k, v in active_mission.items():
+                if k in keys_to_sync:
+                    full_config[k] = v
+            
+            # Explicit sync for known keys even if not in keys_to_sync (double check)
+            if "RUTA_ARCHIVO_ENTRADA" in active_mission:
+                full_config["RUTA_ARCHIVO_ENTRADA"] = active_mission["RUTA_ARCHIVO_ENTRADA"]
+            if "RUTA_CARPETA_SALIDA" in active_mission:
+                full_config["RUTA_CARPETA_SALIDA"] = active_mission["RUTA_CARPETA_SALIDA"]
+
+            # Save everything
+            self.save_config(full_config)
             
         except Exception as e:
             raise Exception(f"Error actualizando misión activa: {e}")
@@ -374,6 +490,37 @@ class MisionController:
             
         except Exception as e:
             raise Exception(f"Error exportando paquete: {e}")
-            
-        except Exception as e:
-            raise Exception(f"Error exportando misión: {e}")
+
+    # ======================= UTILIDADES PARA PLANTILLAS =======================
+    def load_mission_file(self, path: str) -> Dict[str, Any]:
+        """Carga un archivo de misión (json) y devuelve su dict."""
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def overwrite_mission(self, idx: int, mission_data: Dict[str, Any]) -> None:
+        """
+        Sobrescribe la misión en el índice dado y guarda.
+        Preserva el resto de misiones y claves globales.
+        """
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            current_config = json.load(f)
+
+        missions = current_config.get("MISSIONS", [])
+        # Asegurar longitud
+        while len(missions) <= idx:
+            missions.append({})
+        missions[idx] = mission_data
+        current_config["MISSIONS"] = missions
+
+        # Persistir usando save_config para mantener coherencia de tipos y caché
+        self.save_config(current_config)
+
+    def append_mission(self, mission_data: Dict[str, Any]) -> None:
+        """Agrega una misión al final y guarda."""
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            current_config = json.load(f)
+
+        missions = current_config.get("MISSIONS", [])
+        missions.append(mission_data)
+        current_config["MISSIONS"] = missions
+        self.save_config(current_config)

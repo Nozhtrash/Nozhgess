@@ -35,7 +35,7 @@ from colorama import Fore, Style, init as colorama_init
 import pandas as pd
 
 # Local - Configuración
-from C_Mision.Mision_Actual import (
+from Mision_Actual import (
     NOMBRE_DE_LA_MISION,
     RUTA_ARCHIVO_ENTRADA,
     RUTA_CARPETA_SALIDA,
@@ -50,8 +50,10 @@ from C_Mision.Mision_Actual import (
     REVISAR_OA,
     REVISAR_APS,
     REVISAR_SIC,
+    REVISAR_SIC,
     REVISAR_HABILITANTES,
     REVISAR_EXCLUYENTES,
+    MOSTRAR_FUTURAS, # New import
     FILAS_IPD,
     FILAS_OA,
     FILAS_APS,
@@ -60,29 +62,35 @@ from C_Mision.Mision_Actual import (
     EXCLUYENTES_MAX,
     VENTANA_VIGENCIA_DIAS,
     OBSERVACION_FOLIO_FILTRADA,
+    HABILITANTES_MAX,
+    EXCLUYENTES_MAX,
+    VENTANA_VIGENCIA_DIAS,
+    OBSERVACION_FOLIO_FILTRADA,
     CODIGOS_FOLIO_BUSCAR
 )
 
 # Local - Principales
-from Z_Utilidades.Principales.DEBUG import should_show_timing
-from Z_Utilidades.Principales.Direcciones import XPATHS
-from Z_Utilidades.Principales.Errores import clasificar_error, pretty_error
-from Z_Utilidades.Principales.Esperas import espera
-from Z_Utilidades.Principales.Excel_Revision import generar_excel_revision
-from Z_Utilidades.Principales.Terminal import (
-    log_error, log_info, log_ok, log_warn,
+from src.utils.ExecutionControl import get_execution_control
+from src.utils.DEBUG import should_show_timing
+from src.utils.Direcciones import XPATHS
+from src.utils.Errores import clasificar_error, pretty_error
+from src.utils.Esperas import espera
+from src.utils.Excel_Revision import generar_excel_revision
+from src.utils.Terminal import (
+    log_error, log_info, log_ok, log_warn, log_step,
+    log_debug, get_system_stats, timing_block,
     mostrar_banner, mostrar_resumen_final, resumen_paciente
 )
-from Z_Utilidades.Principales.Timing import Timer
+from src.utils.Timing import Timer
 
 # Local - Motor
-from Z_Utilidades.Motor.Driver import iniciar_driver
-from Z_Utilidades.Motor.Formatos import (
+from src.core.Driver import iniciar_driver
+from src.core.Formatos import (
     _norm, dparse, en_vigencia, has_keyword,
     join_clean, join_tags, normalizar_codigo,
     normalizar_rut, same_month, solo_fecha
 )
-from Z_Utilidades.Motor.Mini_Tabla import leer_mini_tabla
+from src.core.Mini_Tabla import leer_mini_tabla
 
 # Inicializar colorama
 colorama_init(autoreset=True)
@@ -126,10 +134,15 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
             candidatos.append(c)
             continue
             
+            continue
+            
         for kw in kws:
             if kw.lower() in nombre:
                 candidatos.append(c)
+                log_debug(f"✅ Match keyword '{kw}' en '{nombre}'")
                 break
+        else:
+             log_debug(f"❌ '{nombre}' descartado (No contiene {kws})")
     
     if not candidatos:
         return None
@@ -152,10 +165,15 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
         base_score = 10000000000 if es_activo else 0 
         score = base_score + ts
         
+        # Log reasoning
+        problema_txt = c.get('problema', 'Unknown')
+        log_debug(f"⚖️ Score logic: {problema_txt[:20]}... | Active={es_activo} | TS={ts} -> Final={score}")
+        
         if score > mejor_puntaje:
             mejor_puntaje = score
             mejor_caso = c
             
+    log_debug(f"🏆 Caso seleccionado: {mejor_caso.get('caso') if mejor_caso else 'Ninguno'} (Score: {mejor_puntaje})")
     return mejor_caso
 
 
@@ -224,28 +242,37 @@ def buscar_inteligencia_historia(sigges, root, estado_caso: str) -> Dict[str, st
 
 
 def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str], 
-                        fobj: Optional[datetime]) -> List[Tuple[str, datetime]]:
+                        fobj: Optional[datetime], mostrar_futuras: bool = False) -> List[Tuple[str, datetime, bool]]:
     """
     Busca habilitantes en la lista de prestaciones.
-    
-    Args:
-        prest: Lista de prestaciones {fecha, codigo, glosa, ref}
-        cods: Códigos de habilitantes a buscar
-        fobj: Fecha de la nómina (para filtrar)
-        
-    Returns:
-        Lista de tuplas (codigo, fecha) ordenadas por fecha desc
+    Returns: List of (code, date, is_future)
     """
     cods_norm = {normalizar_codigo(c) for c in (cods or []) if str(c).strip()}
     out = []
 
     for p in prest or []:
-        c_norm = normalizar_codigo(p.get("codigo", ""))
+        raw_c = p.get("codigo", "")
+        c_norm = normalizar_codigo(raw_c)
+        
+        # Check 1: Código coincide?
         if not c_norm or c_norm not in cods_norm:
             continue
-        f = dparse(p.get("fecha", ""))
-        if f and (not fobj or f <= fobj):
-            out.append((c_norm, f))
+            
+        f_str = p.get("fecha", "")
+        f = dparse(f_str)
+        
+        # Check 2: Fecha válida?
+        if not f:
+            continue
+            
+        # Check 3: Vigencia (Fecha Prest <= Fecha Objetivo)
+        is_future = False
+        if fobj and f > fobj:
+             if not mostrar_futuras:
+                 continue
+             is_future = True
+             
+        out.append((c_norm, f, is_future))
 
     return sorted(out, key=lambda x: x[1], reverse=True)
 
@@ -304,7 +331,8 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     # Columnas de caso (nombres actualizados)
     # Apto SE = Seguimiento (estado o historial OA/SIC)
     # Apto RE = Resolución/Evaluación (IPD con Sí o APS creado)
-    cols += ["Familia", "Especialidad", "Caso", "Estado", "Apertura", "¿Cerrado?", "Apto SE", "Apto RE", "Mensual"]
+    # Apto RE = Resolución/Evaluación (IPD con Sí o APS creado)
+    cols += ["Familia", "Especialidad", "Caso", "Estado", "Apertura", "Apto SE", "Apto RE", "Mensual"]
 
     # Habilitantes (controlado por toggle global)
     if REVISAR_HABILITANTES and m.get("habilitantes"):
@@ -345,7 +373,6 @@ def vac_row(m: Dict[str, Any], fecha: str, rut: str, nombre: str,
     r["Caso"] = "Sin caso"
     r["Estado"] = ""
     r["Apertura"] = ""
-    r["¿Cerrado?"] = ""
     r["Apto SE"] = ""
     r["Apto RE"] = ""
     r["Mensual"] = "Sin Día"
@@ -373,6 +400,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     """
     res = vac_row(m, fecha, rut, nombre, "")
     res["Edad"] = str(edad_paciente) if edad_paciente is not None else ""
+    
+    # Fallecido: Boolean explícito
+    res["Fallecido"] = "SI" if fall_dt else "NO"
 
     # Buscar caso INTELIGENTE
     caso_seleccionado = seleccionar_caso_inteligente(casos_data, m.get("keywords", []))
@@ -387,7 +417,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     res["Caso"] = caso_seleccionado.get("caso", "")
     res["Estado"] = caso_seleccionado.get("estado", "")
     res["Apertura"] = caso_seleccionado.get("apertura", "")
-    res["¿Cerrado?"] = caso_seleccionado.get("cierre", "NO")
     
     # Índice para expandir
     idx = caso_seleccionado.get("indice", 0)
@@ -583,15 +612,52 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     else:
         res["Mensual"] = "Sin Día"
 
+    # =========================================================================
+    # 🧠 POOL DE BÚSQUEDA UNIFICADO (PRESTACIONES + OAs)
+    # =========================================================================
+    # Muchas veces los habilitantes (ej 0801001) están en las OAs y no en prestaciones facturadas.
+    # Unificamos todo en una sola lista para buscar códigos.
+    
+    pool_busqueda = list(prestaciones) # Copia base
+    
+    if folios_oa_encontrados:
+        for fol_data in folios_oa_encontrados:
+            # fol_data = (folio, dt_oa, codigo, derivado, fecha_str)
+            try:
+                # Convertir a formato dict compatible con funciones de búsqueda
+                item_oa = {
+                    "codigo": fol_data[2],          # Código OA
+                    "fecha": fol_data[4],           # Fecha string
+                    "glosa": f"OA {fol_data[0]} ({fol_data[3]})", # Glosa informativa
+                    "ref": "OA"                     # Origen
+                }
+                # Solo agregar si tiene código
+                if item_oa["codigo"]:
+                    pool_busqueda.append(item_oa)
+            except Exception:
+                continue
+
     # ===== HABILITANTES =====
     habs_cfg = m.get("habilitantes", []) or []
     if REVISAR_HABILITANTES and habs_cfg:
-        habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj)
+        # CORRECCIÓN: Usar SOLO PRESTACIONES (PO) para habilitantes, NO OAs.
+        # El usuario especificó: "debe extraerlos de la tabla de prestaciones otorgadas ( PO )"
+        habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj, MOSTRAR_FUTURAS)
 
         if habs_found:
             top = habs_found[:HABILITANTES_MAX]
             res["C Hab"] = join_clean([h[0] for h in top])
-            res["F Hab"] = join_clean([h[1].strftime("%d/%m/%Y") for h in top])
+            
+            # Formatear Fechas (con marcador ! si es futuro)
+            fechas_fmt = []
+            for h in top:
+                # h = (codigo, fecha, is_future)
+                f_str = h[1].strftime("%d/%m/%Y")
+                if h[2]: # is_future
+                    f_str = "! " + f_str
+                fechas_fmt.append(f_str)
+            
+            res["F Hab"] = join_clean(fechas_fmt)
 
             hab_vigentes = [h for h in habs_found if en_vigencia(fobj, h[1], VENTANA_VIGENCIA_DIAS)] if fobj else habs_found
 
@@ -610,7 +676,8 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
 
     if excl_norm:
         excl_found = []
-        for p in prestaciones:
+        # USAR POOL UNIFICADO
+        for p in pool_busqueda:
             c_norm = normalizar_codigo(p.get("codigo", ""))
             if c_norm in excl_norm:
                 f_txt = (p.get("fecha", "") or "").strip()
@@ -754,7 +821,7 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                     sigges.ir(XPATHS["BUSQUEDA_URL"])
 
                 # 🧠 NUEVO TIMING SYSTEM: Robusto y automático
-                from Z_Utilidades.Principales.Timing2 import TimingContext
+                from src.utils.Timing2 import TimingContext
                 
                 # Reset timer global para este paciente
                 TimingContext.reset()
@@ -804,7 +871,7 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 log_info(f"{rut}: ✅ {len(mini)} caso(s) encontrado(s)")
                 
                 # Optimizar búsqueda de keywords
-                from Z_Utilidades.Motor.Mini_Tabla import resolver_casos_duplicados
+                from src.core.Mini_Tabla import resolver_casos_duplicados
                 
                 # 5️⃣.1 Resolver keywords
                 with TimingContext("5️⃣.1 Resolver keywords", rut):
@@ -970,11 +1037,49 @@ def ejecutar_revision() -> bool:
         print(f"{Fore.YELLOW}⏱️ Timer global iniciado - timing acumulativo continuo{Style.RESET_ALL}\n")
 
     try:
+        # Control de ejecución
+        control = get_execution_control()
+        
         for idx, row in df.iterrows():
+            # 🛑 VERIFICAR DETENCIÓN
+            if control.should_stop():
+                log_warn("🛑 Ejecución detenida por usuario")
+                break
+                
+            # ⏸️ VERIFICAR PAUSA
+            control.wait_if_paused()
+
             if idx > 0 and idx % 50 == 0:
                 gc.collect()
 
+            # 📸 CHECK SNAPSHOT
+            if control.should_snapshot():
+                try:
+                    log_info("📸 Guardando snapshot solicitado...")
+                    
+                    # Generar nombre con timestamp para diferenciar
+                    timestamp_snap = datetime.now().strftime("%H%M")
+                    filename_snap = f"{NOMBRE_DE_LA_MISION}_SNAP_{timestamp_snap}"
+                    
+                    saved_path = generar_excel_revision(
+                        resultados_por_mision, MISSIONS,
+                        filename_snap, RUTA_CARPETA_SALIDA
+                    )
+                    
+                    if saved_path:
+                        log_ok(f"📸 Snapshot guardado en: {os.path.basename(saved_path)}")
+                    
+                    control.clear_snapshot_request()
+                except Exception as e:
+                    log_error(f"❌ Error guardando snapshot: {e}")
+                    control.clear_snapshot_request() # Limpiar igual para no buclear
+
             # Procesar paciente con timer global
+            # Log de recursos antes de procesar
+            stats_str = get_system_stats()
+            if stats_str:
+                log_debug(f"🖥️ System Check [Idx {idx}]: {stats_str}")
+                
             filas, ok = procesar_paciente(sigges, row, idx, total, t_script_inicio)
 
             # Estadísticas

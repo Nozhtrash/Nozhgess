@@ -44,6 +44,7 @@ class LogConsole(ctk.CTkFrame):
         )
         self.text_area.pack(fill="both", expand=True)
         self.text_area.configure(state="disabled")
+        self.max_lines = 8000  # límite de líneas en memoria para evitar uso excesivo de RAM
         
         # Tags de colores
         self.text_area.tag_config("INFO", foreground=self.colors.get("info", "#3b82f6"))
@@ -64,6 +65,7 @@ class LogConsole(ctk.CTkFrame):
             self.text_area.insert("end", text, tags)
         else:
             self.text_area.insert("end", text)
+        self._truncate_if_needed()
         self.text_area.see("end")
         self.text_area.configure(state="disabled")
 
@@ -74,6 +76,40 @@ class LogConsole(ctk.CTkFrame):
 
     def get(self):
         return self.text_area.get("1.0", "end")
+
+    def set_max_lines(self, max_lines: int):
+        """Permite ajustar el límite de líneas que se mantienen en memoria."""
+        self.max_lines = max_lines
+        self._truncate_if_needed()
+
+    def _truncate_if_needed(self):
+        """Elimina líneas antiguas cuando se supera el límite configurado."""
+        if not self.max_lines:
+            return
+        try:
+            total_lines = int(self.text_area.index("end-1c").split(".")[0])
+            extra = total_lines - self.max_lines
+            if extra > 0:
+                # borrar desde el inicio hasta la línea extra
+                self.text_area.delete("1.0", f"{extra + 1}.0")
+        except Exception:
+            pass
+    
+    # Passthrough helpers para usar la API de Text directamente
+    def tag_remove(self, *args, **kwargs):
+        return self.text_area.tag_remove(*args, **kwargs)
+
+    def tag_config(self, *args, **kwargs):
+        return self.text_area.tag_config(*args, **kwargs)
+
+    def tag_add(self, *args, **kwargs):
+        return self.text_area.tag_add(*args, **kwargs)
+
+    def search(self, *args, **kwargs):
+        return self.text_area.search(*args, **kwargs)
+
+    def see(self, *args, **kwargs):
+        return self.text_area.see(*args, **kwargs)
 
     def update_colors(self, colors):
         self.colors = colors

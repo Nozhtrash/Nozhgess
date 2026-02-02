@@ -12,6 +12,7 @@ import sys
 import os
 import time
 import logging  # Required for GuiLogHandler
+from src.utils.telemetry import log_ui
 from src.gui.components import LogConsole, StatusBadge
 from src.core.states import RunState
 
@@ -19,6 +20,14 @@ ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
+
+# Prefijos de ruteo de logs centralizados
+LOG_PREFIX_TERMINAL = (
+    "🔥", "╔", "╠", "╚", "📊", "📋", "🤱‍", "🪪", "🗓️", "✅", "❌", "🚨", "⚠️", "❤️", "☠️", "👥", "🧡", "🚫"
+)
+LOG_PREFIX_DEBUG = (
+    "[DEBUG]", "⏱️", "⏳", "✅", "╚═", "╠═", "🔍", "⌨️", "📂", "ℹ️", "🤔", "🧭", "📦"
+)
 
 
 class RunnerView(ctk.CTkFrame):
@@ -30,6 +39,12 @@ class RunnerView(ctk.CTkFrame):
         self.colors = colors
         self.is_running = False
         self.log_queue = queue.Queue()
+        self.ui_queue = queue.Queue()
+        self.log_worker_running = True
+        self._log_worker_thread = None
+        self._flush_every = 20
+        self._flush_counter_term = 0
+        self._flush_counter_dbg = 0
         
         # Log file handling
         from datetime import datetime
@@ -55,14 +70,14 @@ class RunnerView(ctk.CTkFrame):
         self.title = ctk.CTkLabel(
             self,
             text="Centro de Ejecución",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
-        self.title.pack(anchor="w", padx=30, pady=(30, 10))
+        self.title.pack(anchor="w", padx=26, pady=(24, 8))
         
         # Sección: Iniciadores
-        init_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=12)
-        init_frame.pack(fill="x", padx=30, pady=15)
+        init_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=10)
+        init_frame.pack(fill="x", padx=24, pady=12)
         
         init_header = ctk.CTkLabel(
             init_frame,
@@ -70,19 +85,19 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
-        init_header.pack(anchor="w", padx=15, pady=(12, 10))
+        init_header.pack(anchor="w", padx=12, pady=(10, 6))
         
         init_buttons = ctk.CTkFrame(init_frame, fg_color="transparent")
-        init_buttons.pack(fill="x", padx=15, pady=(0, 15))
+        init_buttons.pack(fill="x", padx=12, pady=(0, 10))
         
         # Botón: Iniciar Edge (Web)
         self.web_btn = ctk.CTkButton(
             init_buttons,
             text="🌐  Iniciar Edge Debug",
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#3498db",
             hover_color="#2980b9",
-            height=40,
+            height=34,
             corner_radius=8,
             command=self._start_edge
         )
@@ -90,8 +105,8 @@ class RunnerView(ctk.CTkFrame):
         
         # Botón: Abrir SIGGES (ELIMINADO)        
         # Sección: Ejecución
-        exec_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=12)
-        exec_frame.pack(fill="x", padx=30, pady=10)
+        exec_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=10)
+        exec_frame.pack(fill="x", padx=24, pady=10)
         
         exec_header = ctk.CTkLabel(
             exec_frame,
@@ -99,10 +114,10 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
-        exec_header.pack(anchor="w", padx=15, pady=(12, 10))
+        exec_header.pack(anchor="w", padx=12, pady=(10, 6))
         
         exec_buttons = ctk.CTkFrame(exec_frame, fg_color="transparent")
-        exec_buttons.pack(fill="x", padx=15, pady=(0, 15))
+        exec_buttons.pack(fill="x", padx=12, pady=(0, 10))
         
         # Botón Iniciar
         self.run_btn = ctk.CTkButton(
@@ -111,8 +126,8 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=colors["success"],
             hover_color="#27ae60",
-            width=110,
-            height=42,
+            width=108,
+            height=36,
             corner_radius=8,
             command=lambda: self._safe_start_run()
         )
@@ -122,11 +137,11 @@ class RunnerView(ctk.CTkFrame):
         self.pause_btn = ctk.CTkButton(
             exec_buttons,
             text="⏸  Pausar",
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=13),
             fg_color=colors["warning"],
             hover_color="#e67e22",
-            width=110,
-            height=42,
+            width=108,
+            height=36,
             corner_radius=8,
             state="disabled",
             command=self._pause_run
@@ -137,11 +152,11 @@ class RunnerView(ctk.CTkFrame):
         self.stop_btn = ctk.CTkButton(
             exec_buttons,
             text="⏹  Detener",
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=13),
             fg_color=colors["error"],
             hover_color="#c0392b",
-            width=110,
-            height=42,
+            width=108,
+            height=36,
             corner_radius=8,
             state="disabled",
             command=self._stop_run
@@ -191,6 +206,7 @@ class RunnerView(ctk.CTkFrame):
         )
         self.search_entry.pack(side="left", padx=(0, 5))
         self.search_entry.bind("<Return>", lambda e: self._do_search())
+        self.search_entry.bind("<KeyRelease>", lambda e: self._schedule_search())
         
         self.search_btn = ctk.CTkButton(
             search_frame,
@@ -202,6 +218,35 @@ class RunnerView(ctk.CTkFrame):
             command=self._do_search
         )
         self.search_btn.pack(side="left", padx=(0, 5))
+
+        self.prev_btn = ctk.CTkButton(
+            search_frame,
+            text="⟨",
+            width=28,
+            height=32,
+            fg_color=self.colors["bg_secondary"],
+            command=lambda: self._goto_match(-1)
+        )
+        self.prev_btn.pack(side="left", padx=(0, 2))
+
+        self.next_btn = ctk.CTkButton(
+            search_frame,
+            text="⟩",
+            width=28,
+            height=32,
+            fg_color=self.colors["bg_secondary"],
+            command=lambda: self._goto_match(1)
+        )
+        self.next_btn.pack(side="left", padx=(0, 5))
+
+        self.search_status = ctk.CTkLabel(
+            search_frame,
+            text="0/0",
+            width=50,
+            text_color=self.colors["text_secondary"],
+            font=ctk.CTkFont(size=10)
+        )
+        self.search_status.pack(side="left", padx=(0, 5))
         
         ctk.CTkButton(
             search_frame,
@@ -241,6 +286,7 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(family="Segoe UI Emoji", size=11)
         )
         self.term_console.pack(fill="both", expand=True, padx=5, pady=5)
+        self.term_console.set_max_lines(8000)
         
         # Configurar Tab Debug
         # Cascadia Code tiene mejor soporte de emojis que Consolas
@@ -250,6 +296,7 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(family="Cascadia Code", size=10)
         )
         self.debug_console.pack(fill="both", expand=True, padx=5, pady=5)
+        self.debug_console.set_max_lines(8000)
         
         # Configurar Tab General (Log completo similar a nozhgess.log)
         self.general_console = LogConsole(
@@ -258,9 +305,15 @@ class RunnerView(ctk.CTkFrame):
             font=ctk.CTkFont(family="Consolas", size=10)
         )
         self.general_console.pack(fill="both", expand=True, padx=5, pady=5)
+        self.general_console.set_max_lines(6000)
+
+        # Estado búsqueda
+        self._search_matches = []
+        self._search_idx = -1
         
         # Iniciar polling
-        self._poll_logs()
+        self._start_log_worker()
+        self._drain_ui_queue()
         
         # Estado Inicial
         self.state = RunState.IDLE
@@ -310,6 +363,7 @@ class RunnerView(ctk.CTkFrame):
     def _start_edge(self):
         """Inicia Edge en modo debug (Ejecución Visible Forzada)."""
         self._log("🌐 Iniciando Edge en modo debug...", level="INFO")
+        log_ui("btn_start_edge")
         try:
             ps_script = os.path.join(ruta_proyecto, "Iniciador", "Iniciador Web.ps1")
             
@@ -353,110 +407,100 @@ class RunnerView(ctk.CTkFrame):
             except:
                 self.handleError(record)
 
-    def _poll_logs(self):
-        """Procesa mensajes de la cola de logs y los rutea inteligentemente."""
-        try:
-            while True:
-                msg, level = self.log_queue.get_nowait()
-                
-                # ================================================================
-                # CASO 1: LOG GENERAL (Viene del logging handler, espejo del archivo)
-                # ================================================================
-                if level == "FILE":
-                    try:
-                        self.general_console.append(msg + "\n")
-                    except: pass
-                    continue # Detener procesamiento aquí para estos mensajes
+    def _start_log_worker(self):
+        """Worker en background que filtra y rutea logs sin bloquear el hilo UI."""
+        def _worker():
+            import re
+            # Regex para escapar secuencias ANSI reales (ESC ...)
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            while self.log_worker_running:
+                try:
+                    item = self.log_queue.get(timeout=0.25)
+                except queue.Empty:
+                    continue
+                if item is None:
+                    break
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    msg, level = item[0], item[1]
+                else:
+                    msg, level = str(item), "INFO"
 
-                # ================================================================
-                # CASO 2: STDOUT (Viene de prints/safe_print, para Terminal/Debug)
-                # ================================================================
-                
-                # Limpieza ANSI para análisis
-                import re
-                ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-                clean_msg = ansi_escape.sub('', msg)
-                
-                # ================================================================
-                # RUTEO INTELIGENTE: Separar Terminal de Debug de General
-                # ================================================================
+                if level == "FILE":
+                    self.ui_queue.put(("general", msg + "\n"))
+                    continue
+
+                clean_msg = ansi_escape.sub('', msg).replace("\r", "")
+
                 to_terminal = False
                 to_debug = False
-                to_general = False
-                
-                # --- LÓGICA DE FILTRADO ESTRICTO (SEGÚN DOCUMENTACIÓN) ---
-                
-                # 1. TERMINAL PRINCIPAL: Solo resumen y negocio
-                # Prefijos autorizados:
-                term_prefixes = ("🔥", "║", "╔", "╠", "╚", "📊", "📋", "🤹🏻", "🪪", "🗓️", "✅", "❌", "🚨", "⚠️", "❤️", "☠️", "👥", "🛡️", "🚫")
-                
-                if clean_msg.startswith(term_prefixes):
+
+                if clean_msg.startswith(LOG_PREFIX_TERMINAL):
                     to_terminal = True
-                
-                # Permitir líneas de "M1: Si | OA: No" que empiezan con texto o cuadros
                 if "M1:" in clean_msg and "|" in clean_msg:
                     to_terminal = True
-                    
-                # 2. TERMINAL DEBUG: Pasos, Tiempos, Acciones, Detalles
-                # Prefijos autorizados (Añadido '✓' y '⏳' que faltaban)
-                debug_prefixes = ("[DEBUG]", "⏱️", "⏳", "✓", "└─", "├─", "🔍", "⌨️", "📜", "📂", "📚", "ℹ️", "🤔")
-                if clean_msg.startswith(debug_prefixes) or "[DEBUG]" in clean_msg:
+
+                if clean_msg.startswith(LOG_PREFIX_DEBUG) or "[DEBUG]" in clean_msg:
                     to_debug = True
-                    
-                # Palabras clave de Debug
                 if any(k in clean_msg for k in ["JS Extraction", "System Check", "Score logic", "Found", "Parsed", "Transición"]):
                     to_debug = True
-                    
-                # 3. EXCLUSIONES MUTUAS y CORRECCIONES
-                
-                # Si es un header de paciente "🤹🏻 MARCELA", también puede ir a Debug para contexto
-                if "🤹🏻" in clean_msg:
+                if "🤱‍" in clean_msg:
                     to_debug = True
-                
-                # Corrección: "⏳" y "✓" son exclusivos de DEBUG, no deben ir a Principal
-                # Si por error entraron a terminal, sacarlos
-                if clean_msg.startswith(("⏳", "✓", "⏱️")):
+                if clean_msg.startswith(("⏳", "✅", "⏱️")):
                     to_terminal = False
                     to_debug = True
 
-                # ================================================================
-                # INSERTAR EN PANTALLAS
-                # ================================================================
-
-
-                # ================================================================
-                # INSERTAR EN PANTALLAS
-                # ================================================================
                 if to_terminal:
-                    self.term_console.append(clean_msg + "\n")
                     if self.terminal_log_handle:
                         try:
-                             self.terminal_log_handle.write(clean_msg + "\n")
-                             self.terminal_log_handle.flush()
-                        except: pass
-                    
+                            self.terminal_log_handle.write(clean_msg + "\n")
+                            self._flush_counter_term += 1
+                            if self._flush_counter_term >= self._flush_every:
+                                self.terminal_log_handle.flush()
+                                self._flush_counter_term = 0
+                        except:
+                            pass
+                    self.ui_queue.put(("terminal", clean_msg + "\n"))
+
                 if to_debug:
-                    self.debug_console.append(clean_msg + "\n")
                     if self.debug_log_handle:
                         try:
                             self.debug_log_handle.write(clean_msg + "\n")
-                            self.debug_log_handle.flush()
-                        except: pass
-                
-                if to_general:
-                    try:
-                        self.general_console.append(clean_msg + "\n")
-                    except: pass
-                        
+                            self._flush_counter_dbg += 1
+                            if self._flush_counter_dbg >= self._flush_every:
+                                self.debug_log_handle.flush()
+                                self._flush_counter_dbg = 0
+                        except:
+                            pass
+                    self.ui_queue.put(("debug", clean_msg + "\n"))
+                # Si no se enrutó, enviar a Debug para no perder mensajes
+                if not to_terminal and not to_debug:
+                    self.ui_queue.put(("debug", clean_msg + "\n"))
+
+        self._log_worker_thread = threading.Thread(target=_worker, daemon=True)
+        self._log_worker_thread.start()
+
+    def _drain_ui_queue(self):
+        """Consume la cola de UI desde el hilo principal (seguro para Tk)."""
+        processed = 0
+        try:
+            while processed < 200:
+                target, text = self.ui_queue.get_nowait()
+                if target == "general":
+                    self.general_console.append(text)
+                elif target == "terminal":
+                    self.term_console.append(text)
+                elif target == "debug":
+                    self.debug_console.append(text)
+                processed += 1
         except queue.Empty:
             pass
-        
-        self.after(150, self._poll_logs)
-    
+        delay_ms = 50 if processed > 0 else 200
+        self.after(delay_ms, self._drain_ui_queue)
     def _safe_start_run(self):
         """Wrapper seguro para iniciar ejecución con logging de errores."""
         try:
             self._log("🔘 Botón Iniciar presionado - Iniciando proceso...")
+            log_ui("btn_run")
             self._start_run()
         except Exception as e:
             import traceback
@@ -477,9 +521,10 @@ class RunnerView(ctk.CTkFrame):
         
         # Abrir archivos de log dedicados (si se usan)
         try:
-            self.terminal_log_handle = open(self.terminal_log_file, "w", encoding="utf-8")
-            self.debug_log_handle = open(self.debug_log_file, "w", encoding="utf-8")
-        except: pass
+            self.terminal_log_handle = open(self.terminal_log_file, "w", encoding="utf-8-sig")
+            self.debug_log_handle = open(self.debug_log_file, "w", encoding="utf-8-sig")
+        except Exception as e:
+            self._log(f"❌ No se pudo abrir archivos de log: {e}", level="ERROR")
         
         # Limpiar consolas visuales
         self.term_console.clear()
@@ -517,7 +562,6 @@ class RunnerView(ctk.CTkFrame):
                 self._log("✅ Edge Debug Online.", level="DEBUG")
             except Exception as e:
                  self._log(f"⚠️ Warning chequeo puerto: {e}", level="WARN")
-                 pass
             
             # Check 2: Reload Modules & Config Loggers
             self._log("📦 Cargando módulos...", level="INFO")
@@ -525,7 +569,8 @@ class RunnerView(ctk.CTkFrame):
                 import importlib
                 # Ensure paths
                 ma_path = os.path.join(ruta_proyecto, "Mision Actual")
-                if ma_path not in sys.path: sys.path.insert(0, ma_path)
+                if ma_path not in sys.path:
+                    sys.path.insert(0, ma_path)
                 
                 import Mision_Actual as ma
                 import Utilidades.Mezclador.Conexiones as conexiones
@@ -536,21 +581,22 @@ class RunnerView(ctk.CTkFrame):
                 import src.core.Mini_Tabla as mini_mod
                 import src.utils.Esperas as esperas_mod
                 import src.utils.Terminal as term_mod
-                
-                importlib.reload(ma)
-                # CRITICO: Reload Terminal reinicia basicConfig(force=True), borrando handlers previos.
-                # Por eso attachamos el GuiLogHandler DESPUÉS de este bloque.
-                importlib.reload(term_mod) 
-                
-                importlib.reload(driver_mod)
-                importlib.reload(waits_mod)
-                importlib.reload(core_mod)
-                importlib.reload(nav_mod)
-                importlib.reload(mini_mod)
-                importlib.reload(esperas_mod)
-                importlib.reload(conexiones)
+
+                # Reload solo si estamos en modo DEBUG
+                if os.getenv("NOZHGESS_DEBUG_RELOAD", "0") == "1":
+                    importlib.reload(ma)
+                    importlib.reload(term_mod)
+                    importlib.reload(driver_mod)
+                    importlib.reload(waits_mod)
+                    importlib.reload(core_mod)
+                    importlib.reload(nav_mod)
+                    importlib.reload(mini_mod)
+                    importlib.reload(esperas_mod)
+                    importlib.reload(conexiones)
                 
                 from Utilidades.Mezclador.Conexiones import ejecutar_revision
+                import Utilidades.Mezclador.Conexiones as conexiones_mod_debug
+                self._log(f"🔍 DEBUG RUTA CONEXIONES: {conexiones_mod_debug.__file__}", level="WARN")
             except Exception as e:
                 self._log(f"❌ Error importando: {e}", level="ERROR")
                 return
@@ -588,6 +634,17 @@ class RunnerView(ctk.CTkFrame):
     
     def _on_run_complete(self):
         """Callback cuando termina la ejecución."""
+        # Detener worker de logs
+        self.log_worker_running = False
+        try:
+            self.log_queue.put(None)
+        except Exception:
+            pass
+        if self._log_worker_thread and self._log_worker_thread.is_alive():
+            try:
+                self._log_worker_thread.join(timeout=1.0)
+            except Exception:
+                pass
         self._transition_to(RunState.COMPLETED)
         
         # Mostrar notificación de Windows
@@ -630,11 +687,13 @@ class RunnerView(ctk.CTkFrame):
             control.request_resume()
             self._transition_to(RunState.RUNNING)
             self._log("▶️ Ejecución reanudada", level="INFO")
+            log_ui("btn_resume")
         else:
             # Pausar
             control.request_pause()
             self._transition_to(RunState.PAUSED)
             self._log("⏸️ Ejecución pausada", level="WARN")
+            log_ui("btn_pause")
     
     def _stop_run(self):
         """Detiene la ejecución."""
@@ -644,15 +703,14 @@ class RunnerView(ctk.CTkFrame):
         self._log("\n⚠️ Solicitud de detención recibida...", level="WARN")
         control.request_stop()
         self._transition_to(RunState.STOPPING)
-    
-        control.request_stop()
-        self._transition_to(RunState.STOPPING)
+        log_ui("btn_stop")
         
     def _request_snapshot(self):
         """Solicita un snapshot inmediato."""
         from src.utils.ExecutionControl import get_execution_control
         get_execution_control().request_snapshot()
         self._log("📸 Solicitud de guardado enviada (se procesará al finalizar el paciente actual)", level="INFO")
+        log_ui("btn_snapshot")
     
     def _export_results(self):
         """Exporta los resultados actuales a un archivo."""
@@ -685,6 +743,7 @@ class RunnerView(ctk.CTkFrame):
                 f.write("DEBUG:\n" + "-" * 80 + "\n" + debug_content)
             
             self._log(f"✅ Exportado: {filename}", level="OK")
+            log_ui("btn_export", file=filename)
         except Exception as e:
             self._log(f"❌ Error: {e}", level="ERROR")
     
@@ -693,6 +752,7 @@ class RunnerView(ctk.CTkFrame):
         self.term_console.clear()
         self.debug_console.clear()
         self.general_console.clear()
+        log_ui("btn_clear_logs")
 
     # =========================================================================
     #  SEARCH LOGIC (Context Aware)
@@ -714,6 +774,8 @@ class RunnerView(ctk.CTkFrame):
         query = self.search_entry.get()
         if not query:
             return
+        self._search_matches = []
+        self._search_idx = -1
             
         console = self._get_active_console()
         if not console:
@@ -728,7 +790,6 @@ class RunnerView(ctk.CTkFrame):
         # Buscar
         start_pos = "1.0"
         count_matches = 0
-        first_pos = None
         
         while True:
             pos = console.search(query, start_pos, stopindex="end", nocase=True)
@@ -739,29 +800,60 @@ class RunnerView(ctk.CTkFrame):
             end_pos = f"{pos}+{len(query)}c"
             console.tag_add("search_highlight", pos, end_pos)
             
-            if not first_pos:
-                first_pos = pos
-                
+            if not self._search_matches:
+                self._search_idx = 0
             count_matches += 1
             start_pos = end_pos
             
         # Scroll al primero
-        if first_pos:
-            console.see(first_pos)
+        if self._search_matches:
+            console.see(self._search_matches[0])
             self.search_btn.configure(text=f"{count_matches}")
         else:
             self.search_btn.configure(text="0")
+        self._update_match_label(count_matches)
+        log_ui("search", query=query, matches=count_matches)
+
+    def _schedule_search(self):
+        """Debounce al teclear para no recalcular en cada pulsación."""
+        try:
+            if hasattr(self, "_search_job"):
+                self.after_cancel(self._search_job)
+        except Exception:
+            pass
+        self._search_job = self.after(150, self._do_search)
+
+    def _update_match_label(self, total):
+        if total and self._search_idx >= 0:
+            self.search_status.configure(text=f"{self._search_idx+1}/{total}")
+        else:
+            self.search_status.configure(text="0/0")
+
+    def _goto_match(self, delta):
+        console = self._get_active_console()
+        if not console or not getattr(self, "_search_matches", []):
+            return
+        total = len(self._search_matches)
+        self._search_idx = (self._search_idx + delta) % total
+        pos = self._search_matches[self._search_idx]
+        console.see(pos)
+        self._update_match_label(total)
+        log_ui("search_nav", idx=self._search_idx, total=total)
 
     def _clear_search(self):
         """Limpia la búsqueda."""
         self.search_entry.delete(0, "end")
         self.search_btn.configure(text="Buscar")
+        self._search_matches = []
+        self._search_idx = -1
+        self._update_match_label(0)
         
         # Limpiar en TODAS las consolas por si acaso cambió de tab
         for c in [self.term_console, self.debug_console, self.general_console]:
             try:
                 c.tag_remove("search_highlight", "1.0", "end")
-            except: pass
+            except Exception as e:
+                self._log(f"⚠️ No se pudo limpiar búsqueda en consola: {e}", level="WARN")
 
     def update_colors(self, colors):
         """Actualiza colores sin recrear la vista (Vital para no matar el thread)."""
@@ -778,8 +870,10 @@ class RunnerView(ctk.CTkFrame):
         # Update Frames (naive approach)
         for widget in self.winfo_children():
             if isinstance(widget, ctk.CTkFrame) and widget not in [self.term_console, self.debug_console, self.log_tabs]:
-                 try: widget.configure(fg_color=colors["bg_card"])
-                 except: pass
+                 try:
+                     widget.configure(fg_color=colors["bg_card"])
+                 except Exception as e:
+                     self._log(f"⚠️ No se pudo actualizar color de widget: {e}", level="WARN")
                  
         # Update Tabview
         self.log_tabs.configure(fg_color=colors["bg_secondary"])

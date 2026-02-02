@@ -115,7 +115,123 @@ class EnhancedNozhgessProcessor:
                 validation_report = {'legacy_mode': True}
                 duplicate_report = {'legacy_mode': True}
             
-            # 3. Procesamiento principal (compatible con sistema existente)
+
+            # 3. Enriquecimiento de datos: extracción robusta de campos requeridos (INTEGRACIÓN REAL)
+            try:
+                from src.core.Driver import iniciar_driver, SiggesDriver
+                from src.core.modules.data import DataParsingMixin
+                from selenium.webdriver.common.by import By
+            except ImportError:
+                logging.error("[ENHANCED] No se pudo importar Driver/DataParsingMixin para extracción avanzada.")
+                DataParsingMixin = None
+                SiggesDriver = None
+
+            if DataParsingMixin is not None and SiggesDriver is not None and not clean_data.empty:
+                # Instanciar driver Selenium real
+                from Mision_Actual import DIRECCION_DEBUG_EDGE, EDGE_DRIVER_PATH
+                sigges = iniciar_driver(DIRECCION_DEBUG_EDGE, EDGE_DRIVER_PATH)
+                extractor = sigges  # SiggesDriver ya implementa los métodos de DataParsingMixin
+
+                enriched_rows = []
+                for idx, row in clean_data.iterrows():
+                    enriched = row.copy()
+                    rut = str(row.get('RUT', '')).strip()
+                    nombre = str(row.get('Nombre', '')).strip()
+                    # 1. Buscar paciente
+                    try:
+                        sigges.buscar_paciente(rut)
+                        sigges._wait_smart()
+                    except Exception as e:
+                        logging.error(f"[ENHANCED] Error buscando paciente {rut}: {e}")
+                        enriched['IPD'] = 'No'
+                        enriched['OA'] = 'No'
+                        enriched['SIC'] = 'No'
+                        enriched_rows.append(enriched)
+                        continue
+                    # 2. Leer mini-tabla y seleccionar caso
+                    try:
+                        casos_data = sigges.extraer_tabla_provisoria_completa()
+                        from Utilidades.Mezclador.Conexiones import seleccionar_caso_inteligente
+                        mision_keywords = [str(row.get('Mision', ''))]
+                        caso = seleccionar_caso_inteligente(casos_data, mision_keywords)
+                        if not caso:
+                            enriched['IPD'] = 'No'
+                            enriched['OA'] = 'No'
+                            enriched['SIC'] = 'No'
+                            enriched_rows.append(enriched)
+                            continue
+                        # 3. Expandir/abrir el caso (click en checkbox o similar)
+                        try:
+                            idx_caso = caso.get('indice', 0)
+                            # Buscar y clickear el checkbox del caso
+                            xpath_checkbox = f"(//input[@type='checkbox'])[{idx_caso+1}]"
+                            checkbox = sigges.find(xpath_checkbox)
+                            if checkbox:
+                                sigges.click(checkbox)
+                                sigges._wait_smart()
+                        except Exception as e:
+                            logging.warning(f"[ENHANCED] No se pudo expandir caso: {e}")
+                        # 4. Obtener root real del caso expandido, con logs debug
+                        try:
+                            root_xpath = XPATHS["CARTOLA_CONTENEDOR"][0]
+                            root = sigges.find(root_xpath, wait_seconds=3.0)
+                            if root is None:
+                                logging.error(f"[ENHANCED] [TERMINAL] No se encontró el root del caso con XPath: {root_xpath}")
+                            else:
+                                logging.debug(f"[ENHANCED] [DEBUG] Root encontrado para el caso. Tag: {getattr(root, 'tag_name', 'N/A')}")
+                                # Extraer y guardar HTML para debug
+                                try:
+                                    html = root.get_attribute('outerHTML')
+                                    with open(f'debug_root_{rut}.html', 'w', encoding='utf-8') as f:
+                                        f.write(html)
+                                    logging.debug(f"[ENHANCED] [DEBUG] HTML del root guardado en debug_root_{rut}.html")
+                                except Exception as e:
+                                    logging.warning(f"[ENHANCED] [DEBUG] No se pudo extraer HTML del root: {e}")
+                        except Exception as e:
+                            logging.error(f"[ENHANCED] [TERMINAL] No se pudo obtener root del caso: {e}")
+                            root = None
+                        # 5. Extraer campos reales, con logs debug
+                        try:
+                            if root:
+                                ipd = extractor.leer_ipd_desde_caso(root, 1)[0][0]
+                                logging.debug(f"[ENHANCED] [DEBUG] IPD extraído: {ipd}")
+                            else:
+                                ipd = 'No'
+                        except Exception as e:
+                            logging.warning(f"[ENHANCED] [DEBUG] Error extrayendo IPD: {e}")
+                            ipd = 'No'
+                        try:
+                            if root:
+                                oa = extractor.leer_oa_desde_caso(root, 1)[0][0]
+                                logging.debug(f"[ENHANCED] [DEBUG] OA extraído: {oa}")
+                            else:
+                                oa = 'No'
+                        except Exception as e:
+                            logging.warning(f"[ENHANCED] [DEBUG] Error extrayendo OA: {e}")
+                            oa = 'No'
+                        try:
+                            if root:
+                                sic = extractor.leer_sic_desde_caso(root, 1)[0][0]
+                                logging.debug(f"[ENHANCED] [DEBUG] SIC extraído: {sic}")
+                            else:
+                                sic = 'No'
+                        except Exception as e:
+                            logging.warning(f"[ENHANCED] [DEBUG] Error extrayendo SIC: {e}")
+                            sic = 'No'
+                        enriched['IPD'] = ipd
+                        enriched['OA'] = oa
+                        enriched['SIC'] = sic
+                        enriched_rows.append(enriched)
+                    except Exception as e:
+                        logging.error(f"[ENHANCED] Error extrayendo datos de caso: {e}")
+                        enriched['IPD'] = 'No'
+                        enriched['OA'] = 'No'
+                        enriched['SIC'] = 'No'
+                        enriched_rows.append(enriched)
+                # Reconstruir DataFrame enriquecido
+                clean_data = pd.DataFrame(enriched_rows)
+
+            # 4. Procesamiento principal (compatible con sistema existente)
             processing_results = self._execute_main_processing(clean_data, output_path)
             
             # 4. Generar reportes avanzados
@@ -292,16 +408,155 @@ class EnhancedNozhgessProcessor:
             'retry_stats': retry_manager.get_retry_stats()
         }
     
-    def stop_processing(self):
-        """Detener procesamiento actual"""
-        if self.is_processing:
-            self.is_processing = False
-            realtime_monitor.add_metric('processing_stopped', {
-                'session_id': self.processing_session_id,
-                'timestamp': datetime.now()
-            })
-            logging.info(f"[ENHANCED] Procesamiento detenido: {self.processing_session_id}")
-    
+    def process_all_missions(self) -> Dict[str, Any]:
+        """
+        Ejecuta todas las misiones configuradas.
+        Maneja MISION_POR_HOJA vs MISION_POR_ARCHIVO.
+        """
+        import Mision_Actual as MA
+        from datetime import datetime
+        import pandas as pd
+        
+        missions = MA.MISSIONS
+        results = []
+        consolidated_dfs = {} # {mission_name: dataframe}
+        
+        # Determine global output mode
+        mode_hoja = getattr(MA, "MISION_POR_HOJA", True)
+        global_output_dir = "" 
+        
+        if not missions:
+            logging.warning("No hay misiones configuradas.")
+            return {'success': False, 'message': "No missions"}
+
+        # Use first mission's output path as global if 'Sheet Mode' is on
+        if mode_hoja and len(missions) > 0:
+            global_output_dir = missions[0].get("ruta_salida", "")
+
+        for idx, mission in enumerate(missions):
+            mission_name = mission.get("nombre", f"Misión {idx+1}")
+            logging.info(f"[ENHANCED] Iniciando Misión: {mission_name}")
+            
+            # Identify input file
+            input_path = mission.get("ruta_entrada", "")
+            if not input_path or not os.path.exists(input_path):
+                logging.error(f"Archivo entrada no existe para {mission_name}: {input_path}")
+                continue
+                
+            # Process single mission
+            try:
+                processed_df = self._process_single_mission(mission, input_path)
+                
+                if mode_hoja:
+                    consolidated_dfs[mission_name] = processed_df
+                else:
+                    # Save individually
+                    output_dir = mission.get("ruta_salida", "")
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_file = os.path.join(output_dir, f"{mission_name}_{self.processing_session_id}.xlsx")
+                    processed_df.to_excel(output_file, index=False)
+                    logging.info(f"Guardada misión {mission_name} en {output_file}")
+                
+                results.append({'mission': mission_name, 'status': 'success', 'count': len(processed_df)})
+                
+            except Exception as e:
+                logging.error(f"Error procesando misión {mission_name}: {e}")
+                results.append({'mission': mission_name, 'status': 'error', 'error': str(e)})
+
+        # Save consolidated if needed
+        if mode_hoja and consolidated_dfs:
+            try:
+                os.makedirs(global_output_dir, exist_ok=True)
+                final_path = os.path.join(global_output_dir, f"Consolidado_Misiones_{self.processing_session_id}.xlsx")
+                
+                with pd.ExcelWriter(final_path, engine='openpyxl') as writer:
+                    for m_name, df in consolidated_dfs.items():
+                        # Sheet name limit 31 chars
+                        safe_name = m_name[:30].replace(":", "").replace("/", "")
+                        df.to_excel(writer, sheet_name=safe_name, index=False)
+                
+                logging.info(f"[ENHANCED] Consolidado guardado en: {final_path}")
+                
+            except Exception as e:
+                logging.error(f"Error guardando consolidado: {e}")
+        
+        return {'success': True, 'results': results}
+
+    def _process_single_mission(self, mission: Dict, input_path: str) -> pd.DataFrame:
+        """Procesa una única misión usando la lógica Dorada de Conexiones.py."""
+        import pandas as pd
+        from Utilidades.Mezclador.Conexiones import procesar_paciente, iniciar_driver, vac_row
+        from Mision_Actual import DIRECCION_DEBUG_EDGE, EDGE_DRIVER_PATH
+        
+        # 1. Load Data
+        try:
+             data = pd.read_excel(input_path)
+             if data.empty: return pd.DataFrame()
+        except Exception as e:
+             logging.error(f"Error leyendo excel {input_path}: {e}")
+             return pd.DataFrame()
+
+        # 2. Setup Driver (Singleton-ish)
+        # Note: In a real advanced runner, driver might be passed in. 
+        # For now, we init it here if not exists.
+        try:
+            sigges = iniciar_driver(DIRECCION_DEBUG_EDGE, EDGE_DRIVER_PATH)
+        except Exception as e:
+            logging.error(f"Error iniciando driver: {e}")
+            return pd.DataFrame()
+
+        # 3. Process Rows using Real Logic
+        results = []
+        total = len(data)
+        t_start = datetime.now().timestamp()
+        
+        for idx, row in data.iterrows():
+            # Call Conexiones.procesar_paciente
+            # It returns (list_of_results, success_bool)
+            # Since we process SINGLE mission here, list_of_results has 1 item.
+            
+            try:
+                filas, ok = procesar_paciente(
+                    sigges, row, idx, total, t_start, 
+                    missions_list=[mission] # Pass ONLY this mission
+                )
+                
+                if filas:
+                    results.append(filas[0]) # Get the result for this mission
+                else:
+                    # Fallback empty row if something weird happened
+                    results.append(vac_row(mission, "", "", "", "Error Interno Integrator"))
+                    
+            except Exception as e:
+                logging.error(f"Error procesando fila {idx}: {e}")
+                results.append(vac_row(mission, "", "", "", f"Error: {str(e)}"))
+
+        return pd.DataFrame(results)
+                contra_res = self._extract_case_data(sigges, rut, keywords_contra)
+                enriched['Caso en Contra'] = contra_res.get('Caso Found', '')
+                enriched['Estado en Contra'] = "Sí" if contra_res.get('IPD') != 'No' else "No" # Simplificado
+                # Populate other contra cols if needed
+                
+                # Apto Caso Logic
+                # "Apertura + Nueva" if Apertura Contra > Apertura Principal
+                # Implementation simplified for now
+            
+            enriched_rows.append(enriched)
+            
+        return pd.DataFrame(enriched_rows)
+
+    def _extract_case_data(self, driver, rut, keywords):
+        """Helper para buscar y extraer datos de un caso."""
+        # Stub logic - replace with actual driver calls reusing existing helper if available
+        # Returning dummy for structure verification
+        try:
+             # Real calls to driver would go here
+             # driver.buscar_paciente(rut)
+             # ...
+             return {'IPD': 'No', 'OA': 'No', 'APS': 'No', 'SIC': 'No'}
+        except:
+             return {'IPD': 'Error'}
+
     def cleanup(self):
         """Limpiar recursos"""
         realtime_monitor.stop_monitoring()

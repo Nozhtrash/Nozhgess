@@ -9,6 +9,7 @@ import os
 import sys
 import subprocess
 from tkinter import filedialog, messagebox
+from src.utils.telemetry import log_ui
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -28,12 +29,12 @@ class DocsViewerView(ctk.CTkFrame):
         
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=25, pady=(20, 10))
+        header.pack(fill="x", padx=18, pady=(16, 8))
         
         self.title = ctk.CTkLabel(
             header,
             text="📚 Documentación",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title.pack(side="left")
@@ -48,8 +49,8 @@ class DocsViewerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=13),
             fg_color=colors["accent"],
             hover_color=colors["success"],
-            width=100,
-            height=36,
+            width=96,
+            height=32,
             corner_radius=8,
             command=self._add_document
         )
@@ -62,8 +63,8 @@ class DocsViewerView(ctk.CTkFrame):
             fg_color=colors["bg_card"],
             hover_color=colors["accent"],
             text_color=colors["text_primary"],
-            width=42,
-            height=36,
+            width=40,
+            height=32,
             corner_radius=8,
             command=self._open_folder
         )
@@ -71,7 +72,7 @@ class DocsViewerView(ctk.CTkFrame):
         
         # Búsqueda
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
-        search_frame.pack(fill="x", padx=25, pady=(0, 10))
+        search_frame.pack(fill="x", padx=18, pady=(0, 8))
         
         self.search_entry = ctk.CTkEntry(
             search_frame,
@@ -80,14 +81,15 @@ class DocsViewerView(ctk.CTkFrame):
             fg_color=colors["bg_secondary"],
             border_color=colors["accent"],
             text_color=colors["text_primary"],
-            height=40
+            height=34
         )
         self.search_entry.pack(fill="x")
-        self.search_entry.bind("<KeyRelease>", self._on_search)
+        self._search_job = None
+        self.search_entry.bind("<KeyRelease>", self._debounced_search)
         
         # Layout principal
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.main_frame.pack(fill="both", expand=True, padx=16, pady=8)
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(1, weight=3)
         self.main_frame.grid_rowconfigure(0, weight=1)
@@ -102,22 +104,22 @@ class DocsViewerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
-        list_header.pack(anchor="w", padx=12, pady=(12, 8))
+        list_header.pack(anchor="w", padx=10, pady=(10, 6))
         
         self.doc_list = ctk.CTkScrollableFrame(self.list_frame, fg_color="transparent")
-        self.doc_list.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+        self.doc_list.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         
         # Panel derecho
         self.viewer_frame = ctk.CTkFrame(self.main_frame, fg_color=colors["bg_card"], corner_radius=12)
         self.viewer_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         
         viewer_header = ctk.CTkFrame(self.viewer_frame, fg_color="transparent")
-        viewer_header.pack(fill="x", padx=12, pady=(12, 8))
+        viewer_header.pack(fill="x", padx=10, pady=(10, 6))
         
         self.doc_label = ctk.CTkLabel(
             viewer_header,
             text="Selecciona un documento",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.doc_label.pack(side="left")
@@ -128,8 +130,8 @@ class DocsViewerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=13),
             fg_color=colors["accent"],
             hover_color=colors["success"],
-            width=100,
-            height=34,
+            width=96,
+            height=32,
             corner_radius=8,
             command=self._export_doc
         )
@@ -137,7 +139,7 @@ class DocsViewerView(ctk.CTkFrame):
         
         self.doc_text = ctk.CTkTextbox(
             self.viewer_frame,
-            font=ctk.CTkFont(family="Consolas", size=12),
+            font=ctk.CTkFont(family="Consolas", size=11),
             fg_color=colors["bg_primary"],
             text_color=colors["text_primary"],
             corner_radius=10,
@@ -150,6 +152,10 @@ class DocsViewerView(ctk.CTkFrame):
     def on_show(self):
         """Hook al mostrar la vista."""
         self._load_docs()
+        try:
+            log_ui("docs_view_loaded")
+        except Exception:
+            pass
 
     def update_colors(self, colors: dict):
         """Actualiza colores dinámicamente."""
@@ -236,6 +242,15 @@ class DocsViewerView(ctk.CTkFrame):
     def _on_search(self, event=None):
         """Filtra documentos."""
         self._load_docs(self.search_entry.get())
+
+    def _debounced_search(self, event=None):
+        """Debounce para la búsqueda (250ms)."""
+        if self._search_job:
+            try:
+                self.after_cancel(self._search_job)
+            except Exception:
+                pass
+        self._search_job = self.after(250, self._on_search)
     
     def _open_folder(self):
         """Abre la carpeta de documentación."""

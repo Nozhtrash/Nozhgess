@@ -8,6 +8,7 @@ import customtkinter as ctk
 import os
 import sys
 from typing import Callable, Dict, Optional
+from src.utils.telemetry import log_ui
 
 
 class Sidebar(ctk.CTkFrame):
@@ -21,9 +22,9 @@ class Sidebar(ctk.CTkFrame):
         self.buttons: Dict[str, dict] = {}
         self.active_view: Optional[str] = None
         
-        # Config visual - AUMENTADO EN 15% Y CORREGIDO
-        self.WIDTH = 173  # 150 * 1.15 = 173 (15% más ancho)
-        self.BUTTON_HEIGHT = 40  # Mantener altura pero más espacio
+        # Config visual
+        self.WIDTH = 165
+        self.BUTTON_HEIGHT = 40  # compacto pero cómodo
 
         
         # Container scrollable para asegurar que todos los botones son visibles
@@ -48,14 +49,14 @@ class Sidebar(ctk.CTkFrame):
         
         self.title_label = ctk.CTkLabel(
             header, text="Nozhgess", 
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title_label.pack()
         
         self.version_label = ctk.CTkLabel(
             header, text="v3.0", 
-            font=ctk.CTkFont(size=9),
+            font=ctk.CTkFont(family="Segoe UI", size=9),
             text_color=colors.get("text_muted", "#64748b")
         )
         self.version_label.pack()
@@ -70,27 +71,27 @@ class Sidebar(ctk.CTkFrame):
         self._sep()
         
         # Grupo 2: Herramientas
-        self._btn("control", "🎛️", "Panel")
-        self._btn("missions", "📁", "Misiones")
-        self._btn("backups", "💾", "Backups")
+        self._btn("control", "🎚️", "Panel")  # Icono cambiado: Slider
+        self._btn("missions", "📁", " Misiones")
+        self._btn("backups", "💾", " Backups")
         
         self._sep()
         
         # Grupo 3: Utilidades
-        self._btn("vba", "📊", "VBA")
-        self._btn("docs", "📚", "Docs")
-        self._btn("logs", "📜", "Logs")
+        self._btn("vba", "📊", " VBA")
+        self._btn("docs", "📚", " Docs")
+        self._btn("logs", "📜", " Logs")
         
         self._sep()
         
         # Grupo 4: Sistema - SIEMPRE VISIBLE
-        self._btn("settings", "⚙️", "Ajustes")
-        self._btn("about", "ℹ️", "Info")
+        self._btn("settings", "⚙️", " Ajustes")
+        self._btn("about", "ℹ️", " Info")
         
         self._sep()
         
         # Grupo 5: Acciones
-        self._action_btn("🔄", "Reiniciar App", self._restart_app, hover_color="#451a1a")
+        self._action_btn("🔄", " Reiniciar App", self._restart_app, hover_color="#451a1a")
         
         self.pack_propagate(False)
         self.configure(width=self.WIDTH)
@@ -106,19 +107,21 @@ class Sidebar(ctk.CTkFrame):
         """Botón compacto con icon y texto simétricos."""
         # Frame contenedor para mejor control de alineación con más espacio
         btn_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=1, padx=2)  # Más espacio vertical y horizontal
+        btn_frame.pack(fill="x", pady=2, padx=2)  # Más espacio vertical (pady 1->2)
         
         btn = ctk.CTkButton(
             btn_frame, 
-            text=f" {icon}  {label}",  # Espaciado optimizado para texto completo
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="normal"), # Tamaño ajustado
+            text=f" {icon}  {label}",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             fg_color="transparent",
             text_color=self.colors["text_secondary"],
-            hover_color=self.colors.get("bg_card", "#1a1f27"),
+            hover_color=self.colors.get("bg_hover", "#222a39"),
+            border_width=1,
+            border_color=self.colors.get("border", "#2b3240"),
             height=self.BUTTON_HEIGHT,
-            corner_radius=8,
-            anchor="w",  # Alineación izquierda para mejor legibilidad
-            width=165,  # Ancho explícito para asegurar espacio
+            corner_radius=10,
+            anchor="w",
+            width=self.WIDTH - 10,
             command=lambda v=vid: self._nav(v)
         )
         btn.pack(fill="x")
@@ -129,19 +132,21 @@ class Sidebar(ctk.CTkFrame):
     def _action_btn(self, icon: str, label: str, command: Callable, hover_color: str = None):
         """Botón de acción directa (no navegación)."""
         btn_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=1, padx=2)
+        btn_frame.pack(fill="x", pady=2, padx=2)
         
         btn = ctk.CTkButton(
             btn_frame, 
             text=f" {icon}  {label}",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="normal"),
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             fg_color="transparent",
             text_color=self.colors["text_secondary"],
-            hover_color=hover_color or self.colors.get("bg_card", "#1a1f27"),
+            hover_color=hover_color or self.colors.get("bg_hover", "#222a39"),
+            border_width=1,
+            border_color=self.colors.get("border", "#2b3240"),
             height=self.BUTTON_HEIGHT,
-            corner_radius=8,
+            corner_radius=10,
             anchor="w",
-            width=165,
+            width=self.WIDTH - 10,
             command=command
         )
         btn.pack(fill="x")
@@ -158,6 +163,7 @@ class Sidebar(ctk.CTkFrame):
         self.set_active(vid)
         if self.on_navigate:
             self.on_navigate(vid)
+        log_ui("nav_click", view=vid)
     
     def set_active(self, vid: str):
         """Establece la vista activa con feedback visual."""
@@ -165,6 +171,7 @@ class Sidebar(ctk.CTkFrame):
             is_active = (v == vid)
             d["btn"].configure(
                 fg_color=self.colors.get("bg_card", "#1a1f27") if is_active else "transparent",
+                border_color=self.colors.get("accent", "#7c4dff") if is_active else self.colors.get("border", "#2b3240"),
                 text_color=self.colors["accent"] if is_active else self.colors["text_secondary"]
             )
         self.active_view = vid
@@ -193,4 +200,3 @@ class Sidebar(ctk.CTkFrame):
                 text_color=colors["accent"] if is_active else colors["text_secondary"],
                 hover_color=colors.get("bg_card", "#1a1f27")
             )
-

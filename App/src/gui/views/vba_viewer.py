@@ -9,6 +9,8 @@ import os
 import sys
 import subprocess
 from tkinter import filedialog, messagebox
+from src.utils.telemetry import log_ui
+import logging
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -29,7 +31,8 @@ class VbaViewerView(ctk.CTkFrame):
         # Asegurar que la carpeta existe al iniciar
         try:
             os.makedirs(VBA_PATH, exist_ok=True)
-        except: pass
+        except Exception as e:
+            logging.exception(f"VbaViewer: no se pudo crear carpeta VBA: {e}")
         
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -189,6 +192,10 @@ class VbaViewerView(ctk.CTkFrame):
     def on_show(self):
         """Hook al mostrar la vista."""
         self._load_files()
+        try:
+            log_ui("vba_view_loaded")
+        except Exception:
+            pass
 
     def update_colors(self, colors: dict):
         """Actualiza colores dinámicamente."""

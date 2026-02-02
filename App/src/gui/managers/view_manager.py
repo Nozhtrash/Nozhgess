@@ -1,5 +1,7 @@
 import customtkinter as ctk
+import time
 from typing import Dict, Type, Any
+from src.utils.telemetry import log_ui
 
 class ViewManager:
     """
@@ -30,6 +32,8 @@ class ViewManager:
         if name not in self._registry and name not in self._instances:
             print(f"Error: Vista '{name}' no registrada.")
             return
+
+        t_start = time.perf_counter()
 
         # 1. Ocultar actual
         if self.current_view_name:
@@ -77,6 +81,12 @@ class ViewManager:
         # Lifecycle hook
         if hasattr(view, "on_show"):
             view.on_show()
+
+        try:
+            log_ui("view_show", view=name)
+            log_ui("view_tti", view=name, ms=round((time.perf_counter()-t_start)*1000, 2))
+        except Exception:
+            pass
 
     def get_view(self, name: str):
         return self._instances.get(name)

@@ -1,0 +1,514 @@
+BIBLIA SIGGES — XPATH / SELECTORES (VERSIÓN ORDENADA, TEXTO PLANO)
+============================================================
+
+## 1) Inicio / Login (detectar sesión cerrada)
+----------------------------------------------
+
+📝 Biblia SiggesPágina Inicial:https://www.sigges.cl/#/login (Significa que la sesión está cerrada y hay que iniciar sesión, un detector inteligente para que detecte si la sesión esta cerrada sería ideal, así no hace lo de “uy no encuentro el botón buscar” pues obvio que no lo encuentra, la sesión está cerrada.)Así es el inicio
+📝 Los datos siempre están puestos, solo es necesario presionar ingresar
+📝 Se debe presionar el botón
+📝 Ingresar:
+📝 Ingresar:<button type="submit" class="botonBase" data-color="verde"><p>Ingresar</p></button>
+🔹 #root > div > div.loginContent.center.flow > div.loginBox > form > div:nth-child(3) > button
+🔹 document.querySelector("
+🔹 #root > div > div.loginContent.center.flow > div.loginBox > form > div:nth-child(3) > button")
+🔹 //*[@id="root"]/div/div[2]/div[1]/form/div[3]/button
+🔹 /html/body/div/div/div[2]/div[1]/form/div[3]/button
+
+## 2) Selección de Unidad / Hospital
+------------------------------------
+
+📝 Una vez presionado el botón, apareceremos acá:Donde dice seleccione unidad, es una lista desplegable, al presionarla aparecerá el Hospital:
+📝 Seleccione una Unidad:<div class="filtroSelect__header leftCenter"><p>Seleccione una unidad</p><div class="iconArrow gris"></div></div>
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(1) > div > div.filtroSelect__content > div.filtroSelect__header.leftCenter
+🔹 document.querySelector("
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(1) > div > div.filtroSelect__content > div.filtroSelect__header.leftCenter")
+🔹 //*[@id="root"]/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[1]
+🔹 /html/body/div/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[1]
+📝 Una vez se haya apretado la lista se verá así:
+📝 Se debe presionar el hospital:<p>Hospital Dr. Gustavo Fricke (Viña del Mar)</p>
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(1) > div > div.filtroSelect__content > div.filtroSelect__options > div > p
+🔹 document.querySelector("
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(1) > div > div.filtroSelect__content > div.filtroSelect__options > div > p")
+🔹 //*[@id="root"]/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[2]/div/p
+🔹 /html/body/div/div/div/div/div[1]/div/div[2]/div[1]/div/div[2]/div[2]/div/p
+📝 Una vez se haya presionado el hospital, aparecerá esto:
+📝 Nosotros solamente usamos:
+
+## 3) Acceso: SIGGES CONFIDENCIAL
+---------------------------------
+
+📝 Sigges Confidencial:<p>INGRESO SIGGES CONFIDENCIAL</p>
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(2) > div.boxItems__items > div:nth-child(3) > p
+🔹 document.querySelector("
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div:nth-child(2) > div.boxItems__items > div:nth-child(3) > p")
+🔹 //*[@id="root"]/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div[3]/p
+🔹 /html/body/div/div/div/div/div[1]/div/div[2]/div[2]/div[2]/div[3]/p
+📝 Una vez se haya presionado Ingreso Sigges Confidencial, debemos presionar el boton conectar
+📝 Conectese con unidad y perfil:
+🔹 <p>Conectese con unidad y perfil</p>
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div.boxItem__row.center > button > p
+🔹 document.querySelector("
+🔹 #root > div > div > div > div.w50 > div > div.boxItems__content > div.boxItem__row.center > button > p")
+🔹 //*[@id="root"]/div/div/div/div[1]/div/div[2]/div[3]/button/p
+🔹 /html/body/div/div/div/div/div[1]/div/div[2]/div[3]/button/p
+📝 Una vez presionado conectese con unidad y perfil, apareceremos acá:
+📝 https://www.sigges.cl/#/actualizaciones
+📝 Eso significa que logramos loguear correctamente
+📝 Ahora debemos abrir la lista desplegable de Ingreso y Consulta de Pacientes:
+📝 Ingreso y Consulta de Paciente:
+🔹 <p>Ingreso y Consulta Paciente</p>
+🔹 #root > main > div.navBar.animate__animated.animate__fadeIn.animate__faster > nav > div:nth-child(1) > div.cardNav__title.leftCenter > p
+🔹 document.querySelector("
+🔹 #root > main > div.navBar.animate__animated.animate__fadeIn.animate__faster > nav > div:nth-child(1) > div.cardNav__title.leftCenter > p")
+🔹 //*[@id="root"]/main/div[2]/nav/div[1]/div[1]/p
+🔹 /html/body/div/main/div[2]/nav/div[1]/div[1]/p
+📝 Esto abrirá la lista y aparecerán los botones que necesitamos:
+📝 Ahora, debemos presionar Búsqueda de Paciente:Búsqueda de Paciente:
+📝 https://www.sigges.cl/#/busqueda-de-paciente (Sí, tiene Link directo, puede ser útil.)<a class="navBar__button leftCenter navBar__button__activ" href="#/34"><p>Búsqueda de Paciente</p></a>
+🔹 #root > main > div.navBar.animate__animated.animate__fadeIn.animate__faster > nav > div.cardNav.cardOpen > div.cardNav__menu > a.navBar__button.leftCenter.navBar__button__activ
+🔹 document.querySelector("
+🔹 #root > main > div.navBar.animate__animated.animate__fadeIn.animate__faster > nav > div.cardNav.cardOpen > div.cardNav__menu > a.navBar__button.leftCenter.navBar__button__activ")
+🔹 //*[@id="root"]/main/div[2]/nav/div[1]/div[2]/a[1]
+🔹 /html/body/div/main/div[2]/nav/div[1]/div[2]/a[1]
+📝 Una vez se haya presionado, estará este menú:
+📝 En ese menú es donde buscamos los pacientes.Acá se pone el Rut:
+🔹 <input type="text" id="rutInput" autocomplete="off" value="">
+📝 #rutInput
+🔹 document.querySelector("#rutInput")
+🔹 //*[@id="rutInput"]
+🔹 /html/body/div/main/div[3]/div[3]/div/div/div[1]/div/div/div/input
+📝 Una vez se ponga el Rut, debemos presionar Buscar Rut
+📝 Buscar Run:
+🔹 <button class="botonBase botonStand2" data-color="azulP"><p>Buscar RUN</p></button>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div > div:nth-child(1) > div > button
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div > div:nth-child(1) > div > button > p")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div/div[1]/div/button/p
+🔹 /html/body/div/main/div[3]/div[3]/div/div/div[1]/div/button/p
+📝 Una vez se haya presionado Buscar Run, aparecerán todos los datos del paciente:
+📝 Lo que nos importa a nosotros es:Edad:<p>70 Años, 1 Mes, 26 Días</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(1) > div.contRow.leftCenter.gap.flow > div:nth-child(2) > div > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(1) > div.contRow.leftCenter.gap.flow > div:nth-child(2) > div > p")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div[1]/div[7]/div[2]/div/p
+🔹 /html/body/div/main/div[3]/div[3]/div/div[1]/div[7]/div[2]/div/p
+📝 Nota: Edad debe ser formateada siempre, a solo el número de la edad, no los días, ni meses ni años, ej: 70.
+📝 Y Lo otro que nos importa es su Mini-
+
+## 5) Tabla de Casos (lista principal)
+--------------------------------------
+
+📝 Tabla de Casos, esta tabla es la que nos dice todas las enfermedades que ha tenido el paciente en su vida, los casos son los que usamos para revisar los pacientes.La tabla es esta:
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div[2]/div/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table/tbody
+📝 A nosotros nos importan los datos que están en esta tabla, porque son los casos que revisamos.
+📝 Cada Caso es un TR del TBody, es decir, se ve así:
+📝 Y cada TR tiene un TD, que los TD son los datos de cada columna, a nosotros solo nos importa estos:
+📝 Osea estos datos son:
+📝 El Nombre del Caso:<p>Diabetes Mellitus Tipo 2 .</p> (Solo como ejemplo ya que el nombre obviamente cambia dependiendo el caso)
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > p")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[2]/p
+🔹 /html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[2]/p
+📝 Estado del Caso:
+🔹 <p>Caso Cerrado</p> (Solo como ejemplo ya que el estado obviamente cambia dependiendo el caso)
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(4) > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(4) > p")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[4]/p
+🔹 /html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[4]/p
+📝 Motivo del Cierre:
+🔹 <p>Descartado</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(5) > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.maxW.scroll > div > div:nth-child(2) > div > div > table > tbody > tr:nth-child(1) > td:nth-child(5) > p")
+🔹 //*[@id="root"]/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[5]/p
+🔹 /html/body/div/main/div[3]/div[3]/div/div[2]/div/div/table/tbody/tr[1]/td[5]/p
+📝 ¿Qué pasa si hay más de un Caso con el mismo nombre de los que estoy buscando?
+📝 Para ese tipo de situaciones, siempre debemos elegir el caso que esté más activo, es decir, cualquier que no sea Caso Cerrado.
+📝 PERO, si solo hay un caso relevante, el Caso Cerrado sí pasa a ser “Relevante”, si todos los “Relevantes” son “Caso Cerrado” pues se elige el Caso más Reciente (Para saber el Caso más reciente, se debe ir a Cartola Unificada y Revisar la “Cartola Provisoria”
+📝 Caso Activo, Caso en Tratamiento, Caso Confirmado, etc, son muchos estados de caso, pero mientras no sea Caso Cerrado, todo está bien, si no hay otro caso, solo está el caso cerrado, pues simplemente se pone como Caso Cerrado y ya.
+📝 De todas formas, la mini tabla funciona para algo muy en concreto y útil.
+📝 Su función es que las revisiones sean mucho más inteligentes y rápidas, ¿Porqué?, porque cuando miramos la Mini-
+📝 Tabla y no se encuentra el caso que estamos buscando, instantáneamente se debe saltar el paciente, no es necesario ir a la Cartola Unificada de Paciente, ya que sabemos que el paciente no tiene caso y además sabemos instantáneamente el estado del caso, lo cuál va en el Excel de Revisión del Script.
+📝 Por ende si no hay caso relevante, debe imprimir en el Excel de Revisión en una Columna: “Sin Caso”
+📝 Por eso mismo, la revisión de Mini-
+📝 Tabla debe ser sumamente cuidadosa, para no dar falsos positivos, ni falsos negativos.
+📝 Ahora, en la situación de que el paciente SÍ tenga un caso, pues automáticamente se activa el nivel de revisión.
+📝 Si el paciente tiene caso relevante encontrado en Mini-
+📝 Tabla, debemos ir a Cartola Unificada.
+📝 Cartola Unificada de Paciente:
+📝 https://www.sigges.cl/#/cartola-unificada-de-paciente (Sí, tiene link directo lo cuál puede ser muy útil.)
+🔹 <a class="navBar__button leftCenter navBar__button__activ" href="#/161"><p>Cartola Unificada Paciente</p></a>
+🔹 #root > main > div.navBar.animate__animated.animate__fadeIn.animate__faster > nav > div.cardNav.cardOpen > div.cardNav__menu > a.navBar__button.leftCenter.navBar__button__activ > p
+🔹 //*[@id="root"]/main/div[2]/nav/div[1]/div[2]/a[2]/p
+🔹 /html/body/div/main/div[2]/nav/div[1]/div[2]/a[2]/p
+📝 La Cartola Unificada es donde están todos los casos del paciente, donde se pueden revisar sus prestaciones y tablas, SIC, OA, IPD, PO, APS, etc.
+📝 Ahora vamos con la explicación completa de todo Cartola Unificada de Paciente.
+📝 Observación Importante: Se supone que si el Script llega hasta Cartola Unificada es solo porque en la Mini-
+📝 Tabla SÍ aparecía el caso relevante, por ende, es imposible que ya después de este punto exista el “Sin Caso”
+📝 La Sección de Cartola Unificada tiene Información muy útil.Iré poniendo 1 a 1 las informaciones relevantes y su dirección.
+📝 Fecha de Fallecimiento:<p>Sin Información</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(1) > div.contBox > div:nth-child(5) > div:nth-child(2) > div > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(1) > div.contBox > div:nth-child(5) > div:nth-child(2) > div > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[1]/div[2]/div[5]/div[2]/div/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[1]/div[2]/div[5]/div[2]/div
+📝 Normalmente dirá “Sin Información” o “Vivo” pero puede salir la fecha cuando el paciente realmente falleció.Eso debe ir en una columna del Excel de Revisión, pero es recomendable que sea así: Fecha de Fallecimiento o “Vivo” así es más fácil filtrar por vivos y fallecidos.
+📝 Ahora, los siguientes datos Importantes están en la
+📝 Tabla Previsoria, la
+📝 Tabla previsoria está en Cartola Unificada, en esa
+📝 Tabla se puede saber cuándo abrió el Caso y Cuando Cerró el Caso.
+📝 ¿Para qué sirven esos Datos?, para determinar cuál caso es relevante y cuál no, también para agregar información útil al Excel de Revisión.La
+📝 Tabla Provisoria es esta:
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody
+📝 Acá como siempre la
+📝 Tabla tiene sus TR que son las filas, y cada fila es un Caso distinto, por ejemplo:
+📝 Así se ve la tabla:
+📝 Ahora, lo importante de las Filas son El Caso, la Creación del Caso y el Cierre de Caso.
+📝 Los TD son:
+📝 Caso:<td>Diabetes Mellitus Tipo 2</td> (Solo por ejemplo, puede ser cualquier Caso, (Caso es Enfermedad))
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(1)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(1)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[1]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[1]
+📝 Lo segundo importante
+📝 Creación del Caso:<td>07/11/2025 00:00:00</td> (Solo como ejemplo, puede ser cualquier fecha, importante, debe ser formateado esto a algo con menos spam. Es decir, en el Excel de Revisió se debe ver así: “07/11/2025” sin la hora.)
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(3)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[3]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[3]
+📝 Cierre de Caso:<td>05/12/2025 23:58:00</td> (Lo mismo, formateado sin hora.)
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(6)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(6)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[6]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody/tr[1]/td[6]
+📝 Esos son los datos útiles de la
+📝 Tabla Provisoria.Ahora vamos a ir con el peso pesado, la real revisión del Caso.
+
+## 4) Botón Hitos GES (activar para desplegar info)
+---------------------------------------------------
+
+📝 Primero que todo, debemos habilitar la visión de los casos, esto se hace mediante una activación de un botón, el botón se llama Hitos GES.
+📝 Boton Hitos GES:
+🔹 <input type="checkbox">
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div > div > label > input[type=checkbox]
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div > div > label > input[type=checkbox]")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div/div/label/input
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div/div/label/input
+📝 Si presionamos activar, aparece un Div extra, dejaré una foto antes y después. Antes:
+📝 Después:
+📝 Acá es donde “Empieza la revisión”, debemos seleccionar el caso, pero para ello, dejaré las direcciones de la tabla.
+📝 Una vez se aparezca la tabla de casos, tendremos acceso a los botones que al activarlos (De la misma manera que Hitos GES, nos desplegará toda la información del caso, sus tablas, etc.
+
+## 5) Tabla de Casos (lista principal)
+--------------------------------------
+
+📝 Tabla de Casos:
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]
+📝 Así es como se ve la
+📝 Tabla una vez está activada:
+📝 Como se puede apreciar, los casos están pero un poco caóticos, con información pegada y mezclada en el mismo nombre de la enfermedad, debemos solucionarlo, formateando datos de una forma muy sencilla.
+📝 Dejaré un caso de ejemplo:
+📝 Diabetes Mellitus Tipo 2 . {decreto nº 228}, 07/11/2025 00:00:00, Caso CerradoAsí se ve un nombre de Caso, ¿Nos es útil todo lo que trae? NO, porque nosotros ya tenemos de donde sacar la fecha de creación de caso y el estado del caso, de la Mini-
+📝 Tabla obtenemos el estado del Caso y de la
+📝 Tabla provisoria obtenemos la fecha de creación del caso. ¿Qué es eso del Decreto N° X entonces? Es un dato inútil para nosotros, es decir, lo único relevante para nosotros es el nombre del caso / nombre de la enfermedad.Lo cuál se traduciría así:Diabetes Mellitus Tipo 2 .
+📝 Significa que todo lo que esté antes de un Decreto, es lo que nos importa, el decreto casi siempre empieza con “{“ lo cuál es útil para tomarlo como una referencia a: Antes de un ”{“ copiar información
+📝 Te doy otro ejemplo:
+📝 Infarto Agudo del Miocardio Infarto Agudo del Miocardio {decreto nº 228}, 04/07/2024 10:00:00, Caso Cerrado
+📝 Quedaría así en el Excel de Revisión:
+📝 Infarto Agudo del Miocardio Infarto Agudo del Miocardio
+
+## 4) Botón Hitos GES (activar para desplegar info)
+---------------------------------------------------
+
+📝 Ahora, seguimos, cuando se encuentre el caso relevante gracias a las Keyword del Script, debemos activar el caso, así como hicimos con Hitos Ges, para que se abra la lista y despliegue toda la información.
+📝 El Botón de Activación está antes del Nombre del Caso, aquí una imagen de como se ve;
+📝 y en el formato de web:
+📝 Cuando activamos se ve así:
+📝 Pero primero, debemos saber como encontrar el caso, obviamente leyendo, pero debemos saber bien dónde exactamente leer, así que aquí va la información:
+📝 Se lee desde un Div, el cuál actúa como fila, supongo yo que es porque trae un botón activador, por lo que no es un TR común y corriente, así que como ejemplo dejaré la dirección del Caso 1 y 2.
+📝 Caso 1:
+🔹 <p>Diabetes Mellitus Tipo 2 . {decreto nº 228}, 07/11/2025 00:00:00, Caso Cerrado </p>
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[1]/div/label/p
+📝 Y el caso 2:
+📝 Vicios de Refracción Otros Vicios de Refracción {decreto nº 228}, 20/08/2025 11:39:00, Caso Cerrado
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[2]/div/label/p/text()
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[2]/div/label/p/text()
+📝 Solo mando esas 2 direcciones ya que esas son las formas más útiles y correctas de buscar el caso fila por fila, incluso, se supone que la más correcta es leyendo texto plano, es decir con el outerhtml así es más seguro que no haya discrepancias con el keyword ya que podemos aplicar formatos, es decir, mayúsculas, acentos, símbolos, todos son ignorados y se lee todo en texto plano, así en los keyword del script solo pongo la palabra limpia y script muy inteligentemente funciona sin dramas.
+📝 Ahora, las direcciones del Botón a presionar:
+📝 Recuerda que son filas así que cada caso tiene su botón, en éste caso, usaré el primer caso como ejemplo:
+📝 Botón de Activación: (Esta es la primera fila, solo como ejemplo)<input type="checkbox">
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(1) > div > label > input[type=checkbox]
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(1) > div > label > input[type=checkbox]")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[1]/div/label/input
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[1]/div/label/input
+📝 Por ahora esta es la información actualizada, el resto, de como se revisa el prestaciones otorgadas, las tablas, todo, esto ya esta en el script, así que solamente apoyarse por ahora en esta biblia.
+📝 -----------------------------------------------Parte de Revisión:Titulos de Tablas (Si dice (0) la tabla no se crea, y además significa que no tiene datos, no tiene filas creadas) prácticamente si dice 0 en el Excel revision poner Sin (nombre de tabla) y ya. EJ: Sin SIC, Sin OA.<p>Solicitudes de interconsultas (SIC) (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(2) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(2) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[2]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[2]/div[1]/div/label/p
+📝 ----------------------------------------------------------------<p>Citaciones (CIT) (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(3) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(3) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[3]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[3]/div[1]/div/label/p-----------------------------------------<p>Informes de proceso de diagnóstico (IPD) (1)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(4) > div:nth-child(1) > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(4) > div:nth-child(1) > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[4]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[4]/div[1]/div/label/p-------------------------------------------------<p> Ordenes de Atención (OA) (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(5) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(5) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[5]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[5]/div[1]/div/label/p-----------------------------------------------------------------------
+🔹 <p>Prestaciones otorgadas (PO) (113)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(6) > div:nth-child(1) > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(6) > div:nth-child(1) > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[6]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[6]/div[1]/div/label/p----------------------------------------------------------------------------
+🔹 <p>Hoja Diaria APS/Especialidad (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(7) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(7) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[7]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[7]/div[1]/div/label/p------------------------------------------------------------------------------<p>Excepciones de Garantías de Oportunidad (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(8) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(8) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[8]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[8]/div[1]/div/label/p----------------------------------------------------------------------------------
+🔹 <p>Cierre Caso GES (0)</p>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(9) > div.contRow > div > label > p
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(3) > div:nth-child(9) > div.contRow > div > label > p")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[9]/div[1]/div/label/p
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[3]/div[9]/div[1]/div/label/p
+📝 ---------------------------------------Ahora las tablas de esos títulos:Encabezado SIC<thead><tr><th>Folio</th><th>Fecha digitación</th><th>Fecha SIC</th><th>Hora SIC</th><th>Establecimiento origen</th><th>Especialidad origen</th><th>Establecimiento destino</th><th>Especialidad destino</th><th>Derivada para</th><th>Hipótesis diagnóstica</th><th>Generada por planilla</th><th>On Line - IFL</th><th></th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/thead
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/thead/tr
+📝 Tabla SIC<tr><td>10908349</td><td>28/10/2008 20:07:07</td><td>24/10/2008</td><td>11:40</td><td>Centro de Salud Familiar Nororiente de Los Ángeles</td><td>Medicina Familiar 07-900-1</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>Confirmación Diagnóstica</td><td>PRESBICIA.</td><td>NO</td><td>On-Line</td><td></td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbodyFila SIC<tr><td>10908349</td><td>28/10/2008 20:07:07</td><td>24/10/2008</td><td>11:40</td><td>Centro de Salud Familiar Nororiente de Los Ángeles</td><td>Medicina Familiar 07-900-1</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>Confirmación Diagnóstica</td><td>PRESBICIA.</td><td>NO</td><td>On-Line</td><td></td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/trApartados que se usan de las Filas.Fecha SIC<td>24/10/2008</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[3]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[3]Derivado para<td>Confirmación Diagnóstica</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(9)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(9)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[9]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[9]Diagnostico SIC<td>PRESBICIA.</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(10)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(2) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(10)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[10]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[2]/div[2]/div/table/tbody/tr/td[10]NO HE PODIDO RECOPILAR LA TABLA DE CIT. (PENDIENTE)IPD Encabezado<thead><tr><th>Folio</th><th>Fecha digitación</th><th>Fecha IPD</th><th>Hora IPD</th><th>Establecimiento</th><th>Especialidad</th><th>Confirma (si) descarte (no)</th><th>Diagnóstico</th><th>Generado por planilla</th><th>On Line - IFL</th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/thead
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/thead
+📝 Tabla IPD<tbody><tr><td>11714003</td><td>27/01/2009 16:58:58</td><td>18/12/2008</td><td>10:00</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>Si</td><td>PRESBICIE</td><td>NO</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr></tbody>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbodyFila mas reciente IPD<tr><td>11714003</td><td>27/01/2009 16:58:58</td><td>18/12/2008</td><td>10:00</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>Si</td><td>PRESBICIE</td><td>NO</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/trApartados que se usan de las Filas.Fecha IPD<td>18/12/2008</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[3]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[3]Confirmación IPD<td>Si</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(7)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(7)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[7]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[7]Diagnostico IPD<td>PRESBICIE</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(8)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(4) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(8)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[8]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[4]/div[2]/div/table/tbody/tr/td[8]--------------------------------------------------------
+📝 Tabla de OAEncabezado:<thead><tr><th>Folio</th><th>Fecha digitación</th><th>Fecha OA</th><th>Hora OA</th><th>Establecimiento origen</th><th>Especialidad origen</th><th>Establecimiento destino</th><th>Especialidad destino</th><th>Derivada para</th><th>Código prestación</th><th>Extra sistema</th><th>Generada por plantilla</th><th>Hipótesis diagnóstico</th><th>On line - IFL</th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/thead
+🔹 /html/body/div[1]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/thead
+
+## 2) Selección de Unidad / Hospital
+------------------------------------
+
+📝 Tabla:<tbody><tr><td>49957893</td><td>24/10/2017 10:36:42</td><td>19/10/2017</td><td>09:00</td><td>Hospital Adriana Cousiño (Quintero)</td><td>Medicina Familiar 07-900-1</td><td>Hospital Dr. Gustavo Fricke (Viña del Mar)</td><td>Citología 13-04-02</td><td>Diagnostico</td><td>0801101</td><td>NO</td><td>NO</td><td>EXAMEN, TOMA DE PAP</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr></tbody>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/tbody
+🔹 /html/body/div[1]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/tbodyFila mas Reciente<tr><td>49957893</td><td>24/10/2017 10:36:42</td><td>19/10/2017</td><td>09:00</td><td>Hospital Adriana Cousiño (Quintero)</td><td>Medicina Familiar 07-900-1</td><td>Hospital Dr. Gustavo Fricke (Viña del Mar)</td><td>Citología 13-04-02</td><td>Diagnostico</td><td>0801101</td><td>NO</td><td>NO</td><td>EXAMEN, TOMA DE PAP</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/trApartados Importantes de las FilasFolio OA (se usa para anexar códigos cuando se digitan en prestaciones)<td>49957893</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(1)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(1)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[1]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[1]Fecha OA<td>19/10/2017</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[3]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[3]Derivado Para<td>Diagnostico</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(9)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(9)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[9]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[9]Codigo OA<td>0801101</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(10)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(10)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[10]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[10]Diganostico OA<td>EXAMEN, TOMA DE PAP</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(13)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(13)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[13]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[5]/div[2]/div/table/tbody/tr/td[13]----------------------------------------------------------------Encabezado de Hoja Diaria/APS<thead><tr><th>Fecha digitación</th><th>Fecha atención</th><th>Estado</th><th>RUN profesional</th><th>Nombre profesional</th><th>Servicio de salud</th><th>Establecimiento</th><th>On line IFL</th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/thead
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/thead---------------------------------------------
+📝 Tabla de Hoja Diaria APS/Especialidad<tbody><tr><td>16/03/2021 16:08:01</td><td>30/11/2017</td><td>Descartado</td><td>17407470-4</td><td>NÚÑEZ BEIZA, NICOLE VALEZKA</td><td>Vina del Mar Quillota</td><td>Hospital Adriana Cousiño (Quintero)</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr><tr><td>24/10/2017 10:03:14</td><td>19/10/2017</td><td>Sospecha</td><td>17407470-4</td><td>NÚÑEZ BEIZA, NICOLE VALEZKA</td><td>Vina del Mar Quillota</td><td>Hospital Adriana Cousiño (Quintero)</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr></tbody>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[7]/div[2]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[7]/div[2]/div/table/tbodyFila mas reciente de APS<tr><td>16/03/2021 16:08:01</td><td>30/11/2017</td><td>Descartado</td><td>17407470-4</td><td>NÚÑEZ BEIZA, NICOLE VALEZKA</td><td>Vina del Mar Quillota</td><td>Hospital Adriana Cousiño (Quintero)</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/tbody/tr[1]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/tbody/tr[1]Apartados Importantes de las filas de APSFecha APS<td>30/11/2017</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(2)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(2)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/tbody/tr[1]/td[2]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/tbody/tr[1]/td[2]Estado APS<td>Descartado</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(10) > div:nth-child(7) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(3)")
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[10]/div[7]/div[2]/div/table/tbody/tr[1]/td[3]-----------------------------------------------------Prestaciones Otorgadas Encabezado
+🔹 <thead><tr><th>Referencia</th><th>Fecha digitación</th><th>Fecha/Hora inicio</th><th>Fecha término</th><th>Cantidad</th><th>Establecimiento</th><th>Especialidad destino</th><th>Código de prestación</th><th>Glosa prestación</th><th>Extra sistema</th><th>On line - IFL</th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/thead
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/thead
+📝 Tabla Prestaciones Otorgadas<tbody><tr><td>OA 12246128</td><td>23/03/2009 15:12:29</td><td>03/01/2009 10:00</td><td>03/01/2009</td><td>1</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>3001001</td><td>LENTES OPTICOS</td><td>NO</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr><tr><td>IC 10908349</td><td>27/01/2009 17:04:09</td><td>18/12/2008 09:00</td><td>18/12/2008</td><td>1</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>0101110</td><td>CONSULTA INTEGRAL DE ESPECIALIDADES EN MEDICINA INTERNA Y SUBESPECIALIDADES, OFTALMOLOGIA, NEUROLOGIA, ONCOLOGIA (EN CDT)</td><td>NO</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr></tbody>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbodyFila mas reciente Prestaciones otorgadas<tr><td>OA 12246128</td><td>23/03/2009 15:12:29</td><td>03/01/2009 10:00</td><td>03/01/2009</td><td>1</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología 07-400-9</td><td>3001001</td><td>LENTES OPTICOS</td><td>NO</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody/tr[1]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody/tr[1]Apartados que se usan de las Filas.Referencia de OA (esto se usa para confirmar si una OA fue utilizada por alguna fila de Prestaciones Otorgadas)<td>OA 12246128</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(1)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(6) > div.contRow.contRowBox > div > table > tbody > tr:nth-child(1) > td:nth-child(1)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody/tr[1]/td[1]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody/tr[1]/td[1]
+📝 ----------------------------------------------Exepciones de garantía de oportunidad ( NO TENGO DATOS; PENDIENTE)-------------------------------------CIERRE DE CASO GESCierre de Caso Ges Encabezado<thead><tr><th>Folio</th><th>Fecha Digitación</th><th>Fecha Formulario</th><th>Hora Formulario</th><th>Establecimiento</th><th>Especialidad</th><th>Causal de Cierre</th><th>Subcausal de Cierre</th><th>Caso Cerrado de Paciente</th><th>On Line - IFL</th><th></th></tr></thead>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > thead
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > thead")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/thead
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/thead
+📝 Tabla Cierre de Caso Ges<tbody><tr><td>1013131002</td><td>23/03/2009 19:56:57</td><td>23/03/2009</td><td>19:56</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología</td><td> </td><td>PO con más de 30 días que llevó el Caso a Tratamiento OTROS VICIOS DE REFRACCION</td><td>Vicios de Refracción Otros Vicios de Refracción {decreto nº 228} [Caso Cerrado]</td><td>On-Line</td><td></td></tr></tbody>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody
+📝 Fila más reciente Cierre de Caso Ges<tr><td>1013131002</td><td>23/03/2009 19:56:57</td><td>23/03/2009</td><td>19:56</td><td>Centro de Diagnóstico y Tratamiento de Los Ángeles</td><td>Oftalmología</td><td> </td><td>PO con más de 30 días que llevó el Caso a Tratamiento OTROS VICIOS DE REFRACCION</td><td>Vicios de Refracción Otros Vicios de Refracción {decreto nº 228} [Caso Cerrado]</td><td>On-Line</td><td></td></tr>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/trApartados que se usan de las Filas.Fecha Formulario (Fecha de Cierre)<td>23/03/2009</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(3)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[3]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[3]Causal de cierre<td> </td> (esta vacia esa ni idea porqué)
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(7)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(7)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[7]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[7]Subcausal cierre
+🔹 <td>PO con más de 30 días que llevó el Caso a Tratamiento OTROS VICIOS DE REFRACCION</td>
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(8)
+🔹 document.querySelector("
+🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(15) > div:nth-child(9) > div.contRow.contRowBox > div > table > tbody > tr > td:nth-child(8)")
+🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[8]
+🔹 /html/body/div/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[9]/div[2]/div/table/tbody/tr/td[8]
+
+## X) Observaciones Generales (del autor del Word)
+--------------------------------------------------
+
+📝 ObservacionesLos OuterHtml fueron de ejemplo para reforzar las direccionesLos XPath en la mayoría de los casos son la mejor opción para firmeza a excepción del Spinner, pero la idea es que se pueda sacarles provecho a todos por si el XPath Falla, por eso los Outerhtml son un gran ejemplo, ya que tienen el nombre de todo lo de la línea de código.Todas las direcciones dependen que el Spinner haya cargado para que aparezcan, si hay Spinner, las direcciones aun no cargaran bien, la detección de spinner pronta es importante, a veces el spinner dura un segundo o menos, a veces varios segundos y a veces hasta 2 minutos, pasado de 2 minutos es mejor hacer un F5 a la página y reintentar el paciente, las detecciones actuales de spinner son básicas y no detectan del todo bien, hay falsos positivos y negativos, a veces el script cree que hay spinner y no lo hay, a veces espera que el spinner se vaya cuando se fue hace tiempo.Sé que faltaron algunas tablas o locaciones pero por ahora esas son las Importantes.Si en  el Excel de Revisión no está contemplada alguna de las direcciones que puse, hay que añadirlas en columnas dedicadas, es simple, solo agregas la columna, pones el titulo de encabezado, le pones color a la celda del encabezado que encaje con su similar y pues pones la info en las celdas como lo hacen todas las columnas.
+
+============================================================
+🧠 NOTAS DE USO (solo reordenadas desde el Word)
+============================================================
+📝 Los OuterHTML se usan como ejemplo para reforzar las direcciones (por si el XPath falla).
+📝 La mayoría de los casos: XPath = más firme. Excepción típica: Spinner (hay que manejarlo por espera/detección).
+📝 Si hay Spinner, muchas direcciones aún no cargan. La detección temprana del Spinner es crítica.
+📝 Si el Spinner dura demasiado (se menciona que puede durar hasta ~2 min), conviene refrescar (F5) y reintentar el paciente.
+📝 Si en el Excel de revisión no existe una columna para algún dato/dirección, hay que crearla y registrar la info ahí.

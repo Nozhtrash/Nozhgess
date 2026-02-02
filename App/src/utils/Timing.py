@@ -9,9 +9,16 @@ NO modifica el flujo del código principal.
 
 import time
 from typing import Optional, Any
-from colorama import Fore, Style
+import os
 
 from src.utils.DEBUG import should_show_timing
+
+# Colores/emojis deshabilitados por compatibilidad
+class Dummy:
+    RED = GREEN = YELLOW = WHITE = CYAN = ""
+    RESET_ALL = ""
+Fore = Dummy()
+Style = Dummy()
 
 
 class TimingContext:
@@ -57,9 +64,8 @@ class TimingContext:
             self.start_time = time.time()
             TimingContext._step_count += 1
             
-            # Mostrar inicio del paso
             prefix = f"[{self.rut}]" if self.rut else ""
-            print(f"{Fore.CYAN}⏳ {prefix} {self.step_name}...{Style.RESET_ALL}")
+            print(f"{prefix} {self.step_name}...")
         
         return self
     
@@ -71,16 +77,6 @@ class TimingContext:
         if self.enabled and self.start_time is not None:
             elapsed_ms = (time.time() - self.start_time) * 1000
             accumulated_ms = (time.time() - TimingContext._global_start) * 1000
-            
-            # Determinar color según velocidad
-            if elapsed_ms < 100:
-                color = Fore.GREEN
-            elif elapsed_ms < 500:
-                color = Fore.YELLOW
-            elif elapsed_ms < 2000:
-                color = Fore.MAGENTA
-            else:
-                color = Fore.RED
             
             # Formatear tiempo
             if elapsed_ms < 1000:
@@ -98,7 +94,7 @@ class TimingContext:
             prefix = f"[{self.rut}]" if self.rut else ""
             extra = f" | {self.extra_info}" if self.extra_info else ""
             
-            print(f"{color}✓ {prefix} {self.step_name} → {time_str}{extra} | ⏱️ Acum: {accum_str}{Style.RESET_ALL}\n")
+            print(f"[OK] {prefix} {self.step_name} -> {time_str}{extra} | Acum: {accum_str}\n")
         
         # NO suprimir excepciones (return False)
         return False
@@ -120,10 +116,10 @@ class TimingContext:
     def print_separator(rut: str = ""):
         """Imprime separador visual para inicio/fin de paciente"""
         if should_show_timing():
-            prefix = f" [{rut}] " if rut else " "
-            print(f"\n{Fore.CYAN}{'━' * 80}{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}⏱️ {prefix}INICIO TIMING{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}{'━' * 80}{Style.RESET_ALL}\n")
+            prefix = f"[{rut}]" if rut else ""
+            print("\n" + "=" * 70)
+            print(f"{prefix} INICIO TIMING")
+            print("=" * 70 + "\n")
     
     @staticmethod
     def print_summary(rut: str = ""):
@@ -137,9 +133,9 @@ class TimingContext:
             else:
                 time_str = f"{elapsed/1000:.2f}s"
             
-            print(f"\n{Fore.CYAN}{'━' * 80}{Style.RESET_ALL}")
-            print(f"{Fore.GREEN}⏱️ {prefix}TOTAL: {time_str} ({TimingContext._step_count} pasos){Style.RESET_ALL}")
-            print(f"{Fore.CYAN}{'━' * 80}{Style.RESET_ALL}\n")
+            print("\n" + "=" * 70)
+            print(f"{prefix} TOTAL: {time_str} ({TimingContext._step_count} pasos)")
+            print("=" * 70 + "\n")
 
 
 def timing_step(step_name: str, rut: str = "", extra_info: str = ""):
@@ -156,3 +152,27 @@ def timing_step(step_name: str, rut: str = "", extra_info: str = ""):
                 return func(*args, **kwargs)
         return wrapper
     return decorator
+
+# =============================================================================
+# LEGACY SUPPORT (Timer class)
+# =============================================================================
+class Timer:
+    """
+    Clase Timer legacy para compatibilidad con código antiguo.
+    Mide el tiempo transcurrido en un bloque 'with'.
+    """
+    def __init__(self, name=None):
+        self.name = name
+        self.start = None
+
+    def __enter__(self):
+        self.start = time.time()
+        if should_show_timing() and self.name:
+            print(f"{Fore.CYAN}⏳ {self.name}...{Style.RESET_ALL}")
+        return self
+
+    def __exit__(self, *args):
+        if should_show_timing() and self.name and self.start:
+            dt = (time.time() - self.start) * 1000
+            print(f"{Fore.GREEN}✓ {self.name} → {dt:.0f}ms{Style.RESET_ALL}")
+

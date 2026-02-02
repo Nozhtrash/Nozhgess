@@ -1,90 +1,120 @@
 {
-  "NOMBRE_DE_LA_MISION": "Tamizajes",
-  "RUTA_ARCHIVO_ENTRADA": "C:\\Users\\usuariohgf\\OneDrive\\Documentos\\Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-  "RUTA_CARPETA_SALIDA": "C:\\Users\\usuariohgf\\OneDrive\\Documentos\\Trabajo Oficina\\Revisiones, Falta Enviar, CM, Listos\\Revisiones\\Revisiones Nóminas",
   "DIRECCION_DEBUG_EDGE": "localhost:9222",
-  "EDGE_DRIVER_PATH": "C:\\Windows\\System32\\msedgedriver.exe",
-  "INDICE_COLUMNA_FECHA": 5,
-  "INDICE_COLUMNA_RUT": 0,
-  "INDICE_COLUMNA_NOMBRE": 1,
-  "VENTANA_VIGENCIA_DIAS": 100,
+  "EDGE_DRIVER_PATH": "C:/Windows/System32/msedgedriver.exe",
   "MAX_REINTENTOS_POR_PACIENTE": 5,
-  "REVISAR_IPD": true,
-  "REVISAR_OA": true,
-  "REVISAR_APS": true,
-  "REVISAR_SIC": true,
-  "REVISAR_HABILITANTES": true,
-  "REVISAR_EXCLUYENTES": true,
-  "FILAS_IPD": 1,
-  "FILAS_OA": 1,
-  "FILAS_APS": 1,
-  "FILAS_SIC": 1,
-  "HABILITANTES_MAX": 1,
-  "EXCLUYENTES_MAX": 1,
-  "MOSTRAR_FUTURAS": true,
-  "OBSERVACION_FOLIO_FILTRADA": false,
-  "CODIGOS_FOLIO_BUSCAR": [],
-  "FOLIO_VIH": false,
-  "FOLIO_VIH_CODIGOS": [
-    "0305091",
-    "0305090",
-    "9001043"
-  ],
+  "MISION_POR_HOJA": false,
+  "MISION_POR_ARCHIVO": true,
   "MISSIONS": [
     {
-      "nombre": "Cáncer Cervicouterino",
+      "nombre": "Diabetes I",
+      "familia": "6",
+      "especialidad": "13-13-01",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 1.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords": [
-        "Cáncer Cervicouterino Segmento"
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
       ],
-      "objetivos": [],
-      "habilitantes": [
-        "0801001"
-      ],
-      "excluyentes": [],
-      "familia": "3",
-      "especialidad": "13-04-02",
-      "frecuencia": "Mensual",
-      "edad_min": "",
-      "edad_max": "",
-      "NOMBRE_DE_LA_MISION": "Tamizajes",
-      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos"
-    },
-    {
-      "nombre": "Nueva Misión 2",
-      "keywords": [
-        "Invasor"
+      "keywords_contra": [
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
       ],
       "objetivos": [],
       "habilitantes": [],
       "excluyentes": [],
-      "familia": "3",
-      "especialidad": "13-04-02",
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "anios_codigo": [
+        "3102001",
+        "3102002"
+      ],
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
       "frecuencia": "Mensual",
+      "frecuencia_cantidad": "1",
+      "periodicidad": "Mensual",
       "edad_min": "",
       "edad_max": "",
-      "NOMBRE_DE_LA_MISION": "CACU Invasor",
-      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes"
+      "vigencia_dias": "180",
+      "max_objetivos": "1",
+      "max_habilitantes": "1",
+      "max_excluyentes": "1",
+      "max_ipd": "1",
+      "max_oa": "1",
+      "max_aps": "1",
+      "max_sic": "1",
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "indices": {
+        "rut": 1,
+        "nombre": 3,
+        "fecha": 5
+      },
+      "show_futures": true,
+      "active_year_codes": true
     },
     {
-      "nombre": "Nueva Misión 3",
+      "nombre": "Diabetes II",
       "keywords": [
-        "Segmento"
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
       ],
       "objetivos": [],
       "habilitantes": [
-        "801101"
+        "5002101"
       ],
       "excluyentes": [],
-      "familia": "3",
-      "especialidad": "13-04-02",
+      "familia": "6",
+      "especialidad": "13-13-01",
       "frecuencia": "Mensual",
       "edad_min": "",
       "edad_max": "",
-      "NOMBRE_DE_LA_MISION": "Tamizajes Antiguos",
-      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes"
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 2.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": [
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
+      ],
+      "frecuencia_cantidad": "1",
+      "periodicidad": "Mensual",
+      "vigencia_dias": "180",
+      "max_objetivos": "1",
+      "max_habilitantes": "1",
+      "max_excluyentes": "1",
+      "max_ipd": "1",
+      "max_oa": "1",
+      "max_aps": "1",
+      "max_sic": "1",
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": 1,
+        "nombre": 3,
+        "fecha": 5
+      },
+      "anios_codigo": []
     }
   ]
 }

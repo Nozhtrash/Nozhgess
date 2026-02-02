@@ -5,11 +5,12 @@ class Card(ctk.CTkFrame):
     Contenedor estándar con diseño premium.
     Incluye sombra suave (simulada con colores), borde sutil y padding consistente.
     """
-    def __init__(self, master, title: str = None, colors: dict = None, **kwargs):
+    def __init__(self, master, title: str = None, colors: dict = None, right_widget=None, **kwargs):
         # Default colors if not provided
         self.colors = colors or {}
         bg_color = self.colors.get("bg_card", "#1a1f27")
         border_color = self.colors.get("border", "#2d3540")
+        self._right_widget = right_widget
         
         super().__init__(
             master, 
@@ -28,14 +29,16 @@ class Card(ctk.CTkFrame):
             
         # Container de contenido aislado del header
         # Esto permite usar grid() dentro del contenido sin romper el pack() del header
+        # Más padding para respiración visual
         self.content = ctk.CTkFrame(self, fg_color="transparent")
-        self.content.pack(fill="both", expand=True, padx=2, pady=2)
+        self.content.pack(fill="both", expand=True, padx=10, pady=6)
     
     def _create_header(self, title: str):
         """Crea el header con título y separador."""
         # Header container
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=16, pady=(12, 8))
+        header.pack(fill="x", padx=14, pady=(8, 6))
+        self.header = header
         
         # Título
         self.title_lbl = ctk.CTkLabel(
@@ -46,6 +49,14 @@ class Card(ctk.CTkFrame):
             anchor="w"
         )
         self.title_lbl.pack(side="left")
+
+        # Widget derecho opcional (ej: botón)
+        if self._right_widget:
+            try:
+                self._right_widget.master = header
+                self._right_widget.pack(side="right")
+            except Exception:
+                pass
         
         # Separador sutil
         self.sep = ctk.CTkFrame(

@@ -25,15 +25,17 @@ class LogsViewerView(ctk.CTkFrame):
         self.colors = colors
         self.current_file = None
         self.checkboxes = {} # Map full_path -> checkbox widget
+        self._full_log_content = ""
+        self._search_job = None
         
         # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=25, pady=(20, 10))
+        header.pack(fill="x", padx=18, pady=(16, 8))
         
         self.title = ctk.CTkLabel(
             header,
             text="📜 Visor de Logs",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title.pack(side="left")
@@ -46,8 +48,8 @@ class LogsViewerView(ctk.CTkFrame):
             fg_color=colors["bg_card"],
             hover_color=colors["accent"],
             text_color=colors["text_primary"],
-            width=100,
-            height=36,
+            width=94,
+            height=32,
             corner_radius=8,
             command=self._load_logs
         )
@@ -61,8 +63,8 @@ class LogsViewerView(ctk.CTkFrame):
             fg_color=colors["error"],
             hover_color="#c0392b",
             text_color="white",
-            width=100,
-            height=36,
+            width=94,
+            height=32,
             corner_radius=8,
             command=self._delete_selected_logs
         )
@@ -70,7 +72,7 @@ class LogsViewerView(ctk.CTkFrame):
         
         # Layout principal
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.main_frame.pack(fill="both", expand=True, padx=16, pady=8)
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(1, weight=4)
         self.main_frame.grid_rowconfigure(0, weight=1)
@@ -85,22 +87,36 @@ class LogsViewerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
-        list_header.pack(anchor="w", padx=12, pady=(12, 8))
+        list_header.pack(anchor="w", padx=10, pady=(10, 6))
         
         self.log_list = ctk.CTkScrollableFrame(self.list_frame, fg_color="transparent")
-        self.log_list.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+        self.log_list.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        # Acción abrir carpeta
+        self.open_folder_btn = ctk.CTkButton(
+            self.list_frame,
+            text="Abrir carpeta Logs",
+            font=ctk.CTkFont(size=12),
+            fg_color=self.colors["bg_card"],
+            hover_color=self.colors.get("bg_hover", "#222a39"),
+            width=140,
+            height=30,
+            corner_radius=8,
+            command=lambda: os.startfile(LOGS_PATH) if os.path.exists(LOGS_PATH) else None
+        )
+        self.open_folder_btn.pack(pady=(0, 10))
         
         # Panel derecho: Visor
         self.viewer_frame = ctk.CTkFrame(self.main_frame, fg_color=colors["bg_card"], corner_radius=12)
         self.viewer_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         
         viewer_header = ctk.CTkFrame(self.viewer_frame, fg_color="transparent")
-        viewer_header.pack(fill="x", padx=12, pady=(12, 8))
+        viewer_header.pack(fill="x", padx=10, pady=(10, 6))
         
         self.file_label = ctk.CTkLabel(
             viewer_header,
             text="Selecciona un log",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.file_label.pack(side="left")
@@ -110,17 +126,18 @@ class LogsViewerView(ctk.CTkFrame):
             viewer_header,
             placeholder_text="🔍 Buscar...",
             width=150,
-            height=32,
+            height=30,
             font=ctk.CTkFont(size=12)
         )
         self.search_entry.pack(side="left", padx=(15, 5))
         self.search_entry.bind("<Return>", lambda e: self._search_log())
+        self.search_entry.bind("<KeyRelease>", self._debounced_search)
 
         self.search_btn = ctk.CTkButton(
             viewer_header,
             text="Buscar",
             width=60,
-            height=32,
+            height=30,
             font=ctk.CTkFont(size=12),
             fg_color=colors["bg_secondary"],
             command=self._search_log
@@ -136,8 +153,8 @@ class LogsViewerView(ctk.CTkFrame):
             font=ctk.CTkFont(size=12),
             fg_color=colors["accent"],
             hover_color=colors["success"],
-            width=95,
-            height=34,
+            width=90,
+            height=32,
             corner_radius=8,
             command=self._copy_log
         )
@@ -145,15 +162,24 @@ class LogsViewerView(ctk.CTkFrame):
         
         self.log_text = ctk.CTkTextbox(
             self.viewer_frame,
-            font=ctk.CTkFont(family="Consolas", size=12),
+            font=ctk.CTkFont(family="Consolas", size=11),
             fg_color=colors["bg_primary"],
             text_color=colors["text_primary"],
             corner_radius=10
         )
         self.log_text.pack(fill="both", expand=True, padx=12, pady=(8, 12))
         
-        # Cargar logs
-        self._load_logs()
+        self._logs_loaded = False  # lazy load; se carga en on_show
+
+    def on_show(self):
+        """Carga logs al entrar a la vista."""
+        if not getattr(self, "_logs_loaded", False):
+            self._load_logs()
+            self._logs_loaded = True
+        try:
+            log_ui("logs_view_loaded")
+        except Exception:
+            pass
     
     def _load_logs(self):
         """Carga los logs de Logs/ y sus subcarpetas (Terminal/Debug)."""
@@ -178,8 +204,8 @@ class LogsViewerView(ctk.CTkFrame):
         # Ordenar por fecha (más reciente primero)
         log_files.sort(key=lambda x: x[2], reverse=True)
         
-        # Mostrar los últimos 20
-        for rel_path, full_path, mtime in log_files[:20]:
+        # Mostrar los últimos 30
+        for rel_path, full_path, mtime in log_files[:30]:
             size_kb = os.path.getsize(full_path) / 1024
             
             # Identificar tipo por carpeta
@@ -189,7 +215,7 @@ class LogsViewerView(ctk.CTkFrame):
             
             # Container fila
             row = ctk.CTkFrame(self.log_list, fg_color="transparent")
-            row.pack(fill="x", pady=2)
+            row.pack(fill="x", pady=1)
             
             # Checkbox selección
             cb = ctk.CTkCheckBox(
@@ -280,10 +306,16 @@ class LogsViewerView(ctk.CTkFrame):
         try:
             with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
+            self._full_log_content = content
+            # Recorte para vista: mantener los últimos 200k chars
+            max_chars = 200_000
+            display = content
+            if len(content) > max_chars:
+                display = "(vista recortada, usa Copiar para texto completo)\n" + content[-max_chars:]
             
             self.file_label.configure(text=filename)
             self.log_text.delete("1.0", "end")
-            self.log_text.insert("1.0", content)
+            self.log_text.insert("1.0", display)
             self.log_text.see("end")  # Scroll al final
         except Exception as e:
             self.log_text.delete("1.0", "end")
@@ -291,7 +323,7 @@ class LogsViewerView(ctk.CTkFrame):
     
     def _copy_log(self):
         """Copia el log al portapapeles."""
-        content = self.log_text.get("1.0", "end-1c")
+        content = self._full_log_content or self.log_text.get("1.0", "end-1c")
         if content:
             self.clipboard_clear()
             self.clipboard_append(content)
@@ -331,6 +363,15 @@ class LogsViewerView(ctk.CTkFrame):
             self.search_btn.configure(text=f"{count}")
         else:
             self.search_btn.configure(text="0")
+
+    def _debounced_search(self, event=None):
+        """Debounce para evitar buscar en cada tecla."""
+        if self._search_job:
+            try:
+                self.after_cancel(self._search_job)
+            except Exception:
+                pass
+        self._search_job = self.after(250, self._search_log)
 
     def update_colors(self, colors: dict):
         """Actualiza colores dinámicamente."""

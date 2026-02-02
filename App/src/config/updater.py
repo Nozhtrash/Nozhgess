@@ -17,6 +17,7 @@ import threading
 import tempfile
 import shutil
 import zipfile
+import hashlib
 from typing import Optional, Tuple, Callable
 from urllib.request import urlopen, Request
 from urllib.error import URLError
@@ -90,8 +91,6 @@ class Updater:
             try:
                 # Crear contexto SSL
                 ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
                 
                 # Request con User-Agent (GitHub lo requiere)
                 req = Request(
@@ -166,18 +165,18 @@ class Updater:
                 
                 # Descargar
                 ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
                 
                 req = Request(
                     self.latest_info.download_url,
                     headers={"User-Agent": "Nozhgess-Updater/1.0"}
                 )
+                expected_sha = os.getenv("NOZHGESS_UPDATE_SHA256", "").strip() or None
                 
                 with urlopen(req, timeout=120, context=ctx) as response:
                     total_size = self.latest_info.size_bytes or int(response.headers.get('Content-Length', 0))
                     downloaded = 0
                     chunk_size = 8192
+                    sha256 = hashlib.sha256()
                     
                     with open(zip_path, 'wb') as f:
                         while True:
@@ -185,12 +184,19 @@ class Updater:
                             if not chunk:
                                 break
                             f.write(chunk)
+                            sha256.update(chunk)
                             downloaded += len(chunk)
                             
                             if total_size > 0:
                                 self.download_progress = downloaded / total_size
                                 if progress_callback:
                                     progress_callback(self.download_progress)
+                
+                if expected_sha:
+                    digest = sha256.hexdigest()
+                    if digest.lower() != expected_sha.lower():
+                        os.remove(zip_path)
+                        raise ValueError(f"Checksum SHA256 mismatch (expected {expected_sha}, got {digest})")
                 
                 if complete_callback:
                     complete_callback(True, zip_path)

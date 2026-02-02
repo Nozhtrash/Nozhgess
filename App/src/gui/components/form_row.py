@@ -32,11 +32,11 @@ class FormRow(ctk.CTkFrame):
             text_color=self.colors.get("text_secondary", "#94a3b8"),
             anchor="w"
         )
-        self.lbl.grid(row=0, column=0, sticky="w", padx=(0, 15), pady=8)
+        self.lbl.grid(row=0, column=0, sticky="w", padx=(0, 12), pady=6)
         
         # 2. Input
         self.widget = self._create_input(input_type, value, options)
-        self.widget.grid(row=0, column=1, sticky="ew", pady=8)
+        self.widget.grid(row=0, column=1, sticky="ew", pady=6)
         
         # 3. Ayuda
         if help_text:
@@ -60,6 +60,9 @@ class FormRow(ctk.CTkFrame):
         if kind == "entry":
             w = ctk.CTkEntry(
                 self, 
+                height=30,
+                border_width=1,
+                corner_radius=8,
                 border_color=self.colors.get("border", "#2d3540"),
                 fg_color=self.colors.get("bg_input", "#0f141a"),
                 text_color=self.colors.get("text_primary", "#f8fafc")
@@ -82,6 +85,9 @@ class FormRow(ctk.CTkFrame):
             
             entry = ctk.CTkEntry(
                 frame,
+                height=30,
+                border_width=1,
+                corner_radius=8,
                 border_color=self.colors.get("border", "#2d3540"),
                 fg_color=self.colors.get("bg_input", "#0f141a"),
                 text_color=self.colors.get("text_primary", "#f8fafc")
@@ -91,8 +97,10 @@ class FormRow(ctk.CTkFrame):
             
             browse_btn = ctk.CTkButton(
                 frame,
-                text="📂",
-                width=30,
+                text="…",
+                width=34,
+                height=30,
+                corner_radius=8,
                 fg_color=self.colors.get("bg_elevated", "#252b35"),
                 command=lambda: self._browse_path(entry, kind)
             )

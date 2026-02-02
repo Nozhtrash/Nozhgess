@@ -17,6 +17,7 @@ import sys
 import subprocess
 from datetime import datetime
 import importlib
+from src.utils.telemetry import log_ui
 
 # Imports del proyecto
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,6 +60,10 @@ class DashboardView(ctk.CTkFrame):
         self._create_quick_actions()
         self._create_activity_feed()
         self._create_system_status()
+        try:
+            log_ui("dashboard_view_loaded")
+        except Exception:
+            pass
     
     def _create_header(self):
         """Header con saludo y fecha."""
@@ -510,10 +515,6 @@ class DashboardView(ctk.CTkFrame):
                 creationflags=0x08000000
             )
     
-    def _open_sigges(self):
-        """Abre SIGGES."""
-        cmd = 'msedge "https://www.sigges.cl" --remote-debugging-port=9222 --user-data-dir="C:\\Selenium\\EdgeProfile"'
-        subprocess.Popen(cmd, shell=True, creationflags=0x08000000)
     
     def _open_input(self):
         """Abre archivo de entrada."""

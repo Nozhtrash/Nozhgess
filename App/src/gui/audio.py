@@ -10,63 +10,41 @@ Sin dependencias externas, máximo rendimiento.
 import threading
 import platform
 
-# Solo disponible en Windows
-IS_WINDOWS = platform.system() == "Windows"
-
-if IS_WINDOWS:
-    import winsound
+# Sonidos deshabilitados para mejorar rendimiento y evitar bloqueos.
+IS_WINDOWS = False
 
 
 def _beep_async(frequency: int, duration_ms: int):
-    """Ejecuta beep en thread separado para no bloquear UI."""
-    if not IS_WINDOWS:
-        return
-    threading.Thread(
-        target=lambda: winsound.Beep(frequency, duration_ms),
-        daemon=True
-    ).start()
+    """Sonido deshabilitado."""
+    return
 
 
 def play_click():
-    """Sonido de click en botón."""
-    _beep_async(800, 25)
+    return
 
 
 def play_hover():
-    """Sonido sutil de hover (opcional, puede ser molesto)."""
-    # Deshabilitado por defecto - muy frecuente
-    pass
+    return
 
 
 def play_success():
-    """Sonido de operación exitosa."""
-    _beep_async(880, 100)
+    return
 
 
 def play_error():
-    """Sonido de error."""
-    _beep_async(220, 150)
+    return
 
 
 def play_notification():
-    """Sonido de notificación."""
-    _beep_async(660, 80)
+    return
 
 
 def play_complete():
-    """Sonido de proceso completado (doble beep)."""
-    def _double_beep():
-        if not IS_WINDOWS:
-            return
-        winsound.Beep(660, 100)
-        winsound.Beep(880, 150)
-    
-    threading.Thread(target=_double_beep, daemon=True).start()
+    return
 
 
 def play_start():
-    """Sonido de inicio de proceso."""
-    _beep_async(440, 80)
+    return
 
 
 # ============================================================
@@ -88,7 +66,7 @@ class AudioManager:
     SFX_COMPLETE = "complete"
     
     def __init__(self):
-        self.sfx_enabled = True
+        self.sfx_enabled = False
     
     def play_sfx(self, effect: str):
         """Reproduce un efecto de sonido."""

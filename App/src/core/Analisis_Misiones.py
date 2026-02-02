@@ -13,8 +13,8 @@ from src.core.Formatos import (
 
 
 def buscar_codigos(
-    items,
-    codigos_objetivo,
+    items_procesados: List[Dict], # Expects items with 'codigo_limpio'
+    codigos_objetivo: List[str],
     fecha_nomina,
     ventana_dias,
     revisar_futuros,
@@ -23,10 +23,18 @@ def buscar_codigos(
     max_items
 ):
     encontrados = []
+    
+    # Optimization 1: Convert targets to set for O(1) lookup
+    # Pre-clean targets once
+    target_set = {limpiar_codigo(c) for c in codigos_objetivo}
+    if not target_set:
+        return []
 
-    for item in items:
-        codigo = limpiar_codigo(item["codigo"])
-        if codigo not in codigos_objetivo:
+    for item in items_procesados:
+        # Optimization 2: Use pre-cleaned code
+        codigo = item.get("codigo_limpio")
+        
+        if codigo not in target_set:
             continue
 
         fecha = item.get("fecha")
@@ -40,6 +48,7 @@ def buscar_codigos(
             continue
 
         if fecha:
+            # Format: CODE (YYYY-MM-DD)
             encontrados.append(f"{codigo} ({fecha})")
         else:
             encontrados.append(codigo)
@@ -115,6 +124,16 @@ def analizar_misiones(
 
     filas = []
 
+    # Optimization 3: Pre-process cases ONCE
+    # Creates a lightweight copy with cleaned codes
+    casos_procesados = []
+    for c in casos:
+        # Shallow copy is enough as we only add one key
+        c_new = c.copy()
+        # Ensure code exists and is clean
+        c_new["codigo_limpio"] = limpiar_codigo(str(c.get("codigo", "")))
+        casos_procesados.append(c_new)
+
     for m in MISSIONS:
 
         if modo_sin_caso:
@@ -127,7 +146,7 @@ def analizar_misiones(
             continue
 
         objetivos = buscar_codigos(
-            casos,
+            casos_procesados,
             m["objetivos"],
             fecha_nomina_dt,
             VENTANA_VIGENCIA_DIAS,
@@ -138,7 +157,7 @@ def analizar_misiones(
         )
 
         habilitantes = buscar_codigos(
-            casos,
+            casos_procesados,
             m.get("habilitantes", []),
             fecha_nomina_dt,
             VENTANA_VIGENCIA_DIAS,
@@ -149,7 +168,7 @@ def analizar_misiones(
         )
 
         excluyentes = buscar_codigos(
-            casos,
+            casos_procesados,
             m.get("excluyentes", []),
             fecha_nomina_dt,
             VENTANA_VIGENCIA_DIAS,

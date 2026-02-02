@@ -37,6 +37,8 @@ from src.gui.components.sidebar import Sidebar
 from src.gui.components.status_badge import StatusBadge
 from src.gui.managers import get_config, ViewManager
 from src.gui.managers.notification_manager import get_notifications
+from src.utils.telemetry import get_telemetry, log_ui
+from src.utils.profiler import auto_profile_if_env
 
 
 class NozhgessApp(ctk.CTk):
@@ -46,6 +48,11 @@ class NozhgessApp(ctk.CTk):
     
     def __init__(self):
         super().__init__()
+        # Captura global de excepciones Tkinter: log detallado y alerta visible.
+        self.report_callback_exception = self._handle_tk_exception
+        self.telemetry = get_telemetry()
+        log_ui("app_start")
+        auto_profile_if_env()
         
         # 0. Fix Icono en Barra de Tareas (Windows)
         try:
@@ -134,6 +141,7 @@ class NozhgessApp(ctk.CTk):
         self.deiconify()
         self.lift()
         self.focus_force()
+        log_ui("app_ready", width=w, height=h)
 
     
     def _apply_theme(self):
@@ -222,6 +230,7 @@ class NozhgessApp(ctk.CTk):
             self.status_badge.set_status("IDLE", "")
             
         nm.register_badge(update_badge, clear_badge)
+        log_ui("notifications_registered")
     
     def _register_views(self):
         """Registra tipos de vistas en el ViewManager."""
@@ -280,6 +289,7 @@ class NozhgessApp(ctk.CTk):
     def _show_view(self, view_id: str):
         """Muestra una vista específica."""
         self.view_manager.show(view_id)
+        log_ui("view_show", view=view_id)
     
     def _on_theme_change(self):
         """Callback cuando cambia el tema."""
@@ -311,6 +321,7 @@ class NozhgessApp(ctk.CTk):
             
             # Programar nuevo timer de 500ms
             self._config_save_timer = self.after(500, self._save_window_config)
+            log_ui("window_configure_event", width=self.winfo_width(), height=self.winfo_height())
 
     def _save_window_config(self):
         """Guarda la configuración de la ventana efectivamente."""
@@ -325,6 +336,7 @@ class NozhgessApp(ctk.CTk):
              
              # Guardar a disco
              self.config.save()
+             log_ui("window_config_saved", x=self.winfo_x(), y=self.winfo_y(), width=self.winfo_width(), height=self.winfo_height())
     
     def _on_close(self):
         """Maneja el cierre limpio."""
@@ -369,9 +381,44 @@ class NozhgessApp(ctk.CTk):
             try:
                 if hasattr(self, "config"):
                     self.config.save()
-            except: pass
+            except Exception:
+                logging.exception("Error guardando config final al cerrar app")
             
+            try:
+                # Cerrar telemetría con flush
+                self.telemetry.close()
+            except Exception:
+                pass
+            try:
+                # Señal para detener worker de logs en RunnerView si existe
+                from src.gui.views.runner import RunnerView
+                if isinstance(self.current_view, RunnerView):
+                    self.current_view.log_worker_running = False
+                    self.current_view.log_queue.put(None)
+            except Exception:
+                pass
             self.quit()
+            log_ui("app_close")
+
+    # ================================================================
+    #  Manejo global de excepciones Tkinter
+    # ================================================================
+    def _handle_tk_exception(self, exc, val, tb):
+        """Loggea cualquier excepción no capturada en callbacks Tk y muestra popup resumido."""
+        import traceback, datetime, os
+        log_dir = os.path.join(ruta_proyecto, "Logs", "Debug")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "gui_errors.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n[{datetime.datetime.now().isoformat()}] {exc.__name__}: {val}\n")
+            traceback.print_tb(tb, file=f)
+        log_ui("tk_exception", error=str(val), exc_type=exc.__name__)
+        # Popup resumido
+        try:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"{exc.__name__}: {val}\nVer {log_path}")
+        except Exception:
+            print(f"{exc.__name__}: {val} (ver {log_path})")
 
 
 def main():

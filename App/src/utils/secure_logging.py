@@ -22,9 +22,9 @@ class SecureLogger:
         self.enable_audit = os.getenv('ENABLE_AUDIT_LOG', 'true').lower() == 'true'
         self.log_retention_days = int(os.getenv('LOG_RETENTION_DAYS', '30'))
         
-        # Patrones para máscara de datos sensibles
-        self.rut_pattern = re.compile(r'\b\d{1,2}[.\d]{3}[.\d]{3}[-][0-9Kk]\b')
-        self.name_pattern = re.compile(r'\b[A-Z][a-z]+ [A-Z][a-z]+\b')
+        # Patrones para máscara de datos sensibles (robustos, con acentos)
+        self.rut_pattern = re.compile(r'\b(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})-[0-9Kk]\b')
+        self.name_pattern = re.compile(r'\b[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+)+\b')
         self.folio_pattern = re.compile(r'\b\d{7,8}\b')
         
         # Directorio de logs seguros
@@ -111,14 +111,20 @@ def secure_log(message: str, level: str = "INFO") -> str:
 
 def mask_rut(rut: str) -> str:
     """Máscara específica para RUT"""
-    if len(rut) >= 9:
-        return f"{rut[0]}***-{rut[-1]}"
+    if not rut:
+        return "***"
+    rut_clean = rut.strip()
+    if len(rut_clean) >= 2:
+        return f"{rut_clean[0]}***-{rut_clean[-1]}"
     return "***"
 
 def mask_name(name: str) -> str:
     """Máscara específica para nombres"""
-    if len(name) > 3:
-        return f"{name[0]}***"
+    if not name:
+        return "***"
+    name_clean = name.strip()
+    if len(name_clean) > 1:
+        return f"{name_clean[0]}***"
     return "***"
 
 # Integración con sistema de logging existente

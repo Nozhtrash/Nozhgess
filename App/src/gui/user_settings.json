@@ -1,13 +1,13 @@
 {
     "window": {
-        "width": 1172,
-        "height": 860,
+        "width": 1142,
+        "height": 708,
         "remember_position": true,
         "remember_size": true,
         "start_minimized": false,
         "always_on_top": 0,
-        "x": 268,
-        "y": 119
+        "x": 395,
+        "y": 144
     },
     "theme": {
         "mode": "light",

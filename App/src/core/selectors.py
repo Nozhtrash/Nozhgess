@@ -76,7 +76,8 @@ class SelectorEngine:
         
         for i, xpath in enumerate(locators):
             try:
-                wait = WebDriverWait(self.driver, timeout if i == 0 else 3.0) 
+                wait_time = timeout if i == 0 else min(timeout, 6.0)
+                wait = WebDriverWait(self.driver, wait_time) 
                 
                 cond = EC.presence_of_element_located((By.XPATH, xpath))
                 if condition == "visible":

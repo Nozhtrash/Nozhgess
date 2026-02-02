@@ -23,6 +23,11 @@ import webbrowser
 import shutil
 from datetime import datetime, timedelta
 from tkinter import filedialog, messagebox
+import glob
+from pathlib import Path
+import time
+from src.utils.telemetry import log_ui
+import logging
 
 # Path del proyecto
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -75,8 +80,8 @@ def load_user_settings() -> dict:
                     if key in loaded:
                         defaults[key].update(loaded[key])
                 return defaults
-        except:
-            pass
+        except Exception as e:
+            logging.exception(f"Settings: error cargando user_settings: {e}")
     return defaults
 
 
@@ -84,6 +89,10 @@ def save_user_settings(settings: dict):
     """Guarda configuración del usuario."""
     with open(USER_SETTINGS_PATH, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2, ensure_ascii=False)
+    try:
+        log_ui("settings_save_user_settings", keys=list(settings.keys()))
+    except Exception as e:
+        logging.exception(f"Settings: error registrando telemetría settings: {e}")
 
 
 class SettingsView(ctk.CTkFrame):
@@ -113,6 +122,10 @@ class SettingsView(ctk.CTkFrame):
         
         # Diferir creación de secciones menos frecuentes para mejorar rendimiento
         self.after(50, self._create_remaining_sections)
+        try:
+            log_ui("settings_view_loaded")
+        except Exception as e:
+            logging.exception(f"Settings: error log_ui settings_view_loaded: {e}")
     
     def _build_remaining_sections(self):
         """Inicia la carga diferida de secciones de forma más eficiente."""
@@ -250,7 +263,8 @@ class SettingsView(ctk.CTkFrame):
             try:
                 from src.utils.DEBUG import DEBUG_MODE
                 if DEBUG_MODE: s.select()
-            except: pass
+            except Exception as e:
+                logging.exception(f"Settings: error leyendo DEBUG_MODE: {e}")
             self.debug_switch = s
             return s
         row_idx, _ = self._add_setting_to_grid(card.content, row_idx, "Modo Debug", "Muestra información detallada de depuración", create_debug_switch)
@@ -556,93 +570,191 @@ class SettingsView(ctk.CTkFrame):
         save_user_settings(self.user_settings)
     
     def _clean_logs(self):
-        """Limpia logs antiguos."""
-        log_paths = [
-            os.path.join(ruta_proyecto, "Logs"),
-        ]
-        
-        cleaned = 0
-        threshold = datetime.now() - timedelta(days=self.user_settings["data"]["log_retention_days"])
-        
-        for log_path in log_paths:
-            if os.path.exists(log_path):
-                for f in os.listdir(log_path):
-                    filepath = os.path.join(log_path, f)
-                    if os.path.isfile(filepath):
-                        mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
-                        if mtime < threshold:
-                            try:
-                                os.remove(filepath)
-                                cleaned += 1
-                            except:
-                                pass
-        
-        messagebox.showinfo("Limpieza Completada", f"Se eliminaron {cleaned} archivos de log antiguos.")
+        """Limpiar logs del sistema (ROBUSTO)."""
+        try:
+            # Directorios de logs a limpiar
+            log_directories = [
+                os.path.join(ruta_proyecto, "Logs"),
+                os.path.join(ruta_proyecto, "Logs", "Crash_Reports"),
+                os.path.join(ruta_proyecto, "Logs", "Secure"),
+                os.path.join(os.path.expanduser("~"), "AppData", "Local", "Nozhgess", "Logs")
+            ]
+            
+            total_deleted = 0
+            total_size_freed = 0
+            
+            for log_dir in log_directories:
+                log_path = Path(log_dir)
+                if log_path.exists():
+                    # Archivos viejos (> 7 días o config usuario)
+                    days = self.user_settings["data"].get("log_retention_days", 7)
+                    cutoff_time = time.time() - (days * 24 * 3600)
+                    
+                    for log_file in log_path.glob("*.log"):
+                        try:
+                            file_age = log_file.stat().st_mtime
+                            file_size = log_file.stat().st_size
+                            
+                            if file_age < cutoff_time:
+                                log_file.unlink()
+                                total_deleted += 1
+                                total_size_freed += file_size
+                        except Exception:
+                            pass
+            
+            messagebox.showinfo(
+                "Limpieza Completada", 
+                f"✅ Logs limpiados: {total_deleted} archivos.\n"
+                f"💾 Espacio liberado: {total_size_freed / (1024*1024):.1f} MB"
+            )
+            
+        except Exception as e:
+             messagebox.showerror("Error", f"Error limpiando logs: {e}")
     
     def _show_disk_usage(self):
-        """Muestra uso de disco."""
-        paths = {
-            "Logs": os.path.join(ruta_proyecto, "Logs"),
-            "Crash Reports": os.path.join(ruta_proyecto, "Crash_Reports"),
-            "Backups": os.path.join(ruta_proyecto, "Utilidades", "Backups"),
-        }
-        
-        info = "📊 Uso de Disco:\n\n"
-        
-        for name, path in paths.items():
-            if os.path.exists(path):
-                size = sum(os.path.getsize(os.path.join(path, f)) 
-                          for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)))
-                size_mb = size / (1024 * 1024)
-                info += f"  • {name}: {size_mb:.2f} MB\n"
-            else:
-                info += f"  • {name}: No existe\n"
-        
-        messagebox.showinfo("Uso de Disco", info)
-    
-    def _export_config(self):
-        """Exporta toda la configuración."""
-        filepath = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON", "*.json")],
-            title="Exportar Configuración"
-        )
-        
-        if filepath:
-            config = {
-                "theme": load_theme(),
-                "user_settings": load_user_settings(),
-                "exported_at": datetime.now().isoformat(),
+        """Mostrar uso de disco (ROBUSTO)."""
+        try:
+            # Directorios importantes
+            important_dirs = {
+                "Logs": os.path.join(ruta_proyecto, "Logs"),
+                "Misiones": os.path.join(ruta_proyecto, "Lista de Misiones"), 
+                "Cache": os.path.join(os.path.expanduser("~"), "AppData", "Local", "Nozhgess"),
+                "Misión Actual": os.path.join(ruta_proyecto, "Mision Actual"),
+                "Backups": os.path.join(ruta_proyecto, "Utilidades", "Backups")
             }
             
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
+            usage_info = []
+            total_size = 0
             
-            messagebox.showinfo("Exportación Exitosa", f"Configuración exportada a:\n{filepath}")
+            def get_dir_size(p):
+                total = 0
+                try:
+                    for entry in p.rglob("*"):
+                        if entry.is_file():
+                            total += entry.stat().st_size
+                except Exception as e:
+                    logging.exception(f"Settings: error calculando tamaño de {p}: {e}")
+                return total
+
+            def format_size(s):
+                for unit in ['B', 'KB', 'MB', 'GB']:
+                    if s < 1024.0: return f"{s:.1f} {unit}"
+                    s /= 1024.0
+                return f"{s:.1f} TB"
+            
+            for name, path_str in important_dirs.items():
+                dir_path = Path(path_str)
+                if dir_path.exists():
+                    dir_size = get_dir_size(dir_path)
+                    file_count = len(list(dir_path.rglob("*")))
+                    
+                    usage_info.append({
+                        'name': name,
+                        'path': str(dir_path),
+                        'size_mb': dir_size / (1024 * 1024),
+                        'size_human': format_size(dir_size),
+                        'file_count': file_count
+                    })
+                    total_size += dir_size
+            
+            # --- SHOW DIALOG ---
+            dialog = ctk.CTkToplevel(self)
+            dialog.title("💾 Uso de Disco")
+            dialog.geometry("600x400")
+            dialog.transient(self)
+            dialog.grab_set()
+            
+            dialog.update_idletasks()
+            x = self.winfo_rootx() + (self.winfo_width() // 2) - 300
+            y = self.winfo_rooty() + (self.winfo_height() // 2) - 200
+            dialog.geometry(f"+{x}+{y}")
+            
+            # Main Frame
+            main_frame = ctk.CTkFrame(dialog, fg_color=self.colors["bg_primary"])
+            main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            ctk.CTkLabel(main_frame, text="📊 ANÁLISIS DE ALMACENAMIENTO", font=ctk.CTkFont(size=16, weight="bold"), text_color=self.colors["text_primary"]).pack(pady=(0, 15))
+            
+            ctk.CTkLabel(main_frame, text=f"Total: {format_size(total_size)}", font=ctk.CTkFont(size=14, weight="bold"), text_color=self.colors["accent"]).pack(pady=(0, 15))
+            
+            scroll = ctk.CTkScrollableFrame(main_frame, height=250, fg_color="transparent")
+            scroll.pack(fill="both", expand=True)
+            
+            for info in usage_info:
+                f = ctk.CTkFrame(scroll, fg_color=self.colors["bg_card"])
+                f.pack(fill="x", padx=5, pady=5)
+                
+                ctk.CTkLabel(f, text=f"📁 {info['name']}", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_primary"]).pack(anchor="w", padx=10, pady=(10, 2))
+                ctk.CTkLabel(f, text=info['path'], font=ctk.CTkFont(size=10), text_color=self.colors["text_muted"]).pack(anchor="w", padx=10)
+                ctk.CTkLabel(f, text=f"{info['size_human']} | {info['file_count']} archivos", font=ctk.CTkFont(size=11), text_color=self.colors["text_secondary"]).pack(anchor="w", padx=10, pady=(0, 10))
+                
+            ctk.CTkButton(main_frame, text="Cerrar", command=dialog.destroy, fg_color=self.colors["bg_secondary"], hover_color=self.colors["bg_elevated"]).pack(pady=(15, 0))
+            
+        except Exception as e:
+             messagebox.showerror("Error", f"Error calculando uso de disco: {e}")
+    
+    def _export_config(self):
+        """Exportar configuración (ROBUSTO)."""
+        try:
+            # Archivos de configuración a exportar (Mappings)
+            config_files = {
+                "mission_config.json": os.path.join(ruta_proyecto, "App", "config", "mission_config.json"),
+                ".env": os.path.join(ruta_proyecto, "App", ".env")
+            }
+            
+            export_dir = filedialog.askdirectory(title="Seleccionar carpeta destino")
+            if not export_dir: return
+            
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            target_path = Path(export_dir) / f"Nozhgess_Config_{ts}"
+            target_path.mkdir(exist_ok=True)
+            
+            count = 0
+            for name, src in config_files.items():
+                if os.path.exists(src):
+                    shutil.copy2(src, target_path / name)
+                    count += 1
+            
+            # Readme
+            with open(target_path / "README.txt", "w", encoding="utf-8") as f:
+                f.write(f"Backup Nozhgess {ts}\nFiles: {count}")
+                
+            webbrowser.open(f"file://{target_path}")
+            messagebox.showinfo("Export Successful", f"✅ Exportado en: {target_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Error Export", str(e))
     
     def _import_config(self):
-        """Importa configuración."""
-        filepath = filedialog.askopenfilename(
-            filetypes=[("JSON", "*.json")],
-            title="Importar Configuración"
-        )
-        
-        if filepath:
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    config = json.load(f)
+        """Importar configuración (ROBUSTO)."""
+        try:
+            fpath = filedialog.askopenfilename(
+                title="Seleccionar config (.json o .env)",
+                filetypes=[("Configuración", "*.json *.env")]
+            )
+            if not fpath: return
+            
+            path_obj = Path(fpath)
+            dest = None
+            
+            if path_obj.suffix == ".json" and "mission" in path_obj.name:
+                dest = Path(ruta_proyecto) / "App" / "config" / "mission_config.json"
+            elif path_obj.suffix == ".env":
+                dest = Path(ruta_proyecto) / "App" / ".env"
+            
+            if dest:
+                if messagebox.askyesno("Confirmar Importación", f"¿Reemplazar {dest.name}?\nSe creará un backup automático."):
+                    # Backup
+                    if dest.exists():
+                        shutil.copy2(dest, dest.with_suffix(f".bak_{datetime.now().strftime('%M%S')}"))
+                    
+                    shutil.copy2(path_obj, dest)
+                    messagebox.showinfo("Éxito", "Configuración importada. Reinicia Nozhgess.")
+            else:
+                messagebox.showwarning("Archivo no reconocido", "Selecciona un archivo válido (mission_config.json o .env)")
                 
-                if "theme" in config:
-                    save_theme(config["theme"])
-                
-                if "user_settings" in config:
-                    save_user_settings(config["user_settings"])
-                
-                messagebox.showinfo("Importación Exitosa", 
-                    "Configuración importada. Reinicia la aplicación para aplicar los cambios.")
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo importar: {e}")
+        except Exception as e:
+            messagebox.showerror("Error Import", str(e))
     
     def _toggle_debug(self):
         """Alterna modo debug."""
@@ -664,18 +776,40 @@ class SettingsView(ctk.CTkFrame):
             messagebox.showerror("Error", f"No se pudo cambiar el modo debug: {e}")
     
     def _reset_all(self):
-        """Resetea toda la configuración."""
-        if messagebox.askyesno("Confirmar Reset", 
-            "¿Estás seguro de que quieres restaurar toda la configuración a los valores predeterminados?\n\n"
-            "Esta acción no se puede deshacer."):
-            
-            # Eliminar archivos de config
-            for path in [THEME_CONFIG_PATH, USER_SETTINGS_PATH]:
-                if os.path.exists(path):
-                    os.remove(path)
-            
-            messagebox.showinfo("Reset Completado", 
-                "Configuración restaurada. Reinicia la aplicación para aplicar los cambios.")
+        """Reset TOTAL (ROBUSTO)."""
+        dialog = ctk.CTkInputDialog(
+            text="⚠️ PELIGRO ⚠️\nEscribe 'RESETEAR' para borrar:\n- Misiones personalizadas\n- Logs y Caché\n- Configuraciones",
+            title="RESET TOTAL"
+        )
+        # Fix input dialog center
+        dialog.geometry(f"+{self.winfo_rootx() + 100}+{self.winfo_rooty() + 100}")
+        res = dialog.get_input()
+        
+        if res == "RESETEAR":
+            log = []
+            try:
+                # 1. Config Restore
+                cfg_path = Path(ruta_proyecto) / "App" / "config" / "mission_config.json"
+                if cfg_path.exists():
+                    cfg_path.unlink()
+                    log.append("✅ Configuración eliminada (se regenerará)")
+                
+                # 2. Delete .env
+                env_path = Path(ruta_proyecto) / "App" / ".env"
+                if env_path.exists():
+                    env_path.unlink()
+                    log.append("✅ Archivo .env eliminado")
+                
+                # 3. Clean Logs
+                self._clean_logs()
+                log.append("✅ Logs purgados")
+                
+                messagebox.showinfo("Reset Finalizado", "\n".join(log) + "\n\n reinicia la aplicación AHORA.")
+                
+            except Exception as e:
+                messagebox.showerror("Error Reset", str(e))
+        else:
+            messagebox.showinfo("Cancelado", "No se hizo nada.")
     
     def _open_vscode(self):
         """Abre el proyecto en VS Code."""

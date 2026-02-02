@@ -1,0 +1,120 @@
+{
+  "DIRECCION_DEBUG_EDGE": "localhost:9222",
+  "EDGE_DRIVER_PATH": "C:/Windows/System32/msedgedriver.exe",
+  "MAX_REINTENTOS_POR_PACIENTE": 3,
+  "MISION_POR_HOJA": false,
+  "MISION_POR_ARCHIVO": true,
+  "MISSIONS": [
+    {
+      "nombre": "Diabetes I",
+      "familia": "6",
+      "especialidad": "13-13-01",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 1.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords": [
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
+      ],
+      "keywords_contra": [
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
+      ],
+      "objetivos": [],
+      "habilitantes": [],
+      "excluyentes": [],
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "anios_codigo": [
+        "3102001",
+        "3102002"
+      ],
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "frecuencia": "Mensual",
+      "frecuencia_cantidad": "1",
+      "periodicidad": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "vigencia_dias": "180",
+      "max_objetivos": "1",
+      "max_habilitantes": "1",
+      "max_excluyentes": "1",
+      "max_ipd": "1",
+      "max_oa": "1",
+      "max_aps": "1",
+      "max_sic": "1",
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "indices": {
+        "rut": 1,
+        "nombre": 3,
+        "fecha": 5
+      },
+      "show_futures": true,
+      "active_year_codes": true
+    },
+    {
+      "nombre": "Diabetes II",
+      "keywords": [
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "5002101"
+      ],
+      "excluyentes": [],
+      "familia": "6",
+      "especialidad": "13-13-01",
+      "frecuencia": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 2.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": [
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
+      ],
+      "frecuencia_cantidad": "1",
+      "periodicidad": "Mensual",
+      "vigencia_dias": "180",
+      "max_objetivos": "1",
+      "max_habilitantes": "1",
+      "max_excluyentes": "1",
+      "max_ipd": "1",
+      "max_oa": "1",
+      "max_aps": "1",
+      "max_sic": "1",
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": 1,
+        "nombre": 3,
+        "fecha": 5
+      },
+      "anios_codigo": []
+    }
+  ]
+}

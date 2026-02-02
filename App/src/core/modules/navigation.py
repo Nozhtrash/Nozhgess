@@ -239,12 +239,10 @@ class NavigationMixin:
             self.log.warn(f"⚠️ Error expandiendo submenú: {str(e)[:50]}")
 
     def asegurar_en_busqueda(self) -> None:
-        """Navega a la pantalla de búsqueda con optimizaciones."""
-        # Fast path
+        """Navega a la pantalla de búsqueda SOLO vía menú (sin URL directas)."""
         if ya_en_busqueda(self.driver, XPATHS, timeout=0.5):
             return
-        
-        # Verificar Login
+
         try:
             url = self.driver.current_url.lower()
             necesita_login = "login" in url or "seleccionar" in url or url == "about:blank"
@@ -252,44 +250,40 @@ class NavigationMixin:
             self.log.warn(f"⚠️ No se pudo leer URL: {str(e)[:40]}")
             try:
                 self.driver.execute_script("return true;")
-                self.log.warn("⚠️ Navegador responde, reintentando lectura URL...")
-                # Tiny wait for stability before retry
                 WebDriverWait(self.driver, 0.5).until(lambda d: d.current_url)
                 url = self.driver.current_url.lower()
                 necesita_login = "login" in url or "seleccionar" in url or url == "about:blank"
             except Exception:
-                self.log.error("❌ Navegador no responde a comandos")
+                self.log.error("✖ Navegador no responde a comandos")
                 raise ConnectionError("Navegador no responde - reiniciar Edge debug")
-        
+
         if necesita_login:
             self.log.warn("🔐 Sesión cerrada detectada - login automático...")
             if not self.intentar_login():
-                self.log.error("❌ Login automático falló")
+                self.log.error("✖ Login automático falló")
                 raise Exception("Login automático falló - Se requiere login manual")
-            
             self.log.ok("✅ Login exitoso")
             if ya_en_busqueda(self.driver, XPATHS, timeout=1.0):
                 return
-        
-        self.log.info("🎯 Navegando a página de búsqueda...")
-        
-        if navegar_a_busqueda_rapido(self):
-            self.log.ok("✅ Navegación exitosa")
-            return
-        
-        self.log.warn("⚠️ Navegación por menú falló, usando URL directa...")
+
+        self.log.info("🎯 Navegando a Búsqueda vía menú (Ingreso y Consulta)...")
+        self.asegurar_menu_desplegado()
+        self.asegurar_submenu_ingreso_consulta_abierto(force=True)
+
+        btn_busqueda = self._find(XPATHS.get("BTN_MENU_BUSQUEDA", []), "clickable", "menu_busqueda")
+        if not btn_busqueda:
+            raise Exception("No se encontró botón de Búsqueda en el menú")
+
         try:
-            self.ir(XPATHS["BUSQUEDA_URL"])
-            # Esperar a que el input RUT esté presente
-            if ya_en_busqueda(self.driver, XPATHS, timeout=3.0):
-                # Esperar estabilidad visual (spinner overlay)
-                self.waits.wait_for_spinner("spinner_short")
-                self.log.ok("✅ Navegación por URL exitosa")
-                return
-        except Exception as e:
-            self.log.error(f"❌ Navegación falló: {str(e)[:50]}")
-        
-        raise Exception("No se pudo llegar a página de búsqueda")
+            btn_busqueda.click()
+        except Exception:
+            self.driver.execute_script("arguments[0].click();", btn_busqueda)
+
+        self.waits.wait_for_spinner("spinner_short")
+
+        if not ya_en_busqueda(self.driver, XPATHS, timeout=3.0):
+            raise Exception("No se llegó a Búsqueda tras click en menú")
+
 
     def ir(self, url: str) -> bool:
         """Navegación directa por URL."""

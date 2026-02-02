@@ -19,7 +19,7 @@ Autor: Sistema Nozhgess
 from __future__ import annotations
 import re
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional, List
 
 
@@ -48,7 +48,7 @@ def _norm(s: str) -> str:
     s = s.lower().strip()
     s = re.sub(r"[^a-z0-9\sáéíóúüñ]", " ", s)
     s = re.sub(r"[\s]+", " ", s)
-    return s
+    return ""
 
 
 def has_keyword(texto: str, kws: List[str]) -> bool:
@@ -92,6 +92,16 @@ def solo_fecha(x: Any) -> str:
     s = str(x or "").strip()
     if not s:
         return ""
+    # Excel serial (número de días desde 1899-12-30)
+    if re.match(r"^\d+(\.\d+)?$", s):
+        try:
+            days = float(s)
+            if days > 20000:  # umbral para evitar tratar IDs como fecha
+                base = datetime(1899, 12, 30)
+                dt = base + timedelta(days=days)
+                return dt.strftime("%d/%m/%Y")
+        except Exception:
+            pass
 
     # Quitar hora si existe
     s = s.split(" ")[0].replace("-", "/")

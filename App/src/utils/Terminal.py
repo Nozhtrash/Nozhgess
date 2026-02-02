@@ -19,26 +19,30 @@ from __future__ import annotations
 # =============================================================================
 #                              IMPORTS
 # =============================================================================
-try:
-    from colorama import Fore, Style, init
-    init(autoreset=True)
-except Exception:
-    # Fallback si colorama no está instalado
-    class Dummy:
-        RESET_ALL = ""
-        RED = GREEN = YELLOW = BLUE = CYAN = MAGENTA = ""
-        LIGHTBLACK_EX = LIGHTWHITE_EX = LIGHTYELLOW_EX = ""
-        LIGHTGREEN_EX = LIGHTRED_EX = LIGHTBLUE_EX = LIGHTMAGENTA_EX = ""
-
-    Fore = Dummy()
-    Style = Dummy()
-
 import logging
 import os
 import sys
 import time
 from datetime import datetime
 from typing import Dict, List, Any
+
+# Colores opcionales (desactivados por defecto)
+USE_COLORS = os.getenv("NOZHGESS_COLOR", "0") == "1"
+if USE_COLORS:
+    try:
+        from colorama import Fore, Style, init
+        init(autoreset=True)
+    except Exception:
+        USE_COLORS = False
+if not USE_COLORS:
+    class Dummy:
+        RESET_ALL = ""
+        RED = GREEN = YELLOW = BLUE = CYAN = MAGENTA = WHITE = ""
+        LIGHTBLACK_EX = LIGHTWHITE_EX = LIGHTYELLOW_EX = ""
+        LIGHTGREEN_EX = LIGHTRED_EX = LIGHTBLUE_EX = LIGHTMAGENTA_EX = ""
+        LIGHTCYAN_EX = ""
+    Fore = Dummy()
+    Style = Dummy()
 
 try:
     import psutil
@@ -56,15 +60,19 @@ ruta_utils = os.path.dirname(os.path.abspath(__file__))
 ruta_src = os.path.dirname(ruta_utils)
 ruta_app = os.path.dirname(ruta_src)
 BASE_DIR = os.path.dirname(ruta_app) # True Root
-LOG_DIR = os.path.join(BASE_DIR, "Logs")
+LOG_DIR_GENERAL = os.path.join(BASE_DIR, "Logs", "General")
+LOG_DIR_STRUCTURED = os.path.join(BASE_DIR, "Logs", "structured")
+LOG_DIR_TERMINAL = os.path.join(BASE_DIR, "Logs", "Terminal")
+LOG_DIR_DEBUG = os.path.join(BASE_DIR, "Logs", "Debug")
 
-if not os.path.exists(LOG_DIR):
+for d in [LOG_DIR_GENERAL, LOG_DIR_STRUCTURED, LOG_DIR_TERMINAL, LOG_DIR_DEBUG]:
     try:
-        os.makedirs(LOG_DIR)
+        os.makedirs(d, exist_ok=True)
     except Exception:
-        # Si falla, usar directorio temporal o local como fallback
-        LOG_DIR = os.path.join(BASE_DIR, "logs_fallback")
-        os.makedirs(LOG_DIR, exist_ok=True)
+        pass
+
+# Carpeta por defecto para logs principales
+LOG_DIR = LOG_DIR_GENERAL
 
 # Función de Rotación de Logs: Mantener solo los N logs más recientes
 def rotar_logs(directorio: str, mantener: int = 4) -> None:
@@ -91,13 +99,21 @@ def rotar_logs(directorio: str, mantener: int = 4) -> None:
             # Borrar los más viejos
             for i in range(borrar_count):
                 os.remove(archivos[i])
-                print(f"🗑️ Log antiguo eliminado: {os.path.basename(archivos[i])}")
+                # Evitar problemas de codificación en consolas cp1252
+                try:
+                    print(f"[LOG ROTATE] Log antiguo eliminado: {os.path.basename(archivos[i])}")
+                except Exception:
+                    pass
                 
     except Exception as e:
-        print(f"⚠️ Error rotando logs: {e}")
+        try:
+            print(f"[LOG ROTATE] Error rotando logs: {e}")
+        except Exception:
+            pass
 
-# Ejecutar rotación antes de crear el nuevo
-rotar_logs(LOG_DIR, mantener=4)
+# Ejecutar rotación en todas las carpetas relevantes antes de crear el nuevo
+for _dir in [LOG_DIR_GENERAL, LOG_DIR_STRUCTURED, LOG_DIR_TERMINAL, LOG_DIR_DEBUG]:
+    rotar_logs(_dir, mantener=4)
 
 # Archivo de log con timestamp
 LOG_FILE = os.path.join(LOG_DIR, f"nozhgess_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
@@ -130,7 +146,7 @@ logging.basicConfig(
     level=logging.DEBUG if DEBUG_MODE else logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S',
-    encoding='utf-8',
+    encoding='utf-8-sig',
     force=True
 )
 
@@ -152,7 +168,7 @@ def safe_print(msg: str) -> None:
     try:
         print(msg)
     except UnicodeEncodeError:
-        print(msg.encode('ascii', 'replace').decode('ascii'))
+        print(msg.encode('utf-8', 'replace').decode('utf-8'))
 
 
 # =============================================================================
@@ -162,26 +178,38 @@ def safe_print(msg: str) -> None:
 def log_info(msg: str) -> None:
     """Log de información general."""
     # SIEMPRE imprimir para que el runner capture y filtre
-    safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} {msg}")
+    if USE_COLORS:
+        safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} {msg}")
+    else:
+        safe_print(f"[INFO] {msg}")
     _log_to_file("INFO", msg)
 
 
 def log_ok(msg: str) -> None:
     """Log de operación exitosa."""
-    safe_print(f"{Fore.GREEN}[OK]{Style.RESET_ALL} {msg}")
+    if USE_COLORS:
+        safe_print(f"{Fore.GREEN}[OK]{Style.RESET_ALL} {msg}")
+    else:
+        safe_print(f"[OK] {msg}")
     _log_to_file("OK", msg)
 
 
 def log_warn(msg: str) -> None:
     """Log de advertencia."""
-    safe_print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} {msg}")
+    if USE_COLORS:
+        safe_print(f"{Fore.YELLOW}[WARN]{Style.RESET_ALL} {msg}")
+    else:
+        safe_print(f"[WARN] {msg}")
     _log_to_file("WARN", msg)
 
 
 def log_error(msg: str) -> None:
     """Log de error - SIEMPRE se muestra."""
     # Los errores SIEMPRE se muestran, independiente del DEBUG_MODE
-    safe_print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} {msg}")
+    if USE_COLORS:
+        safe_print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} {msg}")
+    else:
+        safe_print(f"[ERROR] {msg}")
     _log_to_file("ERROR", msg)
 
 
@@ -420,8 +448,6 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
             
         excl_str = f" {b} 🚫 {color_lbl}Excl:{RESET} {excl_col}{excl_val}{RESET}"
 
-        # --- NUEVO: Fallecido y Variedad (Premium UX) ---
-        
         # Fallecido
         fall_val = res.get("Fallecido", "NO")
         if fall_val == "SI":
@@ -432,17 +458,6 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
             fall_ico = "❤️"
             
         fall_str = f" {b} {fall_ico} {color_lbl}Fall:{RESET} {fall_col}{fall_val}{RESET}"
-        
-        # Variedad (Cantidad de casos)
-        var_val = res.get("Variedad", "0")
-        # Si hay más de 1 caso, color naranja para alertar
-        try:
-            var_int = int(var_val)
-            var_col = C_NARANJA if var_int > 1 else C_INDICE
-        except:
-            var_col = C_INDICE
-            
-        var_str = f" {b} 👥 {color_lbl}Var:{RESET} {var_col}{var_val}{RESET}"
 
         # Resultado de la misión
         mini_found = (res.get("Caso") or "Sin caso") != "Sin caso"
@@ -457,10 +472,10 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
             st_msg, st_col = "✅ OK ✅", C_EXITO
 
         # Construir línea completa de la misión
-        # Formato: 📋 M1: Sí | Hab: Sí | Excl: No | Fall: No | Var: 1 | IPD...
+        # Formato: 📋 M1: Sí | Hab: Sí | Excl: No | Fall: No | IPD...
         linea_mision = (
             f"📋 {color_lbl}M{m_num} Caso:{RESET} {mini_col}{mini_val}{RESET}"
-            f"{hab_str}{excl_str}{fall_str}{var_str}"
+            f"{hab_str}{excl_str}{fall_str}"
             f"{ipd_str}{oa_str}{aps_str}{sic_str}"
             f" {b} 📊 {color_lbl}Estado:{RESET} {st_col}{st_msg}{RESET}"
         )

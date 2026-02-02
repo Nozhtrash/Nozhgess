@@ -56,6 +56,7 @@ class ExecutionControl:
         """Resetea el control para una nueva ejecución."""
         self._stop_event.clear()
         self._pause_event.set()
+        self._snapshot_event.clear()
     
     def wait_if_paused(self, timeout: float = 0.1):
         """

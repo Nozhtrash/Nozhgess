@@ -210,18 +210,15 @@ class ControlPanelView(ctk.CTkFrame):
                                 try:
                                     row.entry.delete(0, "end")
                                     row.entry.insert(0, str(val))
-                                except:
+                                except Exception:
                                     # Fallback for Textbox ("1.0", "end")
-                                    row.entry.delete("1.0", "end")
-                                    row.entry.insert("1.0", str(val))
-                        except Exception: 
-                            pass
-                        except:
-                             # Fallback para Textbox
-                             try:
-                                 row.entry.delete("1.0", "end")
-                                 row.entry.insert("1.0", str(val))
-                             except: pass
+                                    try:
+                                        row.entry.delete("1.0", "end")
+                                        row.entry.insert("1.0", str(val))
+                                    except Exception as e:
+                                        logging.exception(f"ControlPanelLegacy: error asignando valor textbox: {e}")
+                        except Exception as e:
+                            logging.exception(f"ControlPanelLegacy: error asignando fila: {e}")
                     elif isinstance(row.entry, ctk.CTkSwitch):
                          if val: row.entry.select()
                          else: row.entry.deselect()

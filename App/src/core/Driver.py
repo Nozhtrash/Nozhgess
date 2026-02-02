@@ -24,23 +24,20 @@ import time
 
 # Third-party
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 # Local
-from src.core.Formatos import dparse
-from src.core.NavegacionRapida import navegar_a_busqueda_rapido, ya_en_busqueda
+from src.core.Formatos import dparse, _norm
 from src.utils.Direcciones import XPATHS
+from src.core.locators import XPATHS as LOCS
 from src.utils.Errores import SpinnerStuck, pretty_error
 from src.utils.Esperas import ESPERAS, espera
-from src.utils.Esperas import ESPERAS, espera
 from src.utils.Terminal import log_error, log_info, log_ok, log_warn, log_debug
-from src.utils.Terminal import timing_block, timing_msg 
-
-
+from src.core.flows import ensure_logged_in as ensure_logged_in_flow
 
 
 # =============================================================================
@@ -50,20 +47,6 @@ from src.utils.Terminal import timing_block, timing_msg
 def iniciar_driver(debug_address: str, driver_path: str):
     """
     Conecta al navegador Edge en modo debug remoto.
-    
-    Requiere que Edge esté abierto con:
-        msedge.exe --remote-debugging-port=9222
-    
-    Args:
-        debug_address: Dirección de debug (ej: "localhost:9222")
-        driver_path: Ruta al msedgedriver.exe
-        
-    Returns:
-        SiggesDriver wrapper
-        
-    Raises:
-        FileNotFoundError: Si no existe el driver
-        Exception: Si no puede conectar
     """
     opts = webdriver.EdgeOptions()
     opts.debugger_address = debug_address
@@ -97,17 +80,9 @@ def iniciar_driver(debug_address: str, driver_path: str):
         return sigges
 
     except ConnectionError:
-        # Re-raise connection errors (ya logueados arriba)
         raise
     except Exception as e:
         log_error(f"No se pudo conectar a Edge: {pretty_error(e)}")
-        print("\n" + "="*60)
-        print(" [!] ERROR DE CONEXIÓN A EDGE")
-        print(" Asegúrate de:")
-        print("  1. Cerrar todas las ventanas de Edge")
-        print(f"  2. Abrir Edge con: msedge.exe --remote-debugging-port=9222")
-        print("  3. Iniciar sesión en SIGGES")
-        print("="*60 + "\n")
         raise
 
 
@@ -118,128 +93,44 @@ def iniciar_driver(debug_address: str, driver_path: str):
 class SiggesDriver:
     """
     Wrapper de alto nivel para interactuar con SIGGES.
-    
-    Encapsula todas las operaciones del navegador con manejo
-    automático de spinners, reintentos y errores.
     """
     
     def __init__(self, driver: webdriver.Edge):
         self.driver = driver
-        self._last_health_check = 0  # Timestamp of last successful check
-        self._cached_state = None  # Cached state string
-        self._state_cache_time = 0  # Timestamp when state was cached
+        self._last_health_check = 0
 
     # =========================================================================
     #                    CONNECTION HEALTH & VALIDATION
     # =========================================================================
 
     def validar_conexion(self) -> tuple[bool, str]:
-        """
-        Valida que la conexión al navegador esté activa y funcional.
-        
-        Returns:
-            tuple: (is_valid: bool, error_message: str)
-            - Si is_valid=True, error_message=""
-            - Si is_valid=False, error_message contiene descripción del problema
-        """
         try:
-            # Test 1: Verificar que el driver responde
             _ = self.driver.current_url
-            
-            # Test 2: Verificar que la ventana existe
             _ = self.driver.title
-            
-            # Test 3: Verificar que podemos ejecutar JavaScript
             self.driver.execute_script("return true;")
-            
             return True, ""
-            
         except Exception as e:
             error_str = str(e).lower()
-            
-            # Clasificar error
-            if "no such window" in error_str or "target window already closed" in error_str:
-                return False, (
-                    "La ventana de Edge se cerró o no está disponible.\n"
-                    "Por favor:\n"
-                    "  1. Cierra todas las ventanas de Edge\n"
-                    "  2. Ejecuta init.ps1 para abrir Edge en modo debug\n"
-                    "  3. Vuelve a ejecutar el script"
-                )
-            elif "cannot connect" in error_str or "connection refused" in error_str:
-                return False, (
-                    "No se puede conectar al navegador Edge.\n"
-                    "Asegúrate de que Edge esté abierto en modo debug:\n"
-                    "  msedge.exe --remote-debugging-port=9222"
-                )
+            if "no such window" in error_str:
+                return False, "La ventana de Edge se cerró."
+            elif "cannot connect" in error_str:
+                return False, "No se puede conectar al puerto de debug."
             else:
-                return False, f"Error de conexión desconocido: {str(e)[:100]}"
+                return False, f"Error desconocido: {str(e)[:100]}"
 
     def es_conexion_fatal(self, error: Exception) -> bool:
-        """
-        Determina si un error es fatal (requiere reiniciar el navegador).
-        
-        Errores fatales:
-        - Ventana cerrada
-        - Conexión perdida
-        - Sesión terminada
-        
-        Args:
-            error: Excepción capturada
-            
-        Returns:
-            True si es fatal, False si es recuperable
-        """
+        """Determina si un error es fatal (requiere reiniciar el navegador)."""
         error_str = str(error).lower()
-        
         errores_fatales = [
             "no such window",
             "target window already closed",
             "cannot connect to chrome",
             "session deleted",
             "session not created",
-            "chrome not reachable"
+            "chrome not reachable",
+            "invalid session id"
         ]
-        
         return any(fatal in error_str for fatal in errores_fatales)
-
-    def _get_stable_url(self, max_wait_ms: int = 300, poll_interval_ms: int = 50) -> str:
-        """
-        Obtiene la URL del navegador de forma inteligente.
-        
-        En lugar de esperar ciegamente, hace polling hasta que la URL
-        se estabiliza (dos lecturas consecutivas iguales).
-        
-        Args:
-            max_wait_ms: Tiempo máximo de espera en milisegundos
-            poll_interval_ms: Intervalo entre lecturas en milisegundos
-            
-        Returns:
-            URL estable en minúsculas
-        """
-        import time
-        
-        last_url = ""
-        max_attempts = max(1, max_wait_ms // poll_interval_ms)
-        poll_interval_s = poll_interval_ms / 1000.0
-        
-        for _ in range(max_attempts):
-            try:
-                current = (self.driver.current_url or "").lower()
-                
-                # Si la URL es la misma que la anterior, está estable
-                if current and current == last_url:
-                    return current
-                    
-                last_url = current
-                time.sleep(poll_interval_s)
-            except Exception:
-                # Si hay error leyendo URL, devolver la última conocida
-                return last_url if last_url else ""
-        
-        # Después de max_wait_ms, devolver la última URL conocida
-        return last_url if last_url else ""
-
 
     # =========================================================================
     #                         SPINNER / ESPERAS
@@ -248,1510 +139,568 @@ class SiggesDriver:
     def hay_spinner(self) -> bool:
         """Detecta si hay un spinner de carga visible."""
         try:
-            css = XPATHS.get("SPINNER_CSS", "dialog.loading")
-            return bool(self.driver.find_elements(By.CSS_SELECTOR, css))
+            # Check multiple selectors for spinner
+            css_selectors = [
+                XPATHS.get("SPINNER_CSS", "dialog.loading"),
+                "div.circulo",
+                "dialog[open] .circulo"
+            ]
+            for css in css_selectors:
+                if self.driver.find_elements(By.CSS_SELECTOR, css):
+                    return True
+            return False
         except Exception:
             return False
 
-    def esperar_spinner(self, appear_timeout: float = 0.0,
-                        clave_espera: str = "spinner",
-                        raise_on_timeout: bool = False) -> None:
+    def esperar_spinner(self, appear_timeout: float = 0.0, clave_espera: str = "spinner") -> None:
         """
-        🚀 ULTRA INTELIGENTE: Detección de spinner sin delays innecesarios.
-        
-        Estrategia:
-        1. Si NO hay spinner → Retorna INSTANTÁNEAMENTE (~1ms) ⚡
-        2. Si SÍ hay spinner → Espera desaparición con timeout optimizado
-        
-        OPTIMIZADO v2.0:
-        - Detección instantánea (sin polling loops)
-        - Timeout reducido de 3s → 1.5s (conservador pero rápido)
-        - Zero delay si no hay spinner
+        Espera obligatoria a que desaparezca el spinner.
         """
-        # =====================================================================
-        # PASO 1: DETECCIÓN INSTANTÁNEA (sin esperas)
-        # =====================================================================
         if not self.hay_spinner():
-            return  # ⚡ RETORNO INMEDIATO (~1ms) - No hay spinner
+            return 
         
-        # =====================================================================
-        # PASO 2: Spinner EXISTE - Esperar desaparición (OPTIMIZADO: 1.5s max)
-        # =====================================================================
-        # RAZÓN: Búsquedas normales completan en <1s
-        # SEGURIDAD: 1.5s da margen para páginas lentas
         try:
             css = XPATHS.get("SPINNER_CSS", "dialog.loading")
-            WebDriverWait(self.driver, 3.0).until(  # RESTAURADO: 3s para seguridad en redes lentas
+            WebDriverWait(self.driver, 5.0).until(
                 EC.invisibility_of_element_located((By.CSS_SELECTOR, css))
             )
         except TimeoutException:
-            # Spinner atascado > 1.5s - verificar si realmente sigue ahí
-            if self.hay_spinner() and raise_on_timeout:
-                raise SpinnerStuck("Spinner pegado por >1.5s")
+            pass # Continue execution, don't crash
 
-    def _wait_smart(self, spinner_clave: str = "spinner") -> None:
-        """
-        🧠 SMART: Espera inteligente con 'grace period'.
-        
-        Da un pequeño margen (150ms) para que el spinner aparezca tras una acción.
-        Si aparece, espera a que se vaya.
-        """
-        # Grace period: Esperar brevemente a que el JS reactivo muestre el spinner
-        try:
-             # Check rápido inicial
-             if self.hay_spinner():
-                 self.esperar_spinner(clave_espera=spinner_clave)
-                 return
-
-             # Si no está, dar 150ms de gracia por si la red/JS tarda en reaccionar
-             time.sleep(0.15)
-             
-             # Re-check
-             if self.hay_spinner():
-                 self.esperar_spinner(clave_espera=spinner_clave)
-                 
-        except Exception:
-             pass
+    def _wait_smart(self) -> None:
+        """Helper para esperar spinner post-acción."""
+        time.sleep(0.3) # Grace period
+        self.esperar_spinner()
 
     # =========================================================================
     #                       FIND / CLICK GENÉRICOS
     # =========================================================================
 
-    def find(self, xpath: str, wait_seconds: float = 0.5) -> Optional[Any]:
-        """Busca elemento por XPath con espera explícita."""
-        t0 = time.time()
-        try:
-            el = WebDriverWait(self.driver, wait_seconds).until(
-                EC.presence_of_element_located((By.XPATH, xpath))
-            )
-            dt = (time.time() - t0) * 1000
-            log_debug(f"🔍 Find(XPATH): {xpath[:40]}... → Found (⏱️ {dt:.0f}ms)")
-            return el
-        except TimeoutException:
-            dt = (time.time() - t0) * 1000
-            log_debug(f"🔍 Find(XPATH): {xpath[:40]}... → NOT Found (⏱️ {dt:.0f}ms)")
-            return None
-        except Exception as e:
-            log_warn(f"Error find({xpath}): {e}")
-            return None
+    # =========================================================================
+    #                       FIND / CLICK GENÉRICOS DE BAJO NIVEL
+    # =========================================================================
 
-    def find_all(self, xpath: str, wait_seconds: float = 0.5) -> List[Any]:
-        """Busca todos los elementos por XPath."""
-        t0 = time.time()
-        try:
-            els = WebDriverWait(self.driver, wait_seconds).until(
-                EC.presence_of_all_elements_located((By.XPATH, xpath))
-            )
-            dt = (time.time() - t0) * 1000
-            log_debug(f"🔍 FindAll(XPATH): {xpath[:40]}... → Found {len(els)} (⏱️ {dt:.0f}ms)")
-            return els
-        except TimeoutException:
-            log_debug(f"🔍 FindAll(XPATH): {xpath[:40]}... → Found 0")
-            return []
-        except Exception:
-            return []
-
-    def click(self, element) -> bool:
-        """Click seguro con manejo de errores."""
-        if not element:
-            return False
-        try:
-            # Log element details
-            try:
-                tag = element.tag_name
-                txt = (element.text or "")[:20]
-                ident = f"<{tag} text='{txt}'>"
-            except:
-                ident = "<?>"
-
-            element.click()
-            log_debug(f"👆 Click {ident} → OK")
-            return True
-        except Exception as e:
-            error_str = str(e).lower()
-            
-            # Lista de errores fatales que indican muerte del navegador o sesión
-            fatal_errors = [
-                "no such window",
-                "target window already closed",
-                "session deleted",
-                "chrome not reachable",
-                "invalid session id"
-            ]
-            
-            if any(f in error_str for f in fatal_errors):
-                log_error(f"💀 Click fatal/irrecuperable: {e}")
-                raise  # Re-raise para detener ejecución
-                
-            # Errores transitorios (Timeout, Stale, Intercepted) -> Retorna False (Caller decide si reintentar)
-            log_debug(f"👆 Click transitorio fallido: {e}")
-            return False
-
-    def _find(self, locators, mode: str = "clickable", 
-              clave_espera: str = "default") -> Optional[Any]:
+    def _find(self, locators: Any, mode: str = "clickable", clave_espera: str = "default") -> Optional[Any]:
         """
-        Busca un elemento usando XPaths de fallback.
-        
-        Args:
-            locators: XPath string o lista de XPaths
-            mode: "presence", "visible", o "clickable"
-            clave_espera: Clave de ESPERAS para timeout
-            
-        Returns:
-            WebElement o None si no se encuentra
+        Método interno para buscar elementos iterando sobre una lista de XPaths.
+        Restaura la funcionalidad de _find perdida.
         """
         if isinstance(locators, str):
             locs = [locators]
         else:
             locs = list(locators)
 
+        # Mapear modo a Expected Condition
         cond = {
             "presence": EC.presence_of_element_located,
             "visible": EC.visibility_of_element_located,
             "clickable": EC.element_to_be_clickable
         }.get(mode, EC.element_to_be_clickable)
 
-        timeout = float(ESPERAS.get(clave_espera, {"wait": 2}).get("wait", 2))
+        # Timeout básico (aumentado para reducir falsos negativos)
+        timeout = 5.0 
 
         for xp in locs:
             try:
-                # Inteligente: si el locator apunta a un <p> dentro de button, buscar el button
                 el = WebDriverWait(self.driver, timeout).until(cond((By.XPATH, xp)))
-                # Si es un <p> dentro de button, devolver el button padre
-                if el and el.tag_name == 'p':
-                    try:
-                        parent = el.find_element(By.XPATH, '..')
-                        if parent.tag_name == 'button':
-                            return parent
-                    except Exception:
-                        pass
                 return el
-            except Exception:
+            except:
                 continue
         return None
 
-    def _click(self, locators, scroll: bool = True, wait_spinner: bool = True,
-               clave_espera: str = "default", 
-               spinner_clave: str = "spinner") -> bool:
+    def _click(self, locators: Any, scroll: bool = True, wait_spinner: bool = True, *args) -> bool:
         """
-        Hace click en el primer elemento encontrado.
-        
-        Args:
-            locators: XPath(s) del elemento
-            scroll: Si hacer scroll al elemento
-            wait_spinner: Si esperar spinner después del click
-            clave_espera: Clave para timeout de búsqueda
-            spinner_clave: Clave para timeout de spinner
-            
-        Returns:
-            True si el click fue exitoso
+        Método interno para hacer click en una lista de selectores.
+        Intenta click normal, luego JS.
         """
-        espera(clave_espera)
-        el = self._find(locators, "clickable", clave_espera)
+        el = self._find(locators, "clickable")
         if not el:
             return False
-
+            
         try:
             if scroll:
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block:'center'});", el
-                )
+                self.scroll_to(el)
             el.click()
         except Exception:
             try:
                 self.driver.execute_script("arguments[0].click();", el)
-            except Exception:
+            except:
                 return False
-
+                
         if wait_spinner:
-            self._wait_smart(spinner_clave)
-
+            self._wait_smart()
+            
         return True
 
-    def type(self, element, text: str, safe: bool = True) -> bool:
-        """
-        Escribe texto en un elemento con logging detallado.
-        """
-        if not element:
-            return False
+    def _check_fast(self, xpath: str) -> bool:
+        """Verificación rápida de existencia sin espera explícita."""
         try:
-            # Mask text if sensitive (optional logic here if needed)
-            display_text = text if len(text) < 50 else text[:47] + "..."
-            
-            try:
-                ident = f"<{element.tag_name}>"
-            except:
-                ident = "<?>"
-
-            if safe:
-                element.clear()
-            
-            log_debug(f"⌨️ Typing in {ident}: '{display_text}'")
-            element.send_keys(text)
-            return True
-        except Exception as e:
-            log_warn(f"⚠️ Error typing '{text}': {e}")
-            return False
-
-    def scroll_to(self, element, align: str = "center") -> bool:
-        """
-        scrolls to element with logging.
-        """
-        try:
-            log_debug(f"📜 Scrolling to element ({align})...")
-            block = "{block:'center'}" if align == "center" else "{block:'start'}"
-            self.driver.execute_script(f"arguments[0].scrollIntoView({block});", element)
-            return True
-        except Exception as e:
-            log_warn(f"⚠️ Scroll failed: {e}")
+            return \
+                len(self.driver.find_elements(By.XPATH, xpath)) > 0
+        except:
             return False
 
     # =========================================================================
-    #                          NAVEGACIÓN
+    #                       WRAPPERS PÚBLICOS
+    # =========================================================================
+
+    def find(self, xpath: str, wait_seconds: float = 1.0) -> Optional[Any]:
+        """Busca elemento por XPath con espera explícita."""
+        try:
+            return WebDriverWait(self.driver, wait_seconds).until(
+                EC.presence_of_element_located((By.XPATH, xpath))
+            )
+        except Exception:
+            return None
+
+    def click(self, element) -> bool:
+        """Click seguro."""
+        if not element: return False
+        try:
+            element.click()
+            return True
+        except Exception:
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+                return True
+            except:
+                return False
+
+    def _click_xpath(self, xpath: str) -> bool:
+        """Busca y hace click en un XPath."""
+        el = self.find(xpath)
+        if el:
+            return self.click(el)
+        return False
+        
+    def _find_clickable(self, xpath_list: List[str], timeout: float = 5.0) -> Optional[Any]:
+        """Itera sobre una lista de XPaths y devuelve el primero clickeable."""
+        for xp in xpath_list:
+            try:
+                return WebDriverWait(self.driver, timeout).until(
+                    EC.element_to_be_clickable((By.XPATH, xp))
+                )
+            except:
+                continue
+        return None
+
+    def type(self, element, text: str) -> bool:
+        if not element: return False
+        try:
+            element.clear()
+            element.send_keys(text)
+            return True
+        except:
+            return False
+
+    def scroll_to(self, element, align: str = "center") -> bool:
+        """Fake scroll wrapper for compatibility."""
+        if not element: return False
+        try:
+            self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", element)
+            return True
+        except:
+            return False
+
+    # =========================================================================
+    #                          NAVEGACIÓN Y LOGIN
     # =========================================================================
 
     def buscar_paciente(self, rut: str) -> None:
         """
-        Busca un paciente por RUT con validaciones exhaustivas.
+        Flujo estricto de búsqueda de paciente:
+        1. Verificar sesión (Si cerrada -> Login -> Volver)
+        2. Navegar a Búsqueda
+        3. Ingresar RUT
+        4. Click Buscar
         """
-        # 1. Obtener URL segura del diccionario de direcciones
-        url = XPATHS.get("BUSQUEDA_URL")
-        if not url:
-            raise RuntimeError("CRITICAL: BUSQUEDA_URL no definida en XPATHS")
+        # 1. Verificar Sesión
+        if self.sesion_cerrada():
+            log_warn("🔐 Sesión cerrada detectada por URL. Iniciando login...")
+            if not self.login_obligatorio():
+                raise Exception("Fallo crítico en Login. No se puede continuar.")
         
-        # 2. Navegar usando el método inteligente
-        self.ir(url)
+        # 2. Navegar a Búsqueda (Estricto)
+        self.asegurar_en_busqueda()
         
-        # 3. Validar estado (Airbag): Confirmar que el input de RUT está visible
-        # Esto confirma que la navegación fue exitosa
-        if not self._find(XPATHS["INPUT_RUT"], "visible", "default"):
-             raise RuntimeError(f"Falló navegación a búsqueda de paciente: El input RUT no es visible tras navegar a {url}")
+        # 3. Input RUT
+        log_info(f"🔎 Buscando RUT: {rut}")
+        input_rut = self._find_clickable(XPATHS["INPUT_RUT"])
+        if not input_rut:
+            raise Exception("Input RUT no encontrado tras navegación.")
             
-        # 4. Encontrar elemento para interactuar
-        input_el = self._find(XPATHS["INPUT_RUT"], "clickable", "default")
-        if not input_el:
-            raise Exception("Input RUT visible pero no clickable (Estado inconsistente)")
-            
-        # 3. Escribir RUT (USANDO NUEVO WRAPPER)
-        if not self.type(input_el, rut):
-            raise Exception(f"Error escribiendo RUT: {rut}")
-            
-        # 4. Click en Buscar
-        if not self._click(XPATHS["BTN_BUSCAR"], wait_spinner=True):
-             raise Exception("No se pudo hacer click en el botón 'Buscar RUN'")
-             
-        # 5. Validar que pasó algo (ej: spinner desapareció)
+        self.type(input_rut, rut)
+        
+        # 4. Click Buscar
+        if not self._click_xpath(XPATHS["BTN_BUSCAR"][0]):
+            # Try fallbacks
+            found = False
+            for alt_xpath in XPATHS["BTN_BUSCAR"][1:]:
+                if self._click_xpath(alt_xpath):
+                    found = True
+                    break
+            if not found:
+                 raise Exception("Botón Buscar no encontrado o no clickeable.")
+        
         self._wait_smart()
 
-    def ir(self, url: str) -> None:
-        """
-        Navega a una URL.
-        🧠 SMART: Intercepta URLs conocidas para usar navegación por menú (más seguro).
-        """
-        # Interceptar BUSQUEDA
-        if "busqueda-de-paciente" in url:
-            log_info(f"🧠 Interceptando URL Búsqueda -> Usando asegurar_en_busqueda() (Click Menú)")
-            try:
-                self.asegurar_en_busqueda()
-                return
-            except Exception as e:
-                log_warn(f"⚠️ Navegación inteligente falló: {e}, reintentando con URL directa...")
-
-        # Interceptar CARTOLA
-        if "cartola-unificada" in url:
-            log_info(f"🧠 Interceptando URL Cartola -> Usando ir_a_cartola() (Click Menú)")
-            try:
-                if self.ir_a_cartola():
-                    return
-            except Exception as e:
-                log_warn(f"⚠️ Navegación inteligente falló: {e}")
-
-        # Fallback normal: driver.get()
+    def ir(self, url: str):
+        """Wrapper simple para ir a URL."""
         try:
-            log_debug(f"🌐 Navegación directa: {url}")
             self.driver.get(url)
             self._wait_smart()
-        except Exception:
-            try:
-                self.driver.execute_script("window.stop();")
-            except Exception:
-                pass
+        except:
+            pass
 
     def sesion_cerrada(self) -> bool:
         """
-        Detecta si la sesión de SIGGES está cerrada.
+        Detecta si la sesión está cerrada basándose EXCLUSIVAMENTE en la URL.
         
-        Estrategia robusta con múltiples verificaciones para evitar falsos positivos.
+        URLs de SIGGES (información del usuario):
+        - /login              → Sesión CERRADA
+        - /perfil             → En proceso de login (tratamos como cerrada)
+        - /actualizaciones    → Sesión ACTIVA (justo después de login)
+        - /busqueda-de-paciente → Sesión ACTIVA
+        - /cartola-unificada-de-paciente → Sesión ACTIVA
+        - Cualquier otra #/xxx → Sesión ACTIVA
+        
+        NOTA: NO usamos URL directa para navegar, solo para detectar estado.
         """
         try:
-            # 1. Verificar URL actual
             url = (self.driver.current_url or "").lower()
             
-            # 2. Si NO estamos en página de login y hay menú → sesión activa
-            if "login" not in url:
-                # Verificar presencia del menú (señal clara de sesión activa)
-                menu = self._find(XPATHS.get("MENU_CONTENEDOR", []), "presence", "login_check")
-                if menu:
-                    return False  # Sesión ACTIVA
+            # DEBUG: Mostrar URL para diagnóstico
+            log_info(f"[DEBUG] sesion_cerrada() verificando URL: {url}")
             
-            # 3. Si estamos en login, verificar elementos visibles
-            if "login" in url:
-                # Si vemos botón de ingresar → sesión cerrada
-                btn_login = self._find(XPATHS.get("LOGIN_BTN_INGRESAR", []), "visible", "login_check")
-                if btn_login:
-                    return True  # Sesión CERRADA
-                
-                # Si no hay botón login pero SÍ hay menú → sesión activa (ya logueado)
-                menu = self._find(XPATHS.get("MENU_CONTENEDOR", []), "presence", "login_check")
-                if menu:
-                    return False  # Sesión ACTIVA
-                
-                # Si estamos en login sin menú ni botón → cerrada
+            # 1. Si no estamos en sigges.cl → cerrada
+            if "sigges.cl" not in url:
+                log_info("[DEBUG] → No es sigges.cl, sesión CERRADA")
                 return True
             
-            # 4. Para cualquier otra URL, verificar menú
-            menu = self._find(XPATHS.get("MENU_CONTENEDOR", []), "presence", "login_check")
-            return not menu  # Si hay menú → activa, si no → cerrada
-            
-        except Exception:
-            # En caso de error, asumir conservadoramente que está cerrada
-            return True
-
-    # =========================================================================
-    #                    🧠 STATE MACHINE INTELIGENTE
-    # =========================================================================
-    
-    def detectar_estado_actual(self) -> str:
-        """
-        🧠 INTELIGENTE: Detecta el estado actual basándose PRIMERO en URL, luego en elementos.
-        
-        URLs usadas SOLO para DETECTAR, NO para navegar.
-        
-        Returns:
-            "LOGIN", "SELECT_UNIT", "HOME", "BUSQUEDA", "CARTOLA", "UNKNOWN"
-        """
-        import time
-        
-        # ⚡ CACHE: Si tenemos un estado reciente (< 2s), usarlo
-        if self._cached_state and (time.time() - self._state_cache_time) < 2.0:
-            return self._cached_state
-        
-        try:
-            # 🔍 PASO 1: Obtener URL de forma inteligente (polling hasta estabilidad)
-            url = self._get_stable_url()
-            
-            # 🔍 PASO 2: Detección basada en URL (MÁS CONFIABLE)
-            
-            # Si URL contiene "login" -> verificar si realmente está en login
+            # 2. Si estamos en /login → cerrada
             if "#/login" in url:
-                # La URL ya está estable (verificado por _get_stable_url), no esperar
-                
-                # ¿Hay botón "Ingresar"? -> LOGIN
-                try:
-                    btn = WebDriverWait(self.driver, 3).until(
-                        EC.presence_of_element_located((By.XPATH, XPATHS["LOGIN_BTN_INGRESAR"][0]))
-                    )
-                    if btn:
-                        self._cached_state = "LOGIN"
-                        self._state_cache_time = time.time()
-                        return "LOGIN"
-                except:
-                    pass
-                
-                # ¿Hay selector de unidad? -> SELECT_UNIT
-                try:
-                    selector = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_element_located((By.XPATH, XPATHS["LOGIN_SEL_UNIDAD_HEADER"][0]))
-                    )
-                    if selector:
-                        self._cached_state = "SELECT_UNIT"
-                        self._state_cache_time = time.time()
-                        return "SELECT_UNIT"
-                except:
-                    pass
-                
-                # Si hay menú a pesar de estar en /login -> ya logueado, solo URL antigua
-                try:
-                    menu = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_element_located((By.XPATH, XPATHS["MENU_CONTENEDOR"][0]))
-                    )
-                    if menu:
-                        self._cached_state = "HOME"
-                        self._state_cache_time = time.time()
-                        return "HOME"  # Está logueado, la URL no se actualizó
-                except:
-                    pass
-                
-                # Por defecto,  si estamos en /login sin elementos claros
-                self._cached_state = "LOGIN"
-                self._state_cache_time = time.time()
-                return "LOGIN"
+                log_info("[DEBUG] → URL es /login, sesión CERRADA")
+                return True
             
-            # Si URL contiene "actualizaciones" -> HOME (post-login)
-            if "#/actualizaciones" in url or "actualizaciones" in url:
-                self._cached_state = "HOME"
-                self._state_cache_time = time.time()
-                return "HOME"
+            # 3. Si estamos en /perfil → en proceso de login, tratamos como cerrada
+            if "#/perfil" in url:
+                log_info("[DEBUG] → URL es /perfil, sesión CERRADA (en proceso)")
+                return True
             
-            # Si URL contiene "busqueda" -> BUSQUEDA
-            if "#/busqueda" in url or "busqueda-de-paciente" in url:
-                # Verificar que realmente está cargada (sin sleep adicional)
-                try:
-                    input_rut = WebDriverWait(self.driver, 3).until(
-                        EC.presence_of_element_located((By.XPATH, XPATHS["INPUT_RUT"][0]))
-                    )
-                    if input_rut:
-                        self._cached_state = "BUSQUEDA"
-                        self._state_cache_time = time.time()
-                        return "BUSQUEDA"
-                except:
-                    # URL dice búsqueda pero no está cargada aún
-                    self._cached_state = "HOME"
-                    self._state_cache_time = time.time()
-                    return "HOME"  # Asumir que está en transición
+            # 4. Cualquier otra URL en sigges.cl con #/ → sesión ACTIVA
+            # Incluye: /actualizaciones, /busqueda-de-paciente, /cartola-unificada, etc.
+            if "#/" in url:
+                log_info("[DEBUG] → URL tiene #/, sesión ACTIVA")
+                return False
             
-            # Si URL contiene "cartola" -> CARTOLA
-            if "#/cartola" in url or "cartola-unificada" in url:
-                self._cached_state = "CARTOLA"
-                self._state_cache_time = time.time()
-                return "CARTOLA"
+            # 5. URL sin hash (raro) → asumir cerrada
+            log_info("[DEBUG] → URL sin hash, sesión CERRADA (raro)")
+            return True
             
-            # 🔍 PASO 3: Si URL no es clara, verificar elementos
-            # ¿Hay menú? -> está logueado en alguna página
+        except Exception as e:
+            log_info(f"[DEBUG] → Error: {e}, asumiendo sesión CERRADA")
+            return True  # Ante error, asumir cerrada
+
+
+    def login_obligatorio(self) -> bool:
+        """
+        Realiza el login paso a paso segun instruccion estricta del usuario.
+        Usa primero el flujo Biblia (flows.ensure_logged_in) y luego este
+        flujo legacy como respaldo.
+        """
+        try:
+            if ensure_logged_in_flow(self):
+                return True
+        except Exception as e:
+            log_warn(f"⚠️ Login (flujo Biblia) falló, usando fallback legacy: {str(e)[:80]}")
+
+        log_info("🔐 Iniciando secuencia de Login (legacy)...")
+
+        if "login" not in self.driver.current_url.lower():
+            self.driver.get(XPATHS["LOGIN_URL"])
+            time.sleep(2)
+
+        # XPATH FULL según solicitud del usuario (Biblia Sigges)
+        FULL_XPATH_INGRESAR = "/html/body/div/div/div[2]/div[1]/form/div[3]/button"
+        
+        exito_click = False
+        intentos_click = 0
+        while intentos_click < 5:
             try:
-                menu = WebDriverWait(self.driver, 3).until(
-                    EC.presence_of_element_located((By.XPATH, XPATHS["MENU_CONTENEDOR"][0]))
+                # Intentar buscar con el full path EXPLICITAMENTE CON WAIT
+                # Esto evita el log de "falló selector principal" porque lo manejamos aquí
+                btn = WebDriverWait(self.driver, 2).until(
+                    EC.element_to_be_clickable((By.XPATH, FULL_XPATH_INGRESAR))
                 )
-                if menu:
-                    detected_state = "HOME"  # Está logueado, asumimos HOME por defecto
-                    # ⚡ Cachear estado antes de retornar
-                    self._cached_state = detected_state
-                    self._state_cache_time = time.time()
-                    return detected_state
+                if btn:
+                    self.click(btn)
+                    log_ok(f"✅ Click en 'Ingresar' exitoso (Intento {intentos_click+1})")
+                    exito_click = True
+                    break
+            except Exception:
+                # Si falla el wait, intentamos con el helper estándar (que tiene sus propios fallbacks)
+                # Solo si el full xpath falló por timeout
+                pass
+            
+            # Fallback a búsqueda normal (si el full xpath no apareció)
+            try:
+                btn_ingresar = self._find_clickable(XPATHS["LOGIN_BTN_INGRESAR"], wait_seconds=1)
+                if btn_ingresar:
+                    self.click(btn_ingresar)
+                    exito_click = True
+                    break
             except:
                 pass
             
-            # Si no hay menú ni URL conocida -> probablemente LOGIN
-            detected_state = "UNKNOWN"
-            self._cached_state = detected_state
-            self._state_cache_time = time.time()
-            return detected_state
-            
-        except Exception as e:
-            # En caso de error, ser conservador (NO cachear errores)
-            return "UNKNOWN"
-    
-    def asegurar_estado(self, estado_deseado: str) -> bool:
-        """
-        🧠 INTELIGENTE: Asegura que estemos en el estado deseado.
-        
-        DELEGADO al sistema inteligente de navegación que usa SOLO botones de menú.
-        
-        Args:
-            estado_deseado: "LOGIN", "HOME", "BUSQUEDA", "CARTOLA"
-            
-        Returns:
-            True si se logró llegar al estado deseado
-        """
-        from src.utils.Terminal import log_info, log_warn
-        
-        # 🔍 Detectar estado actual CON CALMA
-        estado_actual = self.detectar_estado_actual()
-        
-        if estado_actual == estado_deseado:
-            log_info(f"✅ Ya en estado: {estado_deseado}")
-            return True
-        
-        log_info(f"🔄 Transición: {estado_actual} → {estado_deseado}")
-        
-        # ==================================================================
-        # CASO 1: Quiere ir a BÚSQUEDA
-        # ==================================================================
-        if estado_deseado == "BUSQUEDA":
-            # Si ya está autenticado (HOME, CARTOLA, etc.), usar el sistema inteligente
-            if estado_actual in ["HOME", "CARTOLA", "BUSQUEDA"]:
-                log_info("📍 Ya autenticado, usando navegación inteligente...")
-                try:
-                    self.asegurar_en_busqueda()
-                    return True
-                except Exception as e:
-                    log_warn(f"⚠️ Navegación inteligente falló: {str(e)[:50]}")
-                    return False
-            
-            # Si está en LOGIN, asegurar_en_busqueda() se encargará del login
-            elif estado_actual in ["LOGIN", "SELECT_UNIT", "UNKNOWN"]:
-                log_info("🔐 No autenticado, dejando que asegurar_en_busqueda() maneje todo...")
-                try:
-                    self.asegurar_en_busqueda()
-                    return True
-                except Exception as e:
-                    log_warn(f"⚠️ Proceso falló: {str(e)[:50]}")
-                    return False
-        
-        # ==================================================================
-        # CASO 2: Quiere ir a HOME 
-        # ==================================================================
-        elif estado_deseado == "HOME":
-            if estado_actual in ["LOGIN", "SELECT_UNIT"]:
-                # Necesita login
-                if not self.intentar_login():
-                    return False
-                return self.detectar_estado_actual() in ["HOME", "BUSQUEDA", "CARTOLA"]
-            else:
-                # Ya está autenticado, probablemente ya en HOME o cerca
-                return True
-        
-        # ==================================================================
-        # CASO 3: Quiere ir a CARTOLA
-        # ==================================================================
-        elif estado_deseado == "CARTOLA":
-            if estado_actual in ["LOGIN", "SELECT_UNIT"]:
-                # Necesita login primero
-                if not self.intentar_login():
-                    return False
+            intentos_click += 1
+            if intentos_click < 5:
                 time.sleep(1)
+                log_warn(f"Reintentando click en Ingresar ({intentos_click+1}/5)...")
             
-            # Navegar a cartola usando botón del menú
-            log_info("📍 Navegando a cartola...")
-            if self.ir_a_cartola():
-                time.sleep(1)
-                return self.detectar_estado_actual() == "CARTOLA"
+        if not exito_click:
+            log_error("✖ Botón 'Ingresar' no encontrado o no clickeable tras reintentos.")
             return False
-        
-        # Transición no implementada
-        log_warn(f"⚠️ Transición no implementada: {estado_actual} → {estado_deseado}")
+            
+        time.sleep(1)
+
+        log_info("➜ Paso 2: Seleccionar Unidad")
+        sel_unidad = self._find_clickable(XPATHS["LOGIN_SEL_UNIDAD_HEADER"])
+        if not sel_unidad:
+            log_error("✖ Selector de Unidad no apareció.")
+            return False
+        self.click(sel_unidad)
+        time.sleep(0.5)
+
+        log_info("➜ Paso 3: Eligiendo Hospital")
+        op_hosp = self._find_clickable(XPATHS["LOGIN_OP_HOSPITAL"])
+        if not op_hosp:
+            log_error("✖ Opción Hospital no encontrada.")
+            return False
+        self.click(op_hosp)
+        time.sleep(0.5)
+
+        log_info("➜ Paso 4: Seleccionando Perfil")
+        perfil = self._find_clickable(XPATHS["LOGIN_TILE_INGRESO_SIGGES"])
+        if not perfil:
+            log_error("✖ Perfil 'Ingreso SIGGES' no encontrado.")
+            return False
+        self.click(perfil)
+        time.sleep(0.5)
+
+        log_info("➜ Paso 5: Click en 'Conectar'")
+        btn_conectar = self._find_clickable(XPATHS["LOGIN_BTN_CONECTAR"])
+        if not btn_conectar:
+            log_error("✖ Botón 'Conectar' no encontrado.")
+            return False
+        self.click(btn_conectar)
+        time.sleep(3)
+
+        if "actualizaciones" in self.driver.current_url.lower():
+            log_ok("✅ Login Exitoso.")
+            return True
+        log_warn("⚠️ Login completado pero URL no es 'actualizaciones'. Verificando menú...")
+        if self.find(XPATHS["MENU_CONTENEDOR"][0]):
+            return True
         return False
-        return exito
 
-    def asegurar_menu_desplegado(self) -> None:
+    def asegurar_menu_abierto(self) -> bool:
         """
-        🧠 OPTIMIZADO: Asegura que el menú lateral esté abierto.
-        
-        Usa WebDriverWait en lugar de sleep loop (más rápido).
+        DETECTOR INTELIGENTE DE MENÚ (User Request 2026-01-29)
+        Verifica si el menú 'Ingreso y Consulta' está cerrado y lo abre.
+        Usa la clase 'cardOpen' del contenedor para decidir.
         """
         try:
-            nav = self._find(XPATHS.get("MENU_CONTENEDOR", []), "presence", "menu_lateral")
-            if not nav:
-                return
+            # 1. Buscar el contenedor del menú
+            # XPATHS["MENU_CONTENEDOR"][0] apunta a /html/body/div/main/div[2]/nav/div[1]
+            menu_cont = self.find(XPATHS["MENU_CONTENEDOR"][0], wait_seconds=1.0)
             
-            # Verificar si YA está abierto
-            clases = nav.get_attribute("class") or ""
-            if XPATHS.get("MENU_CLASS_ABIERTO", "") in clases:
-                return  # ✅ Ya abierto
+            if not menu_cont:
+                log_warn("⚠️ No se encontró el contenedor del menú.")
+                return False
+                
+            # 2. Verificar clase 'cardOpen'
+            clases = menu_cont.get_attribute("class") or ""
+            if "cardOpen" in clases:
+                # log_debug("📂 Menú ya está abierto.")
+                return True
+                
+            # 3. Si está cerrado, abrirlo
+            log_debug(f"📂 Menú cerrado (Clases: '{clases}'). Abriendo...")
             
-            # Abrir menú
-            self._click(XPATHS.get("MENU_ICONO_APERTURA", []), False, False, "menu_lateral")
-            
-            # OPTIMIZADO: WebDriverWait en lugar de sleep loop
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from selenium.webdriver.common.by import By
-            
-            try:
-                # Esperar hasta que la clase "abierto" aparezca (max 300ms)
-                WebDriverWait(self.driver, 0.3).until(
-                    lambda d: XPATHS.get("MENU_CLASS_ABIERTO", "") in (nav.get_attribute("class") or "")
-                )
-            except:
-                pass  # Timeout OK, menú probablemente abierto
-        except Exception:
-            pass
-
-    def asegurar_submenu_ingreso_consulta_abierto(self, force: bool = False) -> None:
-        """
-        🧠 Asegura que el submenú 'Ingreso y Consulta Paciente' esté expandido.
-        
-        Este submenú contiene los botones de Búsqueda y Cartola.
-        Si está cerrado, los botones no serán visibles ni clickeables.
-        
-        Args:
-            force: Si True, siempre intenta expandir aunque parezca abierto
-        """
-        try:
-            # Verificación rápida: si el botón de búsqueda existe y es visible, ya está abierto
-            if not force:
-                try:
-                    for xp in XPATHS.get("BTN_MENU_BUSQUEDA", [])[:2]:  # Solo los primeros 2 XPaths
-                        el = self.driver.find_element(By.XPATH, xp)
-                        if el and el.is_displayed():
-                            return  # ✅ Submenú ya está abierto
-                except:
-                    pass  # No encontrado = submenú cerrado
-            
-            # Intentar abrir el submenú
-            log_info("📂 Expandiendo submenú 'Ingreso y Consulta Paciente'...")
-            
-            for xp in XPATHS.get("BTN_MENU_INGRESO_CONSULTA_CARD", []):
-                try:
-                    el = self.driver.find_element(By.XPATH, xp)
-                    if el:
-                        el.click()
-                        time.sleep(0.4)
-                        log_info("✅ Submenú expandido")
-                        return
-                except:
-                    continue
-            
-            log_warn("⚠️ No se pudo expandir submenú")
+            # Click en el Header (Título) para abrir
+            header = self._find_clickable(XPATHS["BTN_MENU_INGRESO_CONSULTA_CARD"])
+            if header:
+                self.click(header)
+                time.sleep(0.5) # Animación CSS
+                return True
+            else:
+                log_error("❌ No se pudo clickear el header del menú.")
+                return False
                 
         except Exception as e:
-            log_warn(f"⚠️ Error expandiendo submenú: {str(e)[:50]}")
+            log_warn(f"⚠️ Error en detector de menú: {e}")
+            return False
 
     def asegurar_en_busqueda(self) -> None:
         """
-        🚀 OPTIMIZADO: Navega a BUSQUEDA con fast path.
-        
-        Estrategia:
-        1. Quick check si ya estamos ahí (~50ms) → FAST PATH
-        2. Si no, navegación directa via menú (~1-2s)
-        3. Login solo si realmente necesario
+        Navega a Búsqueda de Paciente usando estrictamente el Menú Lateral.
         """
-        # =================================================================
-        # FAST PATH: Verificación instantánea (~50ms)
-        # =================================================================
-        if ya_en_busqueda(self.driver, XPATHS, timeout=0.5):
-            return  # ✅ Ya estamos - retorno en ~50ms
-        
-        # =================================================================
-        # Verificar si hay sesión activa (solo si no estamos en búsqueda)
-        # =================================================================
-        try:
-            url = self.driver.current_url.lower()
-            necesita_login = "login" in url or "seleccionar" in url or url == "about:blank"
-        except:
-            necesita_login = True
-        
-        if necesita_login:
-            log_warn("🔐 Sesión cerrada detectada")
-            log_warn("💡 RECOMENDACIÓN: Login manual es más confiable")
-            log_warn("Intentando login automático...")
-            
-            if not self.intentar_login(reintentar=False):
-                log_error("❌ Login automático falló")
-                log_error("💡 POR FAVOR: Haz login MANUAL en Edge y reinicia el script")
-                raise Exception("Login automático falló - Se requiere login manual")
-            
-            log_ok("✅ Login exitoso")
-            time.sleep(1.5)  # Estabilización post-login
-            
-            # Re-check si ya estamos en búsqueda
-            if ya_en_busqueda(self.driver, XPATHS, timeout=1.0):
-                return
-        
-        # =================================================================
-        # Navegación directa a búsqueda
-        # =================================================================
-        log_info("🎯 Navegando a página de búsqueda...")
-        
-        if navegar_a_busqueda_rapido(self):
-            log_ok("✅ Navegación exitosa")
-            return
-        
-        # =================================================================
-        # FALLBACK: Navegación por URL directa
-        # =================================================================
-        log_warn("⚠️ Navegación por menú falló, usando URL directa...")
-        try:
-            # Bypass interception logic in self.ir to prevent infinite recursion
-            url = XPATHS["BUSQUEDA_URL"]
-            self.driver.get(url)
-            self._wait_smart()
-            time.sleep(1.0)
-            
-            if ya_en_busqueda(self.driver, XPATHS, timeout=2.0):
-                log_ok("✅ Navegación por URL exitosa")
-                return
-        except Exception as e:
-            log_error(f"❌ Navegación falló: {str(e)[:50]}")
-        
-        raise Exception("No se pudo llegar a página de búsqueda")
+        # 0. Verificar Login antes de nada
+        if self.sesion_cerrada():
+             log_warn("🔐 Sesión cerrada detectada al intentar navegar. Iniciando Login...")
+             if not self.login_obligatorio():
+                 raise Exception("No se pudo iniciar sesión.")
 
-    def intentar_login(self, reintentar: bool = False) -> bool:
-        """
-        Intenta hacer login en SIGGES con validaciones exhaustivas.
+        # Chequeo rápido si ya estamos ahí
+        if "busqueda-de-paciente" in self.driver.current_url and self.find(XPATHS["INPUT_RUT"][0], 0.2):
+            return
+
+        log_info("📍 Navegando a Búsqueda vía Menú...")
         
-        VALIDACIONES PREVIAS (CRÍTICO):
-        - Verifica que realmente se necesite login
-        - Valida que estemos en página correcta
-        - Confirma que navegador esté respondiendo
-        
-        OPTIMIZADO con WebDriverWait para máxima velocidad.
-        Solo hace UN intento para evitar loops infinitos.
-        
-        Args:
-            reintentar: DEPRECATED - siempre hace solo 1 intento
-            
-        Returns:
-            True si el login fue exitoso o ya estaba logueado
-            False si el login falló
-        
-        Notes:
-            - PREVIENE intentar login cuando ya está logueado
-            - VALIDA navegador antes de proceder
-            - ROBUSTO ante páginas lentas con timeouts adaptativos
-        """
-        from src.utils.Terminal import log_info, log_error, log_warn, log_ok
-        
-        # =====================================================================
-        # VALIDACIÓN CRÍTICA 1: ¿Realmente necesitamos login?
-        # =====================================================================
-        if not self.sesion_cerrada():
-            log_ok("✅ Sesión ya activa - Login NO necesario")
+        # 1. Asegurar menú desplegado (Smart Check)
+        self.asegurar_menu_abierto()
+             
+        # 2. Click en 'Búsqueda de Paciente'
+        # Usar link directo es más seguro si el menú está abierto
+        btn_busqueda = self._find_clickable(XPATHS["BTN_MENU_BUSQUEDA"])
+        if btn_busqueda:
+            self.click(btn_busqueda)
+            self._wait_smart()
+        else:
+             # Fallback crítico: URL directa si falla menú
+             log_warn("⚠️ Falló navegación menú, usando URL directa.")
+             self.driver.get(XPATHS["BUSQUEDA_URL"])
+             self._wait_smart()
+
+    def ir_a_cartola(self) -> bool:
+        """Navega a cartola unificada."""
+        # Check rápido
+        if "cartola-unificada" in self.driver.current_url:
             return True
-        
-        # =====================================================================
-        # VALIDACIÓN CRÍTICA 2: Estado del navegador
-        # =====================================================================
+
+        # Asegurar Menú Abierto (Smart Check)
+        self.asegurar_menu_abierto()
+
+        # Usar Menú si es posible
+        btn_cartola = self._find_clickable(XPATHS["BTN_MENU_CARTOLA"])
+        if btn_cartola:
+            self.click(btn_cartola)
+            self._wait_smart()
+            return True
+        else:
+            # Fallback URL
+            self.driver.get(XPATHS["CARTOLA_URL"])
+            self._wait_smart()
+            return True
+
+
+    # =========================================================================
+    #                     EXPANSIÓN DE CASOS
+    # =========================================================================
+
+    def expandir_caso(self, indice: int) -> Optional[Any]:
+        """
+        Expande un caso por su índice en la CARTOLA (Estructura DIVs).
+        Updated 2026-01-29 per User 'Biblia Sigges'.
+        """
         try:
-            _ = self.driver.current_url
-        except Exception as e:
-            log_error(f"❌ Navegador no responde: {str(e)[:50]}")
-            log_error("💡 SOLUCIÓN: Cerrar y reiniciar el script")
-            return False
-        
-        log_info("="*60)
-        log_info("Iniciando proceso de login automático...")
-        log_warn("💡 RECOMENDACIÓN: Login manual es más confiable")
-        log_info("="*60)
-        
-        try:
-            # Paso 0: Navegar a login si es necesario
-            url_actual = (self.driver.current_url or "").lower()
-            if "login" not in url_actual:
-                log_info("➔ Navegando a página de login...")
-                self.ir(XPATHS.get("LOGIN_URL", "https://www.sigges.cl/#/login"))
-                # Esperar explícitamente a que cargue la página
+            log_debug(f"[DEBUG] expandir_caso: buscando contenedor de casos...")
+            # 1. Buscar el contenedor de la tabla de casos
+            # Xpath: .../div[5]/div[1]/div[2]
+            container = self.find(XPATHS["TABLA_CASOS_CONTAINER"][0], wait_seconds=1.0)
+            if not container:
+                log_error("❌ No se encontró contenedor de tabla de casos.")
+                return None
+                
+            # 2. Buscar las "filas" (son DIVs directos del contenedor)
+            # El usuario dice: .../div[2]/div[1], .../div[2]/div[2], etc.
+            filas = container.find_elements(By.XPATH, "./div")
+            log_debug(f"[DEBUG] expandir_caso: {len(filas)} filas encontradas")
+            
+            if not filas:
+                log_warn("⚠️ Contenedor de casos vacío.")
+                return None
+                
+            if indice >= len(filas):
+                log_error(f"❌ Índice de caso {indice} fuera de rango (Total: {len(filas)})")
+                return None
+                
+            fila = filas[indice]
+            
+            # 3. Buscar el botón de expansión (Checkbox)
+            # User path: .../div[1]/div/label/input
+            # Relative path from row (div[i]): ./div/label/input
+            try:
+                chk = fila.find_element(By.XPATH, ".//input[@type='checkbox']")
+                log_debug(f"[DEBUG] expandir_caso: checkbox encontrado, clickeando...")
+                
+                # Solo clickear si no está seleccionado (para expandir)
+                # O si la función es toggle, clickear siempre. 
+                # El usuario dice "activar el caso", asumo que si ya está activo no es necesario.
+                # PERO: cerrar_caso llama a esto mismo.
+                # Asumiremos toggle.
+                
+                # Scroll y Click
+                self.click(chk)
+                self._wait_smart()
+                # Espera adicional para carga de tablas internas
                 try:
                     WebDriverWait(self.driver, 5).until(
-                        lambda d: "login" in (d.current_url or "").lower()
+                        EC.presence_of_element_located((By.XPATH, "//table"))
                     )
                 except Exception:
                     pass
-            
-            # Paso 1: Click en "Ingresar" y esperar selector de unidad
-            log_info("➔ Paso 1/5: Click en Ingresar...")
-            if not self._click(XPATHS["LOGIN_BTN_INGRESAR"], False, False, "login_click_ingresar"):
-                log_error("❌ No se encontró botón Ingresar")
-                return False
-            
-            # Esperar a que aparezca el selector de unidad (espera inteligente)
-            log_info("  Esperando selector de unidad...")
-            try:
-                WebDriverWait(self.driver, 8).until(
-                    EC.presence_of_element_located((By.XPATH, XPATHS["LOGIN_SEL_UNIDAD_HEADER"][0]))
-                )
-            except TimeoutException:
-                log_error("❌ Selector de unidad no apareció")
-                return False
-            
-            # Paso 2: Seleccionar unidad
-            log_info("➔ Paso 2/5: Seleccionando unidad...")
-            if not self._click(XPATHS["LOGIN_SEL_UNIDAD_HEADER"], True, False, "login_select_unit"):
-                log_error("❌ No se pudo abrir selector de unidad")
-                return False
-            
-            # Esperar a que aparezcan las opciones
-            try:
-                WebDriverWait(self.driver, 3).until(
-                    EC.visibility_of_element_located((By.XPATH, XPATHS["LOGIN_OP_HOSPITAL"][0]))
-                )
-            except TimeoutException:
-                pass
-            
-            # Paso 3: Seleccionar hospital
-            log_info("➔ Paso 3/5: Seleccionando Hospital Gustavo Fricke...")
-            if not self._click(XPATHS["LOGIN_OP_HOSPITAL"], True, False, "login_select_hospital"):
-                log_error("❌ No se encontró opción de hospital")
-                return False
-            
-            # Esperar a que aparezcan los tiles de perfil
-            try:
-                WebDriverWait(self.driver, 3).until(
-                    EC.visibility_of_element_located((By.XPATH, XPATHS["LOGIN_TILE_INGRESO_SIGGES"][0]))
-                )
-            except TimeoutException:
-                pass
-            
-            # Paso 4: Click en tile de SIGGES Confidencial
-            log_info("➔ Paso 4/5: Seleccionando perfil SIGGES Confidencial...")
-            if not self._click(XPATHS["LOGIN_TILE_INGRESO_SIGGES"], True, False, "login_select_profile"):
-                log_error("❌ No se encontró tile de ingreso")
-                return False
-            
-            # Esperar botón conectar
-            try:
-                WebDriverWait(self.driver, 3).until(
-                    EC.element_to_be_clickable((By.XPATH, XPATHS["LOGIN_BTN_CONECTAR"][0]))
-                )
-            except TimeoutException:
-                pass
-            
-            # Paso 5: Click en "Conéctese"
-            log_info("➔ Paso 5/5: Conectando...")
-            if not self._click(XPATHS["LOGIN_BTN_CONECTAR"], True, True, "login_click_connect", "spinner_long"):
-                log_error("❌ No se encontró botón Conectar")
-                return False
-            
-            # Verificar éxito: esperar cambio de URL o aparición del menú
-            log_info("➔ Verificando éxito del login...")
-            try:
-                # Esperar a que la URL cambie de /login
-                WebDriverWait(self.driver, 10).until(
-                    lambda d: "login" not in (d.current_url or "").lower()
-                )
-                log_ok("✅ Login exitoso - URL cambió")
                 
-                # ⏰ Esperar a que el menú esté completamente cargado
-                # ESPERA FIJA: 3 segundos como solicitó el usuario
-                time.sleep(3)
-                self.asegurar_menu_desplegado()
+                log_debug(f"[DEBUG] expandir_caso: caso {indice} expandido OK")
+                return fila
                 
-                log_info("✓ Login completado, menú listo")
-                # NO navegar aquí - dejar que asegurar_en_busqueda() lo haga con los botones
-                return True
-            except TimeoutException:
-                # Fallback: verificar si estamos en página de éxito
-                url = (self.driver.current_url or "").lower()
-                success_url = XPATHS.get("LOGIN_SUCCESS_URL", "actualizaciones").lower()
-                if success_url in url:
-                    log_ok("✅ Login exitoso - En página de actualizaciones")
-                    
-                    # ⏰ Esperar a que el menú esté completamente cargado
-                    # ESPERA FIJA: 3 segundos
-                    time.sleep(3)
-                    self.asegurar_menu_desplegado()
-                    
-                    log_info("✓ Login completado, menú listo")
-                    return True
+            except Exception as e:
+                log_error(f"❌ No se encontró checkbox en caso {indice}: {e}")
+                return None
                 
-                log_error("❌ Login falló - URL no cambió en 10s")
-                return False
-            
         except Exception as e:
-            log_error(f"❌ Error en login: {str(e)[:80]}")
-            return False
+            log_error(f"❌ Error crítico expandiendo caso {indice}: {e}")
+            return None
 
-
-    def find_input_rut(self):
-        """Encuentra el input de RUT."""
-        return self._find(XPATHS["INPUT_RUT"], "presence", "search_find_rut_input")
-
-    def click_buscar(self) -> bool:
-        """Hace click en el botón Buscar."""
-        return self._click(XPATHS["BTN_BUSCAR"], False, True, "search_click_buscar", "spinner")
-
-    def ir_a_cartola(self) -> bool:
-        """
-        🚀 ULTRA OPTIMIZADO v2.0: Click directo en cartola sin delays.
-        
-        ESTRATEGIA INTELIGENTE:
-        1. Click directo (90% casos funciona) → RÁPIDO
-        2. Si falla, asegurar menú → Fallback seguro
-        
-        OPTIMIZADO:
-        - Spinner wait: 1s → 0.5s (cartola carga rápido)
-        - Fast path primero (evita checks innecesarios)
-        """
-        # Fast path: Click directo (funciona 90% del tiempo)
-        if self._click(XPATHS["BTN_MENU_CARTOLA"], False, True, 
-                       "cartola_click_ir", "spinner_ultra_short"):
-            return True
-        
-        # Fallback: Asegurar menú y submenú abiertos, luego reintentar
-        self.asegurar_menu_desplegado()
-        self.asegurar_submenu_ingreso_consulta_abierto()
-        return self._click(
-            XPATHS["BTN_MENU_CARTOLA"], False, True, 
-            "cartola_click_ir", "spinner_ultra_short"
-        )
-
-    def activar_hitos_ges(self) -> None:
-        """Activa el checkbox de 'Mostrar solo hitos GES'."""
-        chk = self._find(XPATHS["CHK_HITOS_GES"], "presence", "cartola_click_hitos")
-        try:
-            if chk and not chk.is_selected():
-                self._click(XPATHS["CHK_HITOS_GES"], True, True, "cartola_click_hitos")
-        except Exception:
-            pass
+    def cerrar_caso_por_indice(self, indice: int) -> None:
+        """Cierra el caso (colapsa)."""
+        # Misma lógica de click para cerrar
+        self.expandir_caso(indice)
 
     # =========================================================================
-    #                        LECTURAS BÁSICAS
+    #                     LECTURA DE DATOS (IPD, OA, APS, ETC)
     # =========================================================================
 
-    def leer_edad(self) -> Optional[int]:
-        """
-        Lee la edad del paciente de forma OPTIMIZADA.
-        
-        OPTIMIZADO v2.0:
-        - Timeout reducido: 2s → 1s (edad carga rápido)
-        - Validación robusta de formato
-        - Manejo de múltiples formatos
-        
-        Formatos soportados:
-        - "70 Años, 1 Mes, 26 Días" → 70
-        - "45 Años" → 45  
-        - "6 Meses" → 0
-        
-        Returns:
-            Edad en años (int) o None si no se puede leer
-        """
-        # OPTIMIZADO: Timeout reducido a 1s (antes 2s)
-        # RAZÓN: Edad siempre está visible tras buscar paciente
-        el = self._find(XPATHS["EDAD_PACIENTE"], "visible", "mini_read_age_fast")
-        if not el:
-            return None
-        
-        txt = (el.text or "").strip()
-        if not txt:
-            return None
-        
-        # Primero intentar patrón "XX Años"
-        m = re.search(r'(\d+)\s*[Aa]ño', txt)
-        if m:
-            edad = int(m.group(1))
-            # Validar rango razonable
-            return edad if 0 <= edad <= 130 else None
-        
-        # Fallback: primer número en el texto
-        m = re.search(r'(\d+)', txt)
-        if m:
-            edad = int(m.group(1))
-            return edad if 0 <= edad <= 130 else None
-        
-        return None
-
-    def leer_fallecimiento(self) -> Optional[Any]:
-        """Lee la fecha de fallecimiento si existe."""
+    def _find_tbody_by_header(self, search_ctx, header_keywords):
+        """Busca un thead que contenga keywords y retorna su tbody siguiente."""
         try:
-            xp = "//div[span[normalize-space(.)='Fecha de fallecimiento'] and p]"
-            el = self._find([xp], "presence", "cartola_read_fallecimiento")
-            if el:
-                return dparse((el.find_element(By.TAG_NAME, "p").text or "").strip())
+            theads = search_ctx.find_elements(By.XPATH, ".//thead")
+            for th in theads:
+                texts = [h.text.lower() for h in th.find_elements(By.TAG_NAME, "th")]
+                if all(any(k in t for t in texts) for k in header_keywords):
+                    return th.find_element(By.XPATH, "following-sibling::tbody[1]")
         except Exception:
             pass
         return None
 
-    def lista_de_casos_cartola(self) -> List[str]:
-        """
-        🧠 INTELIGENTE: Obtiene lista de casos de la cartola desde estructura de DIVs.
-        
-        La cartola NO usa tablas, usa DIVs con checkboxes.
-        Estructura: div.contRow.contRowBox.scrollH > div.contRow[] > div.inputCheck > label > p
-        
-        Formato del texto en <p>:
-        "Nombre del caso . {decreto}, fecha, Estado"
-        Ejemplo: "Ataque Cerebrovascular . {decreto nº 228}, 09/08/2025 10:00:00, Caso en Tratamiento"
-        """
-        # Selectores para encontrar el contenedor de casos
-        contenedor_xpaths = [
-            "//div[contains(@class,'contRow') and contains(@class,'contRowBox') and contains(@class,'scrollH')]",
-            "//div[@class='contRow contRowBox scrollH']",
-            XPATHS["CONT_CARTOLA"],
-        ]
-        
-        root = None
-        for xpath in contenedor_xpaths:
-            root = self._find([xpath] if isinstance(xpath, str) else xpath, "presence", "case_list_read")
-            if root:
-                break
-        
-        if not root:
-            return []
-        
-        try:
-            # Cada caso es un div.contRow con checkbox y texto
-            casos_divs = root.find_elements(By.XPATH, ".//div[@class='contRow'][.//input[@type='checkbox']]")
-            
-            casos_texto = []
-            for div in casos_divs:
-                try:
-                    # El texto del caso está en el <p> dentro del label
-                    p_element = div.find_element(By.XPATH, ".//label/p")
-                    texto = (p_element.text or "").strip()
-                    if texto:
-                        casos_texto.append(texto)
-                except Exception:
-                    continue
-            
-            return casos_texto
-        except Exception as e:
-            return []
-
-    def extraer_tabla_provisoria_completa(self) -> List[Dict[str, Any]]:
-        """
-        🧠 INTELIGENTE: Lee la lista de casos de la cartola.
-        
-        Soporta estructura moderna (DIVs con checkboxes) y antigua (Table).
-        Prioriza DIVs ya que es la estructura actual confirmada.
-        
-        Extrae:
-        - caso: Nombre limpio
-        - estado: Estado del caso
-        - apertura: Fecha apertura
-        - indice: Índice 0-based para clickear checkbox
-        """
-        datos_casos = []
-        from datetime import datetime
-        
-        # =====================================================================
-        # ESTRATEGIA 1: Leer DIVs (Estructura Actual)
-        # =====================================================================
-        try:
-            # Buscar contenedor de casos
-            xpaths_cont = [
-                "//div[contains(@class,'contRow') and contains(@class,'contRowBox') and contains(@class,'scrollH')]",
-                "//div[@class='contRow contRowBox scrollH']",
-                XPATHS["CONT_CARTOLA"]
-            ]
-            # Aplanar lista si CONT_CARTOLA es lista
-            flat_xpaths = []
-            for xp in xpaths_cont:
-                if isinstance(xp, list): flat_xpaths.extend(xp)
-                else: flat_xpaths.append(xp)
-                
-            root = None
-            for xp in flat_xpaths:
-                 root = self._find(xp, "presence", "case_list_read")
-                 if root: break
-                 
-            if root:
-                # Encontrar divs de caso individual
-                casos_divs = root.find_elements(By.XPATH, ".//div[@class='contRow'][.//input[@type='checkbox']]")
-                
-                for i, div in enumerate(casos_divs):
-                    try:
-                        # Texto: "Ataque Cerebrovascular . {decreto}, 12/12/2025 10:00:00, Caso en Tratamiento"
-                        p = div.find_element(By.XPATH, ".//label/p")
-                        raw_text = (p.text or "").strip()
-                        if not raw_text: continue
-                        
-                        # 1. Extraer FECHA (ancla de parsing)
-                        fecha_match = re.search(r'(\d{2}/\d{2}/\d{4})', raw_text)
-                        
-                        nombre = raw_text
-                        fecha_str = ""
-                        estado = ""
-                        cierre = "NO"
-                        fecha_dt = datetime.min
-                        
-                        if fecha_match:
-                            fecha_str = fecha_match.group(1)
-                            # Partir texto usando la fecha
-                            parts = raw_text.split(fecha_str)
-                            
-                            # NOMBRE (Antes de la fecha)
-                            nombre_raw = parts[0].strip().rstrip(',').strip()
-                            # Limpiar decreto "{...}"
-                            if "{" in nombre_raw:
-                                nombre = nombre_raw.split('{')[0].replace('.', '').strip()
-                            else:
-                                nombre = nombre_raw.replace('.', '').strip()
-                                
-                            # ESTADO (Después de la fecha y hora)
-                            if len(parts) > 1:
-                                rest = parts[1] # " 10:00:00, Caso en Tratamiento"
-                                # Quitar hora HH:MM:SS
-                                rest = re.sub(r'\d{2}:\d{2}:\d{2}', '', rest)
-                                # Limpiar comas y espacios
-                                estado = rest.strip().lstrip(',').strip()
-                                
-                            try:
-                                fecha_dt = datetime.strptime(fecha_str, "%d/%m/%Y")
-                            except:
-                                pass
-                        
-                        # Detectar cierre en el estado
-                        if "cerrado" in estado.lower() or "cierre" in estado.lower():
-                            cierre = "SI"
-                            
-                        datos_casos.append({
-                            "caso": nombre,
-                            "estado": estado,
-                            "apertura": fecha_str,
-                            "cierre": cierre,
-                            "fecha_dt": fecha_dt,
-                            "indice": i,
-                            "raw_texto": raw_text
-                        })
-                    except Exception:
-                        continue
-                        
-                if datos_casos:
-                    return datos_casos
-                    
-        except Exception as e:
-            log_warn(f"Error parseando DIVs cartola: {e}")
-
-        # =====================================================================
-        # ESTRATEGIA 2: Leer TABLA (Fallback Legacy)
-        # =====================================================================
-        xpaths_tbody = [
-            "//div[contains(@class,'contBox')]/div/div/table/tbody", # Genérico robusto
-            "/html/body/div/main/div[3]/div[2]/div[1]/div[3]/div/table/tbody" # Absoluto exacto usuario
-        ]
-        
-        tbody = None
-        for xp in xpaths_tbody:
-            tbody = self._find(xp, "presence", "mini_find_table")
-            if tbody: break
-            
-        if not tbody:
-            return []
-
-        filas = tbody.find_elements(By.TAG_NAME, "tr")
-        
-        for i, tr in enumerate(filas):
+    def _find_tbody_generic(self, root, header_keywords, fallback_keys) -> Optional[Any]:
+        """Busca tbody por header o por lista de XPaths (Biblia)."""
+        search_ctx = root if root is not None else self.driver
+        for xpath in fallback_keys:
             try:
-                tds = tr.find_elements(By.TAG_NAME, "td")
-                if len(tds) < 6:
-                    continue
-                    
-                # 1. Caso (TD 1) - Limpieza de nombre
-                raw_nombre = tds[0].text.strip()
-                # "Ataque Cerebrovascular . {decreto...}" -> "Ataque Cerebrovascular"
-                if "{" in raw_nombre:
-                    nombre_limpio = raw_nombre.split('{')[0].replace('.', '').strip()
-                else:
-                    nombre_limpio = raw_nombre.replace('.', '').strip()
-                
-                # 2. Apertura (TD 3)
-                raw_apertura = tds[2].text.strip() # "09/08/2025 10:00:00"
-                apertura = raw_apertura.split(' ')[0] # "09/08/2025"
-                
-                # 3. Estado (TD 4)
-                # Asumimos columna 4 (índice 3) basado en estructura estándar
-                estado = tds[3].text.strip()
-                
-                # 4. Cierre (TD 6)
-                raw_cierre = tds[5].text.strip()
-                if not raw_cierre or raw_cierre.lower() in ["sin informacion", "sin información", "-", ""]:
-                    cierre = "NO"
-                else:
-                    cierre = raw_cierre.split(' ')[0]
-                
-                # Parsing fecha para ordenamiento
-                try:
-                    dt_obj = datetime.strptime(apertura, "%d/%m/%Y")
-                except:
-                    dt_obj = datetime.min
-
-                datos_casos.append({
-                    "caso": nombre_limpio,
-                    "estado": estado,
-                    "apertura": apertura,
-                    "cierre": cierre,
-                    "fecha_dt": dt_obj,
-                    "indice": i, # Índice 0-based co-relativo a los checkboxes
-                    "raw_texto": raw_nombre # Para debug si necesario
-                })
-                
+                found = search_ctx.find_elements(By.XPATH, xpath) if root else [self.find(xpath, wait_seconds=2.0)]
+                found = [f for f in found if f]
+                if found:
+                    return found[0]
             except Exception:
                 continue
-                
-        return datos_casos
+        return self._find_tbody_by_header(search_ctx, header_keywords)
 
-    # =========================================================================
-    #                      MANEJO DE CASOS
-    # =========================================================================
-
-    def _case_root(self, i: int) -> Optional[Any]:
-        """
-        🧠 INTELIGENTE: Obtiene el div raíz de un caso por índice en la cartola.
-        
-        Args:
-            i: Índice del caso (0-based)
-            
-        Returns:
-            WebElement del div.contRow que contiene el caso
-        """
-        try:
-            # Primero encontrar el contenedor principal
-            contenedor_xpaths = [
-                "//div[contains(@class,'contRow') and contains(@class,'contRowBox') and contains(@class,'scrollH')]",
-                "//div[@class='contRow contRowBox scrollH']",
-            ]
-            
-            contenedor = None
-            for xpath in contenedor_xpaths:
-                contenedor = self._find([xpath], "presence", "case_list_read")
-                if contenedor:
-                    break
-            
-            if not contenedor:
-                return None
-            
-            # Encontrar todos los divs de casos
-            casos_divs = contenedor.find_elements(By.XPATH, ".//div[@class='contRow'][.//input[@type='checkbox']]")
-            
-            # Retornar el div del índice solicitado
-            if 0 <= i < len(casos_divs):
-                return casos_divs[i]
-            return None
-        except Exception:
-            return None
-
-    def expandir_caso(self, i: int) -> Optional[Any]:
-        """
-        🧠 INTELIGENTE: Expande un caso haciendo click en su checkbox.
-        
-        Args:
-            i: Índice del caso (0-based)
-            
-        Returns:
-            Elemento raíz del caso expandido, o None
-        """
-        root = self._case_root(i)
-        if not root:
-            return None
-        
-        try:
-            # Buscar el checkbox dentro de este div
-            checkbox = root.find_element(By.XPATH, ".//input[@type='checkbox']")
-            
-            # Verificar si ya está expandido (checked)
-            if not checkbox.is_selected():
-                log_debug(f"📂 Expanding case {i}...")
-                
-                # Scroll usando helper seguro
-                self.scroll_to(checkbox)
-                
-                # Click en el checkbox para expandir
-                try:
-                    checkbox.click()
-                except Exception:
-                    # Fallback: click via JavaScript
-                    self.driver.execute_script("arguments[0].click();", checkbox)
-                
-                # Esperar a que se expanda
-                time.sleep(0.5)
-                self._wait_smart("spinner")
-            else:
-                log_debug(f"📂 Case {i} already expanded")
-            
-            return root
-        except Exception as e:
-            return None
-
-    def cerrar_caso_por_indice(self, i: int) -> None:
-        """
-        🧠 INTELIGENTE: Cierra un caso expandido haciendo click en su checkbox.
-        
-        Args:
-            i: Índice del caso (0-based)
-        """
-        try:
-            root = self._case_root(i)
-            if root:
-                checkbox = root.find_element(By.XPATH, ".//input[@type='checkbox']")
-                
-                # Si está checked (expandido), hacer click para cerrar
-                if checkbox.is_selected():
-                    try:
-                        checkbox.click()
-                    except Exception:
-                        self.driver.execute_script("arguments[0].click();", checkbox)
-                    time.sleep(0.3)
-        except Exception:
-            pass
-
-    # =========================================================================
-    #                      PRESTACIONES
-    # =========================================================================
-
-    def _prestaciones_tbody(self, i: int) -> Optional[Any]:
-        """
-        Obtiene el tbody de prestaciones de un caso usando búsqueda semántica robusta.
-        Prioriza encontrar el label 'Prestaciones otorgadas' dentro del caso.
-        """
-        # 1. Obtener raíz del caso
-        root = self._case_root(i)
-        if not root:
-             log_debug(f"⚠️ Could not find case root for index {i}")
-             return None
-             
-        # 2. Buscar por Label "Prestaciones otorgadas"
-        # Esto es inmune a cambios estructurales (div[5] vs div[6])
-        lbl = self._find_section_label_p(root, "Prestaciones otorgadas")
-        if lbl:
-            tb = self._tbody_from_label_p(lbl)
-            if tb:
-                log_debug(f"🔍 Found PO table via Label strategy")
-                return tb
-        
-        # 3. Fallback: Buscar tabla genérica dentro del container de secciones
-        # Asume que es la tabla visible más grande o la primera en la sección de contenido
-        try:
-             # Estrategia: Buscar cualquier tabla que tenga un header "Código"
-             tables = root.find_elements(By.TAG_NAME, "table")
-             for t in tables:
-                 if "Código" in (t.get_attribute("innerText") or ""):
-                     log_debug(f"🔍 Found PO table via Header Content strategy")
-                     return t.find_element(By.TAG_NAME, "tbody")
-        except: 
-            pass
-
-        # 4. Fallback final: XPath rígido relativo al root (lo que tenía el usuario pero relativo)
-        # root es el div.contRow del caso.
-        # Usuario: .../div[6]/div[2]/div/table
-        # Intentamos selectores relativos comunes
-        for xp in [
-            ".//div[contains(@class,'contRowBox')]//table/tbody",
-            ".//div[6]//table/tbody", # User structure suggestion
-        ]:
-            try:
-                el = root.find_element(By.XPATH, xp)
-                if el:
-                    log_debug(f"🔍 Found PO table via Fallback XPath: {xp}")
-                    return el
-            except:
-                continue
-                
-        log_debug(f"❌ FAILED to find PO table for case {i}")
-        return None
-
-    def leer_prestaciones_desde_tbody(self, tbody: Any) -> List[Dict[str, str]]:
-        """
-        Lee prestaciones desde un tbody.
-        v2.1: Robustez NASA (Stability Wait + Force Scroll + Audit Logs).
-        """
-        out = []
-        if not tbody:
-            return out
-        
-        _ddmmyyyy = re.compile(r"\b(\d{2}/\d{2}/\d{4})\b", re.I)
-        
-        try:
-            # 1. FORCE SCROLL & STABILITY WAIT
-            # A veces la tabla carga lento o lazy.
-            # Scroll al final del elemento (si es posible) para gatillar lazy load
-            try:
-                self.driver.execute_script("arguments[0].scrollIntoView(false);", tbody)
-            except: pass
-
-            import time
-            rows = []
-            last_count = 0
-            stability_counter = 0
-            
-            # Intentar hasta 5 segundos, buscando estabilidad (1s sin cambios)
-            for _ in range(10): 
-                try:
-                    current_rows = tbody.find_elements(By.TAG_NAME, "tr")
-                    cnt = len(current_rows)
-                    
-                    if cnt > 0 and cnt == last_count:
-                        stability_counter += 1
-                        if stability_counter >= 2: # 1 segundo estable
-                            rows = current_rows
-                            break
-                    else:
-                        stability_counter = 0 # Reset si cambia
-                        
-                    last_count = cnt
-                except: pass
-                time.sleep(0.5)
-            
-            # Si falló la estabilidad, usar lo que tenga
-            if not rows and last_count > 0:
-                rows = current_rows
-
-            log_debug(f"📚 Found {len(rows)} rows in PO table (Stable State)")
-            
-            # === INTELIGENCIA: MAPEO DINÁMICO DE COLUMNAS ===
-            # Default indices (fallback)
-            idx_date = 2  # Fecha Inicio
-            idx_code = 7  # Código
-            idx_glosa = 8 # Glosa
-            idx_ref = 0   # Referencia
-            
-            try:
-                # Buscar el thead (hermano anterior o hijo de table padre)
-                table = tbody.find_element(By.XPATH, "..")
-                theads = table.find_elements(By.TAG_NAME, "th")
-                if theads:
-                    headers = [(h.get_attribute("innerText") or "").lower().strip() for h in theads]
-                    # print(f"DEBUG MAP: Headers found: {headers}")
-                    
-                    found_d, found_c = False, False
-                    for i, h in enumerate(headers):
-                        if "inicio" in h and "fecha" in h: 
-                            idx_date = i
-                            found_d = True
-                        elif "código" in h or "codigo" in h: 
-                            idx_code = i
-                            found_c = True
-                        elif "glosa" in h: 
-                            idx_glosa = i
-                        elif "referencia" in h: 
-                            idx_ref = i
-                            
-                    if found_d and found_c:
-                         log_debug(f"🧠 Dynamic Column Map APPLIED -> Date:{idx_date}, Code:{idx_code}, Glosa:{idx_glosa}")
-                    else:
-                         log_debug("🧠 Dynamic Map incomplete, using defaults/hybrids.")
-            except Exception as e:
-                log_debug(f"⚠️ Column Mapping Failed ({e}), using defaults.")
-
-            for i, tr in enumerate(reversed(rows)):
-                tds = tr.find_elements(By.TAG_NAME, "td")
-                
-                # Check bounds
-                max_idx = max(idx_date, idx_code, idx_glosa, idx_ref)
-                if len(tds) <= max_idx:
-                    continue
-                
-                # USAR innerText (Robustez contra scroll)
-                def get_text(el):
-                    return (el.get_attribute("innerText") or "").strip()
-                
-                f = (get_text(tds[idx_date]).split(" ")[0] if len(tds) > idx_date else "")
-                
-                # Fallback fecha flexible (si falla columna mapeada, buscar en todas)
-                if not dparse(f):
-                    for c in tds:
-                        m = _ddmmyyyy.search(get_text(c))
-                        if m:
-                            f = m.group(1)
-                            break
-                
-                # Columnas críticas mapeadas
-                raw_code = get_text(tds[idx_code])
-                raw_glosa = get_text(tds[idx_glosa])
-                ref_text = get_text(tds[idx_ref])
-                
-                # === AUDITORÍA ===
-                # Si el código viene vacío pero la fecha existe, es SOSPECHOSO.
-                # O si es el código reportado como problemático.
-                if not raw_code and f:
-                     html_snap = tr.get_attribute("outerHTML")[:200]
-                     log_warn(f"⚠️ AUDIT: Row {i} has DATE but NO CODE. HTML Snap: {html_snap}")
-
-                # print(f"DEBUG: PO Row -> Date: {f} | Code: '{raw_code}' | Glosa: '{raw_glosa[:20]}...'")
-                
-                out.append({
-                    "fecha": f,
-                    "codigo": raw_code,
-                    "glosa": raw_glosa,
-                    "ref": ref_text
-                })
-
-            # RESUMEN FINAL DE LA TABLA (Evidence)
-            all_codes = [x["codigo"] for x in out if x["codigo"]]
-            log_debug(f"📊 EVIDENCE: Total PO loaded: {len(out)}. Codes found: {all_codes}")
-            
-            return out
-
-        except Exception as e:
-            log_warn(f"❌ Error reading PO table: {e}")
-            return []
-
-    # =========================================================================
-    #                    HELPERS PARA SECCIONES
-    # =========================================================================
-
+    # ======================================================================
+    #                  HELPERS PARA SECCIONES (legacy robusto)
+    # ======================================================================
     def _find_section_label_p(self, root, needle: str):
-        """Busca un label de sección por texto normalizado."""
-        from src.core.Formatos import _norm
+        """Busca un <p> de sección cuyo texto contenga el needle normalizado."""
         nd = _norm(needle)
         try:
             for el in root.find_elements(By.XPATH, ".//div/label/p"):
@@ -1763,12 +712,12 @@ class SiggesDriver:
         return None
 
     def _tbody_from_label_p(self, p_el):
-        """Obtiene tbody relativo a un label encontrado."""
+        """Obtiene el tbody relativo a un label encontrado."""
         for xp in [
             "../../../following-sibling::div[1]//table/tbody",
             "../../following-sibling::div[1]//table/tbody",
             "../following-sibling::div[1]//table/tbody",
-            "ancestor::div[1]/following-sibling::div[1]//table/tbody"
+            "ancestor::div[1]/following-sibling::div[1]//table/tbody",
         ]:
             try:
                 tb = p_el.find_element(By.XPATH, xp)
@@ -1778,301 +727,716 @@ class SiggesDriver:
                 continue
         return None
 
-    # =========================================================================
-    #                           IPD
-    # =========================================================================
+    def _prestaciones_tbody(self, root=None) -> Optional[Any]:
+        """
+        Retorna el tbody de Prestaciones Otorgadas (PO) del caso activo.
+        Prioriza:
+          1) El título de la sección (TITLE_PO de la Biblia) + tabla siguiente.
+          2) XPaths explícitos de la Biblia (PRESTACIONES_TBODY).
+          3) Encabezados característicos de PO (cantidad + glosa + prestaci).
+          4) Búsqueda global por th con texto "Código de prestación" + "Glosa prestación".
+        """
+        search_ctx = root if root is not None else self.driver
 
-    def leer_ipd_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str], List[str]]:
+        # 1) Anclado por título exacto de la Biblia
+        for xp in LOCS.get("TITLE_PO", []) or []:
+            try:
+                title_el = search_ctx.find_element(By.XPATH, xp)
+                # Tabla suele estar en el siguiente contenedor hermano
+                for rel_xp in [
+                    "../../following-sibling::div[1]//table/tbody",
+                    "../following-sibling::div[1]//table/tbody",
+                    "following::table[1]/tbody",
+                ]:
+                    try:
+                        tb = title_el.find_element(By.XPATH, rel_xp)
+                        if tb:
+                            return tb
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        # 2) XPaths de Biblia
+        # Solo el xpath específico de PO (evitar el genérico que toma cualquier contRow)
+        for xp in (LOCS.get("PRESTACIONES_TBODY", [])[:1]):
+            try:
+                tb = search_ctx.find_element(By.XPATH, xp)
+                if tb:
+                    return tb
+            except Exception:
+                continue
+
+        # 3) Búsqueda por encabezados distintivos de PO en el contexto actual
+        tb = self._find_tbody_generic(
+            root,
+            header_keywords=["cantidad", "glosa", "prestaci"],
+            fallback_keys=[]
+        )
+        if tb:
+            return tb
+
+        # 4) Búsqueda GLOBAL por texto de th (más robusta cuando cambian los índices de div)
+        try:
+            tb = self.driver.find_element(
+                By.XPATH,
+                "//th[contains(., 'Código de prestación')]/ancestor::table/tbody"
+            )
+            if tb:
+                return tb
+        except Exception:
+            pass
+
+        return None
+
+    def leer_prestaciones_desde_tbody(self, tbody) -> List[Dict[str, str]]:
+        """Lee prestaciones desde el tbody encontrado."""
+        data = []
+        if not tbody: return data
+        try:
+            # Mapear columnas por encabezado si existe
+            code_idx = glosa_idx = fecha_idx = estab_idx = esp_idx = ref_idx = None
+            try:
+                table = tbody.find_element(By.XPATH, "..")
+                thead = table.find_element(By.TAG_NAME, "thead")
+                headers = [h.text.lower().strip() for h in thead.find_elements(By.TAG_NAME, "th")]
+                for i, h in enumerate(headers):
+                    if code_idx is None and "código" in h and "prest" in h:
+                        code_idx = i
+                    if glosa_idx is None and "glosa" in h and "prest" in h:
+                        glosa_idx = i
+                    if fecha_idx is None and ("término" in h or "fecha término" in h or "fecha" in h):
+                        fecha_idx = i
+                    if ref_idx is None and "referencia" in h:
+                        ref_idx = i
+                    if estab_idx is None and "establecimiento" in h:
+                        estab_idx = i
+                    if esp_idx is None and "especialidad destino" in h:
+                        esp_idx = i
+            except Exception:
+                pass
+
+            rows = tbody.find_elements(By.TAG_NAME, "tr")
+            if not rows:
+                log_warn("⚠️ Prestaciones: tbody sin filas.")
+            for row in rows:
+                cols = row.find_elements(By.TAG_NAME, "td")
+                if cols:
+                    c_ref = cols[ref_idx].text.strip() if ref_idx is not None and ref_idx < len(cols) else cols[0].text.strip()
+                    c_fecha = cols[fecha_idx].text.strip() if fecha_idx is not None and fecha_idx < len(cols) else (cols[3].text.strip() if len(cols) > 3 else cols[1].text.strip())
+
+                    # Código: intentar por header; si no, heurística por regex de dígitos (6-8)
+                    c_codigo = ""
+                    if code_idx is not None and code_idx < len(cols):
+                        c_codigo = cols[code_idx].text.strip()
+                    else:
+                        for td in cols:
+                            txt = td.text.strip()
+                            if re.search(r"\d{6,8}", txt):
+                                c_codigo = txt
+                                break
+                        if not c_codigo and len(cols) > 7:
+                            c_codigo = cols[7].text.strip()
+
+                    c_glosa = cols[glosa_idx].text.strip() if glosa_idx is not None and glosa_idx < len(cols) else (cols[8].text.strip() if len(cols) > 8 else "")
+                    c_estab = cols[estab_idx].text.strip() if estab_idx is not None and estab_idx < len(cols) else (cols[5].text.strip() if len(cols) > 5 else "")
+                    c_esp = cols[esp_idx].text.strip() if esp_idx is not None and esp_idx < len(cols) else (cols[6].text.strip() if len(cols) > 6 else "")
+
+                    data.append({
+                        "referencia": c_ref,
+                        "fecha": c_fecha,
+                        "codigo": c_codigo,
+                        "glosa": c_glosa,
+                        "establecimiento": c_estab,
+                        "especialidad": c_esp,
+                    })
+        except:
+            pass
+        return data
+
+    def leer_ipd_desde_caso(self, root, limit: int = 0) -> Tuple[List[str], List[str], List[str]]:
         """
-        Lee información de IPD (Informes de Proceso de Diagnóstico).
+        Lee IPD (Informe Proceso Diagnóstico).
         
-        Args:
-            root: Elemento raíz del caso expandido
-            n: Número de filas a leer
-            
-        Returns:
-            Tupla de (fechas, estados, diagnósticos)
+        Según la Biblia SIGGES, el label de IPD es:
+        "Informes de proceso de diagnóstico (IPD) (X)"
+        Y la tabla está en el siguiente div hermano.
+        
+        Columnas: td[3]=Fecha, td[7]=Confirma/Descarta, td[8]=Diagnóstico
         """
-        if not root:
-            return [], [], []
-        
+        log_debug("[DEBUG] leer_ipd: iniciando búsqueda de tabla IPD...")
         try:
             tbody = None
-            p = self._find_section_label_p(root, "informes de proceso de diagnóstico")
-            if p:
-                tbody = self._tbody_from_label_p(p)
-
+            
+            # MÉTODO 1: Buscar por texto del label (más robusto según Biblia)
+            # El label contiene "Informes de proceso de diagnóstico (IPD)"
+            try:
+                # Buscar todos los <p> que contengan el texto IPD
+                labels = self.driver.find_elements(By.XPATH, 
+                    "//div/label/p[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'informes de proceso de diagn')]"
+                )
+                for label in labels:
+                    log_debug(f"[DEBUG] leer_ipd: label encontrado: {label.text[:50] if label.text else 'vacío'}...")
+                    # El tbody está en: ancestor div -> siguiente hermano div que contiene table
+                    for rel_xp in [
+                        "./ancestor::div[1]/following-sibling::div[1]//table/tbody",
+                        "./ancestor::div[2]/following-sibling::div[1]//table/tbody",
+                        "./../../following-sibling::div[1]//table/tbody",
+                        "./../../../following-sibling::div[1]//table/tbody",
+                    ]:
+                        try:
+                            tbody = label.find_element(By.XPATH, rel_xp)
+                            if tbody:
+                                log_debug("[DEBUG] leer_ipd: tbody encontrado por label")
+                                break
+                        except Exception:
+                            continue
+                    if tbody:
+                        break
+            except Exception as e:
+                log_debug(f"[DEBUG] leer_ipd: error buscando por label: {e}")
+            
+            # MÉTODO 2: Fallback con XPaths de la Biblia (absolutos)
             if not tbody:
-                for xp in XPATHS.get("IPD_TBODY_FALLBACK", []):
+                log_debug("[DEBUG] leer_ipd: usando fallbacks de XPath absoluto...")
+                for xp in LOCS.get("IPD_TBODY_FALLBACK", []):
                     try:
-                        relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
+                        tbody = self.driver.find_element(By.XPATH, xp)
                         if tbody:
+                            log_debug(f"[DEBUG] leer_ipd: tbody encontrado con {xp[:60]}...")
                             break
                     except Exception:
                         continue
-
+            
             if not tbody:
+                log_debug("[DEBUG] leer_ipd: NO se encontró tbody IPD")
                 return [], [], []
-
+            
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
+            log_debug(f"[DEBUG] leer_ipd: {len(rows)} filas encontradas en tabla IPD")
+            
             parsed = []
-
             for r in rows:
                 try:
                     tds = r.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 8:
                         continue
-                    f_txt = (tds[2].text or "").strip()
-                    e_txt = (tds[6].text or "").strip()
-                    d_txt = (tds[7].text or "").strip()
+                    f_txt = (tds[2].text or "").strip()          # Fecha IPD (col 3)
+                    e_txt = (tds[6].text or "").strip()          # Confirma/descarta (col 7)
+                    d_txt = (tds[7].text or "").strip()          # Diagnóstico (col 8)
                     f_dt = dparse(f_txt) or 0
                     parsed.append((f_dt, f_txt, e_txt, d_txt))
                 except Exception:
                     continue
-
+            
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0:
-                parsed = parsed[:n]
-
-            log_debug(f"🔍 IPD: Found {len(rows)} | Parsed {len(parsed)}")
-            return (
-                [p[1] for p in parsed],
-                [p[2] for p in parsed],
-                [p[3] for p in parsed]
-            )
+            if limit and limit > 0:
+                parsed = parsed[:limit]
+            
+            log_debug(f"[DEBUG] leer_ipd: {len(parsed)} registros parseados")
+            return ([p[1] for p in parsed], [p[2] for p in parsed], [p[3] for p in parsed])
+            
         except Exception as e:
             log_warn(f"⚠️ Error IPD: {e}")
             return [], [], []
 
-    # =========================================================================
-    #                            OA
-    # =========================================================================
-
-    def leer_oa_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str], List[str], List[str], List[str]]:
+    def leer_oa_desde_caso(self, root, limit: int = 0) -> Tuple[List[str], List[str], List[str], List[str], List[str]]:
         """
-        Lee información de OA (Órdenes de Atención).
+        Lee OA (Orden de Atención).
         
-        Args:
-            root: Elemento raíz del caso expandido
-            n: Número de filas a leer
-            
-        Returns:
-            Tupla de (fechas, derivados, diagnósticos, códigos, folios)
+        Según la Biblia SIGGES, el label es:
+        "Ordenes de Atención (OA) (X)"
+        Columnas: td[1]=Folio, td[3]=Fecha, td[9]=Derivada para, td[10]=Código, td[13]=Diagnóstico
         """
-        if not root:
-            return [], [], [], [], []
-        
+        log_debug("[DEBUG] leer_oa: iniciando búsqueda de tabla OA...")
         try:
             tbody = None
-            p = self._find_section_label_p(root, "ordenes de atencion")
-            if p:
-                tbody = self._tbody_from_label_p(p)
-
+            
+            # MÉTODO 1: Buscar por texto del label - buscamos "(OA)" que es único
+            try:
+                labels = self.driver.find_elements(By.XPATH, 
+                    "//div/label/p[contains(text(), '(OA)')]"
+                )
+                for label in labels:
+                    log_debug(f"[DEBUG] leer_oa: label encontrado: {label.text[:50] if label.text else 'vacío'}...")
+                    for rel_xp in [
+                        "./ancestor::div[1]/following-sibling::div[1]//table/tbody",
+                        "./ancestor::div[2]/following-sibling::div[1]//table/tbody",
+                        "./../../following-sibling::div[1]//table/tbody",
+                        "./../../../following-sibling::div[1]//table/tbody",
+                    ]:
+                        try:
+                            tbody = label.find_element(By.XPATH, rel_xp)
+                            if tbody:
+                                log_debug("[DEBUG] leer_oa: tbody encontrado por label")
+                                break
+                        except Exception:
+                            continue
+                    if tbody:
+                        break
+            except Exception as e:
+                log_debug(f"[DEBUG] leer_oa: error buscando por label: {e}")
+            
+            # MÉTODO 2: Fallback XPaths absolutos
             if not tbody:
-                for xp in XPATHS.get("OA_TBODY_FALLBACK", []):
+                log_debug("[DEBUG] leer_oa: usando fallbacks...")
+                for xp in LOCS.get("OA_TBODY_FALLBACK", []):
                     try:
-                        relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
+                        tbody = self.driver.find_element(By.XPATH, xp)
                         if tbody:
+                            log_debug(f"[DEBUG] leer_oa: tbody encontrado con fallback")
                             break
                     except Exception:
                         continue
-
+            
             if not tbody:
+                log_debug("[DEBUG] leer_oa: NO se encontró tbody OA")
                 return [], [], [], [], []
-
+            
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
+            log_debug(f"[DEBUG] leer_oa: {len(rows)} filas encontradas")
+            
             parsed = []
-
             for r in rows:
                 try:
                     tds = r.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 13:
                         continue
                     folio = (tds[0].text or "").strip()
-                    f_txt = (tds[2].text or "").split(" ")[0].strip()
-                    deriv = (tds[8].text or "").strip()
-                    cod = (tds[9].text or "").strip()
-                    diag = (tds[12].text or "").strip()
+                    f_txt = (tds[2].text or "").split(" ")[0].strip()  # Fecha OA
+                    deriv = (tds[8].text or "").strip()                # Derivada para
+                    cod = (tds[9].text or "").strip()                  # Código prestación
+                    diag = (tds[12].text or "").strip()                # Hipótesis diagnóstico
                     f_dt = dparse(f_txt) or 0
                     parsed.append((f_dt, f_txt, deriv, diag, cod, folio))
                 except Exception:
                     continue
-
+            
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0:
-                parsed = parsed[:n]
-
-            log_debug(f"🔍 OA: Found {len(rows)} | Parsed {len(parsed)}")
+            if limit and limit > 0:
+                parsed = parsed[:limit]
+            
+            log_debug(f"[DEBUG] leer_oa: {len(parsed)} registros parseados")
             return (
-                [p[1] for p in parsed],  # Fecha
-                [p[2] for p in parsed],  # Derivado
-                [p[3] for p in parsed],  # Diagnóstico
-                [p[4] for p in parsed],  # Código
-                [p[5] for p in parsed],  # Folio
+                [p[1] for p in parsed],
+                [p[2] for p in parsed],
+                [p[3] for p in parsed],
+                [p[4] for p in parsed],
+                [p[5] for p in parsed],
             )
         except Exception as e:
             log_warn(f"⚠️ Error OA: {e}")
             return [], [], [], [], []
 
-    # =========================================================================
-    #                            APS
-    # =========================================================================
-
-    def leer_aps_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str]]:
+    def leer_aps_desde_caso(self, root, limit: int = 0) -> Tuple[List[str], List[str]]:
         """
-        Lee información de APS (Hoja Diaria APS/Especialidad).
+        Lee APS (Hoja Diaria APS/Especialidad).
         
-        Args:
-            root: Elemento raíz del caso expandido
-            n: Número de filas a leer
-            
-        Returns:
-            Tupla de (fechas, estados)
+        Según la Biblia SIGGES: "Hoja Diaria APS/Especialidad (X)"
+        Columnas: td[2]=Fecha atención, td[3]=Estado
         """
-        if not root:
-            return [], []
-
+        log_debug("[DEBUG] leer_aps: iniciando búsqueda de tabla APS...")
         try:
             tbody = None
             
-            # 🔧 PRIORIDAD 1: XPath directo (más confiable)
-            for xp in XPATHS.get("APS_TBODY_FALLBACK", []):
-                try:
-                    if xp.startswith("/html"):
-                        tbody = self.driver.find_element(By.XPATH, xp)
-                    else:
-                        tbody = root.find_element(By.XPATH, xp.lstrip("."))
-                    
+            # MÉTODO 1: Buscar por texto del label
+            try:
+                labels = self.driver.find_elements(By.XPATH, 
+                    "//div/label/p[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'hoja diaria aps')]"
+                )
+                for label in labels:
+                    log_debug(f"[DEBUG] leer_aps: label encontrado: {label.text[:50] if label.text else 'vacío'}...")
+                    for rel_xp in [
+                        "./ancestor::div[1]/following-sibling::div[1]//table/tbody",
+                        "./ancestor::div[2]/following-sibling::div[1]//table/tbody",
+                        "./../../following-sibling::div[1]//table/tbody",
+                        "./../../../following-sibling::div[1]//table/tbody",
+                    ]:
+                        try:
+                            tbody = label.find_element(By.XPATH, rel_xp)
+                            if tbody:
+                                log_debug("[DEBUG] leer_aps: tbody encontrado por label")
+                                break
+                        except Exception:
+                            continue
                     if tbody:
-                        # Validar que es la tabla correcta: debe tener columna con "Caso"
-                        first_row = tbody.find_elements(By.TAG_NAME, "tr")
-                        if first_row:
-                            tds = first_row[0].find_elements(By.TAG_NAME, "td")
-                            if len(tds) >= 3:
-                                estado_txt = (tds[2].text or "").strip().lower()
-                                # Validar que la columna 3 es un estado, no otra cosa
-                                if "caso" in estado_txt or estado_txt == "":
-                                    log_info(f"✅ APS: Encontrado por XPath directo")
-                                    break
-                        tbody = None  # No válido, seguir buscando
-                except Exception:
-                    continue
+                        break
+            except Exception as e:
+                log_debug(f"[DEBUG] leer_aps: error buscando por label: {e}")
             
-            # 🔧 PRIORIDAD 2: Buscar por label (fallback)
+            # MÉTODO 2: Fallback XPaths absolutos
             if not tbody:
-                p = self._find_section_label_p(root, "Hoja Diaria APS")
-                if p:
-                    tbody = self._tbody_from_label_p(p)
-                    if tbody:
-                        log_info("✅ APS: Encontrado por label")
-
+                log_debug("[DEBUG] leer_aps: usando fallbacks...")
+                for xp in LOCS.get("APS_TBODY_FALLBACK", []):
+                    try:
+                        tbody = self.driver.find_element(By.XPATH, xp)
+                        if tbody:
+                            log_debug("[DEBUG] leer_aps: tbody encontrado con fallback")
+                            break
+                    except Exception:
+                        continue
+            
             if not tbody:
+                log_debug("[DEBUG] leer_aps: NO se encontró tbody APS")
                 return [], []
-
+            
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
+            log_debug(f"[DEBUG] leer_aps: {len(rows)} filas encontradas")
+            
             parsed = []
-
             for tr in rows:
                 try:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 3:
                         continue
-                    
-                    # td[1] = Fecha APS (segunda columna)
-                    # td[2] = Estado (tercera columna)
-                    fecha_txt = (tds[1].text or "").strip()
-                    estado_txt = (tds[2].text or "").strip()
-                    
-                    # Validación REMOVIDA por solicitud usuario: permitir cualquier estado (ej: Descartado, Tamizaje)
-                    # if estado_txt and "caso" not in estado_txt.lower():
-                    #    log_warn(f"⚠️ APS: Estado inválido '{estado_txt[:30]}' - posible tabla incorrecta")
-                    #    continue
-                    
+                    fecha_txt = (tds[1].text or "").strip()   # Col 2 Fecha atención
+                    estado_txt = (tds[2].text or "").strip()  # Col 3 Estado
                     fecha_dt = dparse(fecha_txt) or 0
                     parsed.append((fecha_dt, fecha_txt, estado_txt))
                 except Exception:
                     continue
-
+            
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0:
-                parsed = parsed[:n]
-
-            log_debug(f"🔍 APS: Found {len(rows)} | Parsed {len(parsed)}")
+            if limit and limit > 0:
+                parsed = parsed[:limit]
+            
+            log_debug(f"[DEBUG] leer_aps: {len(parsed)} registros parseados")
             return ([p[1] for p in parsed], [p[2] for p in parsed])
-
         except Exception as e:
             log_warn(f"⚠️ Error APS: {e}")
             return [], []
 
-    # =========================================================================
-    #                            SIC
-    # =========================================================================
-
-    def leer_sic_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str]]:
+    def leer_sic_desde_caso(self, root, limit: int = 0) -> Tuple[List[str], List[str]]:
         """
-        Lee información de SIC (Solicitudes de Interconsultas).
+        Lee SIC (Solicitudes de Interconsultas).
         
-        Args:
-            root: Elemento raíz del caso expandido
-            n: Número de filas a leer
-            
-        Returns:
-            Tupla de (fechas_sic, derivados)
-            - fechas_sic: Columna 3 (Fecha SIC)
-            - derivados: Columna 9 (Derivada para)
+        Según la Biblia SIGGES: "Solicitudes de interconsultas (SIC) (X)"
+        Columnas: td[3]=Fecha SIC, td[9]=Derivada para, td[10]=Diagnóstico
         """
-        if not root:
-            return [], []
-
+        log_debug("[DEBUG] leer_sic: iniciando búsqueda de tabla SIC...")
         try:
             tbody = None
-            p = self._find_section_label_p(root, "solicitudes de interconsultas")
-            if p:
-                tbody = self._tbody_from_label_p(p)
-
-            if not tbody:
-                for xp in XPATHS.get("SIC_TBODY_FALLBACK", []):
-                    try:
-                        relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
-                        if tbody:
-                            break
-                    except Exception:
+            
+            # MÉTODO 1: Buscar por texto del label
+            try:
+                labels = self.driver.find_elements(By.XPATH, 
+                    "//div/label/p[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'solicitudes de interconsultas')]"
+                )
+                for label in labels:
+                    log_debug(f"[DEBUG] leer_sic: label encontrado: {label.text[:50] if label.text else 'vacío'}...")
+                    for rel_xp in [
+                        "./ancestor::div[1]/following-sibling::div[1]//table/tbody",
+                        "./ancestor::div[2]/following-sibling::div[1]//table/tbody",
+                        "./../../following-sibling::div[1]//table/tbody",
+                        "./../../../following-sibling::div[1]//table/tbody",
+                    ]:
                         try:
-                            tbody = root.find_element(By.XPATH, xp)
+                            tbody = label.find_element(By.XPATH, rel_xp)
                             if tbody:
+                                log_debug("[DEBUG] leer_sic: tbody encontrado por label")
                                 break
                         except Exception:
                             continue
-
+                    if tbody:
+                        break
+            except Exception as e:
+                log_debug(f"[DEBUG] leer_sic: error buscando por label: {e}")
+            
+            # MÉTODO 2: Fallback XPaths absolutos
             if not tbody:
+                log_debug("[DEBUG] leer_sic: usando fallbacks...")
+                for xp in LOCS.get("SIC_TBODY_FALLBACK", []):
+                    try:
+                        tbody = self.driver.find_element(By.XPATH, xp)
+                        if tbody:
+                            log_debug("[DEBUG] leer_sic: tbody encontrado con fallback")
+                            break
+                    except Exception:
+                        continue
+            
+            if not tbody:
+                log_debug("[DEBUG] leer_sic: NO se encontró tbody SIC")
                 return [], []
-
+            
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
+            log_debug(f"[DEBUG] leer_sic: {len(rows)} filas encontradas")
+            
             parsed = []
-
             for tr in rows:
                 try:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 9:
                         continue
-                    fecha_sic = (tds[2].text or "").strip()  # Columna 3: Fecha SIC
-                    derivado = (tds[8].text or "").strip()   # Columna 9: Derivada para
+                    fecha_sic = (tds[2].text or "").strip()   # Col 3 Fecha SIC
+                    derivado = (tds[8].text or "").strip()    # Col 9 Derivada para
                     fecha_dt = dparse(fecha_sic) or 0
                     parsed.append((fecha_dt, fecha_sic, derivado))
                 except Exception:
                     continue
-
+            
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0:
-                parsed = parsed[:n]
-
-            log_debug(f"🔍 SIC: Found {len(rows)} | Parsed {len(parsed)}")
+            if limit and limit > 0:
+                parsed = parsed[:limit]
+            
+            log_debug(f"[DEBUG] leer_sic: {len(parsed)} registros parseados")
             return ([p[1] for p in parsed], [p[2] for p in parsed])
-
         except Exception as e:
             log_warn(f"⚠️ Error SIC: {e}")
             return [], []
 
+    # =========================================================================
+    #                    COMPATIBILIDAD Y HELPERS UI
+    # =========================================================================
+
+    def find_input_rut(self) -> Optional[Any]:
+        """Wrapper compatible para encontrar input RUT."""
+        return self._find(XPATHS["INPUT_RUT"], "presence", "default")
+
+    def click_buscar(self) -> bool:
+        """
+        Hace click en Buscar con flujos de respaldo (fallback ENTER).
+        """
+        from selenium.webdriver.common.keys import Keys
+        
+        # 1. Intentar Click Normal
+        if self._click(XPATHS["BTN_BUSCAR"], wait_spinner=True):
+            return True
+        
+        # 2. Fallback: Enviar ENTER al input
+        log_info("⚠️ Click Buscar falló, intentando ENTER en input...")
+        try:
+            inp = self.find_input_rut()
+            if inp:
+                inp.send_keys(Keys.ENTER)
+                self._wait_smart()
+                return True
+        except Exception:
+            pass
+            
+        return False
+
+    def asegurar_submenu_ingreso_consulta_abierto(self, force: bool = False) -> None:
+        """
+        Asegura que el submenú 'Ingreso y Consulta Paciente' esté desplegado.
+        CRÍTICO: Mantiene visible la opción de Búsqueda y Cartola.
+        """
+        try:
+            # 1. Verificar si ya está visible el botón de Búsqueda (indicador de abierto)
+            # Usamos el primer xpath de búsqueda como testigo
+            testigo_xp = XPATHS.get("BTN_MENU_BUSQUEDA", ["//a[contains(@href,'busqueda')]"])[0]
+            if not force and self._check_fast(testigo_xp):
+                 return # Ya está abierto
+                 
+            # 2. Si no, click en el encabezado del menú 'Ingreso y Consulta Paciente'
+            # (El usuario indicó que este es el que abre la lista)
+            encabezado_xp = XPATHS.get("BTN_MENU_INGRESO_CONSULTA_CARD", [])
+            log_debug("📂 Expandiendo menú 'Ingreso y Consulta'...")
+            self._click(encabezado_xp, wait_spinner=False)
+            
+            # Pequeña espera para animación
+            time.sleep(0.5)
+            
+        except Exception as e:
+            log_warn(f"⚠️ Error intentando expandir menú: {e}")
+
+    # =========================================================================
+    #                    COMPATIBILIDAD LEGACY
+    # =========================================================================
+    
+    # Métodos dummy o legacy que otros módulos podrían llamar
+    def asegurar_menu_desplegado(self): pass
+    def detectar_estado_actual(self): return "UNKNOWN"
+    def asegurar_estado(self, estado): 
+        if estado == "BUSQUEDA": self.asegurar_en_busqueda()
+        return True 
+
+    # =========================================================================
+    #                     MÉTODOS DE NEGOCIO (RESTORED)
+    # =========================================================================
+
+    def leer_edad(self) -> Optional[int]:
+        """Lee la edad del paciente desde la cabecera."""
+        try:
+            el = self.find(XPATHS["EDAD_PACIENTE"][0], wait_seconds=1.0)
+            if el:
+                # Texto típico: "35 años"
+                txt = el.text.strip()
+                # Extraer solo números
+                nums = re.findall(r'\d+', txt)
+                if nums:
+                    return int(nums[0])
+            return None
+        except:
+            return None
+
+    def leer_fallecimiento(self) -> Optional[Any]:
+        """Lee fecha de fallecimiento si existe."""
+        try:
+            # Buscar texto en la zona de info paciente
+            el = self.find(XPATHS["FECHA_FALLECIMIENTO"][0], wait_seconds=0.5)
+            if el:
+                txt = el.text.lower().strip()
+                # Si dice "vivo" o "sin información", retornar None
+                if "vivo" in txt or "sin informaci" in txt:
+                    return None
+                
+                # Intentar parsear fecha
+                return dparse(el.text)
+            return None
+        except:
+            return None
+
+    def activar_hitos_ges(self) -> None:
+        """Activa el checkbox 'Hitos GES' en la Cartola."""
+        try:
+            # Verificar si ya está activo
+            # Checkbox suele tener class 'active' o atributo checked
+            chk = self.find(XPATHS["CHK_HITOS_GES"][0])
+            if chk:
+                 if not chk.is_selected():
+                     self.click(chk)
+                     self._wait_smart()
+        except:
+            pass
+
+    def extraer_tabla_provisoria_completa(self) -> List[Dict[str, Any]]:
+        """
+        Lee la lista de casos de la cartola (DIV o tabla) y normaliza
+        Caso / Estado / Apertura (fecha sin hora, sin decreto).
+        """
+        def _parse_case(nombre_raw: str, fecha_raw: str, estado_raw: str, raw_text: str):
+            """Normaliza caso/estado/apertura desde el texto crudo."""
+            nombre_clean = nombre_raw.split("{")[0].replace(".", "").strip() if nombre_raw else ""
+            fecha_clean = ""
+            estado_clean = (estado_raw or "").strip()
+
+            # Fecha: preferir la que viene; si no, buscar en el texto (dd/mm/aaaa o dd-mm-aaaa)
+            if not fecha_raw:
+                m = re.search(r"(\d{2}[/-]\d{2}[/-]\d{4})", raw_text or "")
+                fecha_raw = m.group(1) if m else ""
+            if fecha_raw:
+                fecha_clean = fecha_raw.split()[0].strip().replace("-", "/")
+
+            # Estado: si no vino, intentar derivar del texto
+            if not estado_clean and raw_text:
+                # Si tenemos fecha, usarla como ancla
+                anchor = fecha_clean or fecha_raw
+                if anchor and anchor in raw_text:
+                    parts = raw_text.split(anchor)
+                    if len(parts) > 1:
+                        rest = re.sub(r"\\d{2}:\\d{2}:\\d{2}", "", parts[1])
+                        # Tomar segmento después de la última coma
+                        if "," in rest:
+                            rest = rest.split(",")[-1]
+                        estado_clean = rest.strip()
+                # Si sigue vacío, tomar lo que haya después de la última coma del texto
+                if not estado_clean and "," in raw_text:
+                    estado_clean = raw_text.split(",")[-1].strip()
+
+            # Limpieza final
+            cierre = "SI" if "cerrado" in estado_clean.lower() or "cierre" in estado_clean.lower() else "NO"
+            try:
+                f_dt = dparse(fecha_clean) or 0
+            except Exception:
+                f_dt = 0
+            return nombre_clean, estado_clean, fecha_clean, cierre, f_dt
+
+        datos_casos = []
+        try:
+            # ==== Estrategia 1: DIVs ====
+            cont_xps = [
+                "//div[contains(@class,'contRow') and contains(@class,'contRowBox') and contains(@class,'scrollH')]",
+                "//div[@class='contRow contRowBox scrollH']",
+                *(XPATHS.get("CONT_CARTOLA") or [])
+            ]
+            root = None
+            for xp in cont_xps:
+                try:
+                    root = self.driver.find_element(By.XPATH, xp)
+                    if root: break
+                except Exception:
+                    continue
+            if root:
+                casos_divs = root.find_elements(By.XPATH, ".//div[@class='contRow'][.//input[@type='checkbox']]")
+                for i, div in enumerate(casos_divs):
+                    try:
+                        p = div.find_element(By.XPATH, ".//label/p")
+                        raw_text = (p.text or "").strip()
+                        if not raw_text:
+                            continue
+                        nombre, estado, fecha_clean, cierre, f_dt = _parse_case(
+                            raw_text, "", "", raw_text
+                        )
+                        datos_casos.append({
+                            "caso": nombre,
+                            "estado": estado,
+                            "apertura": fecha_clean,
+                            "fecha_apertura": fecha_clean,
+                            "cierre": cierre,
+                            "fecha_dt": f_dt,
+                            "indice": i,
+                            "raw_texto": raw_text
+                        })
+                    except Exception:
+                        continue
+                if datos_casos:
+                    return datos_casos
+
+            # ==== Estrategia 2: Tabla fallback ====
+            tbody_loc = (XPATHS.get("TABLA_PROVISORIA_TBODY") or [None])[0]
+            if tbody_loc:
+                try:
+                    tbody = WebDriverWait(self.driver, 6).until(
+                        EC.presence_of_element_located((By.XPATH, tbody_loc))
+                    )
+                    rows = tbody.find_elements(By.TAG_NAME, "tr")
+                    for idx, row in enumerate(rows):
+                        tds = row.find_elements(By.TAG_NAME, "td")
+                        if not tds:
+                            continue
+                        # Usar columnas si existen, si no, usar row.text completo
+                        nombre_raw = tds[1].text if len(tds) > 1 else row.text
+                        fecha_raw = tds[0].text if len(tds) > 0 else ""
+                        estado_raw = tds[3].text if len(tds) > 3 else (tds[2].text if len(tds) > 2 else "")
+                        raw_text = row.text
+                        nombre, estado, fecha_clean, cierre, f_dt = _parse_case(
+                            nombre_raw, fecha_raw, estado_raw, raw_text
+                        )
+                        datos_casos.append({
+                            "indice": idx,
+                            "caso": nombre,
+                            "estado": estado,
+                            "apertura": fecha_clean,
+                            "fecha_apertura": fecha_clean,
+                            "cierre": cierre,
+                            "fecha_dt": f_dt,
+                            "raw_texto": raw_text
+                        })
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return datos_casos
+
+    def es_conexion_fatal(self, error: Exception) -> bool:
+        """Determina si un error es fatal (requiere reiniciar el navegador)."""
+        error_str = str(error).lower()
+        errores_fatales = [
+            "no such window",
+            "target window already closed",
+            "cannot connect to chrome",
+            "session deleted",
+            "session not created",
+            "chrome not reachable",
+            "invalid session id"
+        ]
+        return any(fatal in error_str for fatal in errores_fatales)
+    # Métodos de lectura que se usan en Conexiones.py (Deben existir)
+    # Estos requieren acceso a Mini_Tabla, Excel_Revision, etc.
+    # Pero Driver no los implementa, solo los usa.
+    # ESPERA: En el código original Driver.py NO tenía lógica de negocio (leer_ipd, leer_oa).
+    # Esos métodos estaban inyectados o en el original tenía imports circulares?
+    # Revisando backup... Driver.py original SI TIENE métodos de lectura y expansión.
+    # CRITICAL: DEBO RESTAURAR ESOS MÉTODOS O IMPORTARLOS.
+    # El usuario solo pidió arreglar LOGIN. No debo borrar la lógica de lectura.
+    # Voy a restaurar los métodos de lectura faltantes en un segundo paso.

@@ -1,182 +1,144 @@
 # Utilidades/Principales/MissionConfigParser.py
 # -*- coding: utf-8 -*-
 """
-Parser/Writer inteligente para Mision_Actual.py
-Permite leer y escribir la configuración preservando comentarios y estructura.
+Parser/Writer inteligente para mission_config.json
+Soporta estructura Global + Lista de Misiones.
+Implementa conversión robusta de tipos (CSV->List, Bool, Int).
 """
-import ast
+import json
 import os
-import re
+import shutil
+import logging
 
 class MissionConfigHandler:
     def __init__(self, filepath):
         self.filepath = filepath
-        self.raw_content = ""
-        self.tree = None
+        self.config = {}
         self._load()
 
     def _load(self):
         if not os.path.exists(self.filepath):
-            raise FileNotFoundError(f"No existe: {self.filepath}")
-        
-        with open(self.filepath, "r", encoding="utf-8") as f:
-            self.raw_content = f.read()
-        
+            # Try to recover from backup if exists
+            backup = self.filepath + ".bak"
+            if os.path.exists(backup):
+                shutil.copy2(backup, self.filepath)
+            else:
+                self.config = {"MISSIONS": []}
+                return
+
         try:
-            self.tree = ast.parse(self.raw_content)
-        except SyntaxError as e:
-            raise ValueError(f"Error de sintaxis en archivo de config: {e}")
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                self.config = json.load(f)
+        except Exception as e:
+            print(f"Error parseando JSON config: {e}")
+            self.config = {"MISSIONS": []}
 
     def get_config(self) -> dict:
-        """Lee la configuración actual como diccionario."""
-        config = {}
-        
-        # Variables globales simples
-        simple_vars = [
-            "NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA",
-            "REVISAR_IPD", "REVISAR_OA", "REVISAR_APS", "REVISAR_SIC",
-            "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES", "MOSTRAR_FUTURAS",
-            "VENTANA_VIGENCIA_DIAS", "MAX_REINTENTOS_POR_PACIENTE",
-            "DEBUG_MODE"
-        ]
-        
-        # Ejecutar el archivo en entorno seguro para extraer valores reales
-        # Esto es más seguro que parsear uno a uno para tipos complejos
-        env = {}
+        return self.config
+
+    def save_config(self, new_data: dict):
+        """
+        Guarda la configuración con conversión de tipos.
+        """
+        # Backup
         try:
-            exec(self.raw_content, {}, env)
-            
-            for var in simple_vars:
-                if var in env:
-                    config[var] = env[var]
-            
-            # Extraer Mision 1 del dict MISSIONS
-            if "MISSIONS" in env and env["MISSIONS"]:
-                m1 = env["MISSIONS"][0] # Asumimos single mission por ahora
-                config["mission_data"] = m1
-                
+            if os.path.exists(self.filepath):
+                shutil.copy2(self.filepath, self.filepath + ".bak")
         except Exception as e:
-            print(f"Error evaluando config: {e}")
-            return {}
-            
-        return config
+            logging.exception(f"MissionConfigParser: error creando backup: {e}")
 
-    def update_config(self, new_data: dict):
-        """
-        Actualiza el archivo usando Regex para preservar comentarios.
-        Es menos 'limpio' que AST puros pero mantiene el formato humano.
-        """
-        content = self.raw_content
-
-        # 1. Actualizar Variables Globales
-        global_map = {
-            "NOMBRE_DE_LA_MISION": new_data.get("NOMBRE_DE_LA_MISION"),
-            "RUTA_ARCHIVO_ENTRADA": new_data.get("RUTA_ARCHIVO_ENTRADA"),
-            "RUTA_CARPETA_SALIDA": new_data.get("RUTA_CARPETA_SALIDA"),
-            "MAX_REINTENTOS_POR_PACIENTE": new_data.get("MAX_REINTENTOS_POR_PACIENTE"),
-            "VENTANA_VIGENCIA_DIAS": new_data.get("VENTANA_VIGENCIA_DIAS"),
-            "REVISAR_IPD": new_data.get("REVISAR_IPD"),
-            "REVISAR_OA": new_data.get("REVISAR_OA"),
-            "MOSTRAR_FUTURAS": new_data.get("MOSTRAR_FUTURAS"),
-            "DEBUG_MODE": new_data.get("DEBUG_MODE"),
-        }
+        # Update internal state with Type Enforcement
+        coerced_data = self._enforce_types(new_data)
         
-        for key, val in global_map.items():
-            if val is None: continue
+        # Merge top-level keys
+        for k, v in coerced_data.items():
+            self.config[k] = v
             
-            # Formato valor Python
-            if isinstance(val, bool):
-                val_str = str(val)
-            elif isinstance(val, int):
-                val_str = str(val)
-            elif isinstance(val, str):
-                # Escapar backslashes para rutas Windows
-                if "\\" in val:
-                    val = val.replace("\\", "\\\\")
-                val_str = f'"{val}"' if 'r"' not in content else f'r"{val}"' # Detectar si usa r-string
-                # Simplificado: forzamos string normal o r-string si detectamos ruta
-                if "\\" in val:  # Es ruta
-                    val_str = f'r"{val.replace("\\\\", "\\")}"'
-                else:
-                    val_str = f'"{val}"'
+        # Write
+        try:
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                # Ordenar claves para legibilidad
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error escribiendo config: {e}")
+            raise e
+
+    def _enforce_types(self, data: dict) -> dict:
+        """
+        Convierte valores crudos de UI (strings) a tipos correctos (list, bool, int).
+        """
+        out = {}
+        
+        # Listas de campos conocidos por tipo
+        csv_fields = ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio"]
+        bool_fields = ["require_ipd", "require_oa", "require_aps", "require_sic", "show_futures", "active_year_codes", "filtro_folio_activo"]
+        int_fields = ["max_objetivos", "max_habilitantes", "max_excluyentes", "edad_min", "edad_max", "frecuencia_cantidad", "vigencia_dias"]
+        
+        # Helper para detectar si estamos en una mision (MIS_x_field) o global
+        # Pero control_panel YA devuelve estructura anidada o plana?
+        # control_panel._gather_form_data YA construye la estructura {"MISSIONS": [{}, {}], "GLOBAL": val}
+        # Así que 'data' aquí ya es el objeto final estructurado.
+        
+        # Procesar recursivamente si es necesario, O asumiendo estructura plana top-level + MISSIONS list
+        
+        # 1. Global fields (top level)
+        for k, v in data.items():
+            if k == "MISSIONS":
+                out["MISSIONS"] = [self._process_mission(m) for m in v]
             else:
-                continue
-
-            # Regex: BUSCAR 'VARIABLE : type = valor' O 'VARIABLE = valor'
-            # Group 1: Inicio de línea hasta el igual
-            pattern = re.compile(rf"^({key}\s*(?::\s*[a-zA-Z0-9_]+)?\s*=\s*)(.+)$", re.MULTILINE)
-            
-            if pattern.search(content):
-                content = pattern.sub(rf"\g<1>{val_str}", content)
-        
-        # 2. Actualizar MISSIONS (dict complejo)
-        # Esto es difícil con regex puro. Reemplazaremos el bloque completo de la mision 1.
-        # Buscamos 'MISSIONS: List[Dict[str, Any]] = [' hasta ']'
-        
-        # Reconstruir dict de misión 1 como string
-        mdata = new_data.get("mission_data", {})
-        if mdata:
-            # Formatear bonito
-            m_str = "    {\n"
-            m_str += f'        "nombre": "{mdata.get("nombre", "")}",\n'
-            m_str += f'        "keywords": {mdata.get("keywords", [])},\n'
-            m_str += f'        "objetivos": {mdata.get("objetivos", [])},\n'
-            m_str += f'        "habilitantes": {mdata.get("habilitantes", [])},\n'
-            m_str += f'        "excluyentes": {mdata.get("excluyentes", [])},\n'
-            m_str += f'        "familia": "{mdata.get("familia", "")}",\n'
-            m_str += f'        "especialidad": "{mdata.get("especialidad", "")}",\n'
-            m_str += f'        "frecuencia": "{mdata.get("frecuencia", "")}",\n'
-            m_str += f'        "edad_min": {mdata.get("edad_min", "None")},\n'
-            m_str += f'        "edad_max": {mdata.get("edad_max", "None")},\n'
-            m_str += "    }"
-            
-            # Buscar bloque MISSIONS
-            start_marker = "MISSIONS: List[Dict[str, Any]] = ["
-            end_marker = "]"
-            
-            if start_marker in content:
-                # Encontrar start index
-                idx_start = content.find(start_marker)
-                # Encontrar closing bracket DESPUES del start (naive approach)
-                # Mejor asumimos que es el último bloque del archivo o buscamos el cierre correspondiente
-                # Para MVP v3.0, reescribiremos el bloque final si está al final
-                # O mejor, usamos regex para capturar el contenido de la lista
-                pass 
-                # NOTA: Regex para lista anidada es fail.
-                # ESTRATEGIA: Leer AST, reemplazar nodo, unparse? Perde comentarios.
-                # ESTRATEGIA ACTUAL: Solo actualizar llaves específicas dentro del bloque si es único.
+                out[k] = v # Globals se mantienen (strings o bools si ya vienen convertidos)
                 
-                for k in ["nombre", "familia", "especialidad"]:
-                     if k in mdata:
-                         # Buscar "key": "valor"
-                         safe_val = mdata[k]
-                         pattern = re.compile(rf'"{k}":\s*".*?"', re.MULTILINE)
-                         content = pattern.sub(f'"{k}": "{safe_val}"', content)
-                
-                # Keywords (lista)
-                if "keywords" in mdata:
-                     kw_str = str(mdata["keywords"])
-                     pattern = re.compile(r'"keywords":\s*\[.*?\]', re.DOTALL)
-                     content = pattern.sub(f'"keywords": {kw_str}', content)
+        return out
 
-                # Objetivos (lista)
-                if "objetivos" in mdata:
-                     obj_str = str(mdata["objetivos"])
-                     pattern = re.compile(r'"objetivos":\s*\[.*?\]', re.DOTALL)
-                     content = pattern.sub(f'"objetivos": {obj_str}', content)
+    def _process_mission(self, mission: dict) -> dict:
+        """Procesa una misión individual casteando sus campos."""
+        m_out = mission.copy()
+        
+        csv_fields = ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio"]
+        bool_fields = ["require_ipd", "require_oa", "require_aps", "require_sic", "show_futures", "active_year_codes", "filtro_folio_activo"]
+        int_fields = ["max_objetivos", "max_habilitantes", "max_excluyentes", "edad_min", "edad_max", "frecuencia_cantidad", "vigencia_dias"]
 
-                # Habilitantes (lista)
-                if "habilitantes" in mdata:
-                     hab_str = str(mdata["habilitantes"])
-                     pattern = re.compile(r'"habilitantes":\s*\[.*?\]', re.DOTALL)
-                     content = pattern.sub(f'"habilitantes": {hab_str}', content)
+        for k, v in m_out.items():
+            # CSV -> List
+            if k in csv_fields:
+                if isinstance(v, str):
+                    m_out[k] = [x.strip() for x in v.split(",") if x.strip()]
+                elif isinstance(v, list):
+                    m_out[k] = v # Ya es lista
+            
+            # Bool
+            elif k in bool_fields:
+                if isinstance(v, str):
+                    m_out[k] = (v.lower() == "true")
+                else: 
+                     m_out[k] = bool(v)
 
-                # Excluyentes (lista)
-                if "excluyentes" in mdata:
-                     excl_str = str(mdata["excluyentes"])
-                     pattern = re.compile(r'"excluyentes":\s*\[.*?\]', re.DOTALL)
-                     content = pattern.sub(f'"excluyentes": {excl_str}', content)
+            # Int
+            elif k in int_fields:
+                try:
+                    if v == "" or v is None:
+                         m_out[k] = 0
+                    else:
+                         m_out[k] = int(v)
+                except Exception:
+                     m_out[k] = 0
+                     
+            # Special: indices (dict of ints)
+            elif k == "indices" and isinstance(v, dict):
+                 for ik, iv in v.items():
+                     try:
+                         if iv == "" or iv is None: v[ik] = 0
+                         else: v[ik] = int(iv)
+                     except Exception:
+                         v[ik] = 0
+                 m_out[k] = v
 
-        # Guardar
-        with open(self.filepath, "w", encoding="utf-8") as f:
-            f.write(content)
+        return m_out
+
+    # Métodos dunder
+    def __getitem__(self, key):
+        return self.config.get(key)
+
+    def __setitem__(self, key, value):
+        self.config[key] = value
+        self.save_config(self.config)

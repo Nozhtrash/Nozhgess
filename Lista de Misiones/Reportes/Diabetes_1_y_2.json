@@ -1,0 +1,79 @@
+{
+  "DIRECCION_DEBUG_EDGE": "localhost:9222",
+  "EDGE_DRIVER_PATH": "C:\\Windows\\System32\\msedgedriver.exe",
+  "INDICE_COLUMNA_RUT": "1",
+  "INDICE_COLUMNA_NOMBRE": "3",
+  "INDICE_COLUMNA_FECHA": "5",
+  "VENTANA_VIGENCIA_DIAS": "100",
+  "MAX_REINTENTOS_POR_PACIENTE": "5",
+  "HABILITANTES_MAX": "1",
+  "EXCLUYENTES_MAX": "1",
+  "OBSERVACION_FOLIO_FILTRADA": false,
+  "CODIGOS_FOLIO_BUSCAR": [],
+  "REVISAR_IPD": true,
+  "REVISAR_OA": true,
+  "REVISAR_APS": true,
+  "REVISAR_SIC": true,
+  "REVISAR_HABILITANTES": true,
+  "REVISAR_EXCLUYENTES": true,
+  "MOSTRAR_FUTURAS": true,
+  "MISSIONS": [
+    {
+      "nombre": "Diabetes Mellitus 2",
+      "keywords": [
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
+      ],
+      "objetivos": [
+        "3102002"
+      ],
+      "habilitantes": [
+        "3102001",
+        "3102002"
+      ],
+      "excluyentes": [],
+      "familia": "6",
+      "especialidad": "13-13-01",
+      "frecuencia": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "NOMBRE_DE_LA_MISION": "Diabetes 1",
+      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 1.xlsx",
+      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": "['diabetes mellitus II', 'diabetes mellitus tipo 2', 'diabetes mellitus tipo II', 'mellitus II', 'mellitus 2']",
+      "frecuencia_cantidad": "1 ",
+      "periodicidad": "Mensual"
+    },
+    {
+      "nombre": "Diabetes Mellitus 1",
+      "keywords": [
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
+      ],
+      "objetivos": [
+        "5002101"
+      ],
+      "habilitantes": [
+        "5002101"
+      ],
+      "excluyentes": [],
+      "familia": "7",
+      "especialidad": "13-13-01",
+      "frecuencia": "Mensual",
+      "edad_min": "",
+      "edad_max": "",
+      "NOMBRE_DE_LA_MISION": "Diabetes 2",
+      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 2.xlsx",
+      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": "['diabetes mellitus I', 'diabetes mellitus tipo 1', 'diabetes mellitus tipo I', 'mellitus I', 'mellitus 1']",
+      "frecuencia_cantidad": "1",
+      "periodicidad": "Mensual"
+    }
+  ]
+}

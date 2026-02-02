@@ -32,47 +32,47 @@ _theme_callbacks: List[Callable] = []
 
 DEFAULT_THEME: Dict[str, Any] = {
     "mode": "dark",
-    "accent_color": "#00f2c3",
+    "accent_color": "#7c4dff",  # morado profundo para contraste premium
     "ui_scale": 1.0,
-    "animations": "normal",  # "off", "reduced", "normal"
+    "animations": "reduced",  # menor carga visual por defecto
     "colors": {
         "dark": {
             # Fondos con profundidad - Ultra smooth gradient
-            "bg_primary": "#0f1115",       # Deep black with warmth - Darker
-            "bg_secondary": "#161b22",     # Slightly elevated - Better contrast
-            "bg_card": "#1e242e",          # Card surface - Subtle blue tint
-            "bg_elevated": "#2a3241",      # Elevated elements - Clearer
-            "bg_hover": "#323b4a",         # Hover state - More responsive
-            "bg_input": "#0d1117",         # Input fields - Recessed
+            "bg_primary": "#0c0d11",
+            "bg_secondary": "#141821",
+            "bg_card": "#181d27",
+            "bg_elevated": "#1f2632",
+            "bg_hover": "#222a39",
+            "bg_input": "#0f131b",
             
             # Textos - Alto contraste WCAG AAA
-            "text_primary": "#f8fafc",     # Pure white with warmth
-            "text_secondary": "#94a3b8",   # Clear gray - readable
-            "text_muted": "#64748b",       # Muted but visible
-            "text_accent": "#00f2c3",      # Accent text
+            "text_primary": "#f4f6fb",
+            "text_secondary": "#9aa4c3",
+            "text_muted": "#6f7690",
+            "text_accent": "#b18bff",
             
             # Bordes - Sutiles pero definidos
-            "border": "#30363d",           # Visible border - GitHub Dark style
-            "border_light": "#21262d",     # Subtle separation
-            "border_accent": "#00f2c380",  # Accent glow border - More visible
+            "border": "#2b3240",
+            "border_light": "#1c212c",
+            "border_accent": "#7c4dff80",
             
             # Estados - Vibrantes y claros
-            "accent": "#00f2c3",           # Primary accent (turquesa)
-            "accent_hover": "#00d9a5",     # Accent hover
-            "success": "#22c55e",          # Green - vivid
-            "success_bg": "#22c55e15",     # Success background
-            "warning": "#eab308",          # Amber - visible
-            "warning_bg": "#eab30815",     # Warning background
-            "error": "#ef4444",            # Red - clear
-            "error_bg": "#ef444415",       # Error background
-            "info": "#3b82f6",             # Blue - modern
-            "info_bg": "#3b82f615",        # Info background
+            "accent": "#7c4dff",
+            "accent_hover": "#6a3fe0",
+            "success": "#4ade80",
+            "success_bg": "#123021",
+            "warning": "#fbbf24",
+            "warning_bg": "#33240f",
+            "error": "#f87171",
+            "error_bg": "#351316",
+            "info": "#60a5fa",
+            "info_bg": "#0f1f35",
             
             # Especiales - Premium effects
-            "gradient_start": "#6366f1",   # Indigo
-            "gradient_end": "#8b5cf6",     # Purple
-            "glow": "rgba(0, 242, 195, 0.25)",
-            "glow_intense": "rgba(0, 242, 195, 0.5)",
+            "gradient_start": "#5b7bfa",
+            "gradient_end": "#9f5bff",
+            "glow": "rgba(124, 77, 255, 0.25)",
+            "glow_intense": "rgba(124, 77, 255, 0.45)",
             "glass_bg": "rgba(17, 22, 29, 0.85)",
             "glass_border": "rgba(248, 250, 252, 0.08)",
             "shadow": "rgba(0, 0, 0, 0.5)",
@@ -102,13 +102,13 @@ DEFAULT_THEME: Dict[str, Any] = {
             "accent": "#0d9488",           # Teal - works on white
             "accent_hover": "#0f766e",     # Darker teal
             "success": "#16a34a",
-            "success_bg": "#16a34a15",
+            "success_bg": "#dcfce7",       # Light Green
             "warning": "#ca8a04",
-            "warning_bg": "#ca8a0415",
+            "warning_bg": "#fef9c3",       # Light Yellow
             "error": "#dc2626",
-            "error_bg": "#dc262615",
+            "error_bg": "#fee2e2",         # Light Red
             "info": "#2563eb",
-            "info_bg": "#2563eb15",
+            "info_bg": "#dbeafe",          # Light Blue
             
             # Especiales
             "gradient_start": "#6366f1",
@@ -349,6 +349,10 @@ def load_theme(force_reload: bool = False) -> Dict[str, Any]:
                 # Merge con defaults para asegurar todas las keys existen
                 merged = DEFAULT_THEME.copy()
                 merged.update(loaded)
+                
+                # SANITIZE: Corregir colores inválidos (8 digitos)
+                _sanitize_theme_colors(merged)
+                
                 _cached_theme = merged
                 return _cached_theme
         except Exception:
@@ -356,6 +360,47 @@ def load_theme(force_reload: bool = False) -> Dict[str, Any]:
             
     _cached_theme = DEFAULT_THEME.copy()
     return _cached_theme
+
+
+def _sanitize_theme_colors(theme: Dict[str, Any]):
+    """
+    Recorre los colores y corrige formatos inválidos (ej: #RRGGBBAA -> #RRGGBB).
+    Tkinter crashea con 8-digit hex.
+    """
+    try:
+        modes = ["dark", "light"]
+        
+        # Mapa de correcciones seguras (Hardcoded fallbacks)
+        safe_map = {
+            "dark": {
+                "success_bg": "#14291e",
+                "warning_bg": "#2e2412", 
+                "error_bg": "#2e1515",
+                "info_bg": "#121d2e"
+            },
+            "light": {
+                "success_bg": "#dcfce7",
+                "warning_bg": "#fef9c3",
+                "error_bg": "#fee2e2",
+                "info_bg": "#dbeafe"
+            }
+        }
+
+        if "colors" in theme:
+            for mode in modes:
+                if mode in theme["colors"]:
+                    colors = theme["colors"][mode]
+                    for key, val in colors.items():
+                        # Detectar Bad Hex (len 9 = # + 8 chars)
+                        if isinstance(val, str) and val.startswith("#") and len(val) > 7:
+                            # Si tenemos un fallback seguro calculado, usarlo
+                            if key in safe_map.get(mode, {}):
+                                colors[key] = safe_map[mode][key]
+                            else:
+                                # Fallback genérico: cortar alpha (puede ser ilegible pero no crashea)
+                                colors[key] = val[:7]
+    except Exception:
+        pass
 
 
 def save_theme(theme: Dict[str, Any]) -> None:

@@ -32,7 +32,7 @@ NOMBRE_DE_LA_MISION: str = ""
 # =============================================================================
 
 # Archivo Excel de entrada (nómina de pacientes) - Pega la ruta completa aquí
-RUTA_ARCHIVO_ENTRADA: str = r
+RUTA_ARCHIVO_ENTRADA: str = r""
 
 # Carpeta donde se guardará el Excel de revisión - Pega la ruta completa aquí
 RUTA_CARPETA_SALIDA: str = r"C:\Users\usuariohgf\OneDrive\Documentos\Trabajo Oficina\Revisiones, Falta Enviar, CM, Listos\Revisiones\Revisiones Nóminas"
