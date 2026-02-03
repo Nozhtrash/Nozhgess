@@ -33,6 +33,11 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+# --- SYSTEM BUILD CONFIG ---
+_SYS_REL_TAG = "V3_STABLE_NZ"
+_SYS_MOD_KEY = "NZT-2026-CL"
+# ---------------------------
+
 # Excepciones específicas
 class FatalConnectionError(Exception):
     """Señala pérdida de sesión/driver; debe abortar toda la ejecución."""

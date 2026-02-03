@@ -138,8 +138,10 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
         bottom=Side(style='thin', color='D0D0D0')
     )
     
-    # Estilo Alerta Edad (Rojo Fuerte)
-    age_alert_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    # Estilo Alerta Edad (3 Colores)
+    age_green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid") # Verde suave
+    age_yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid") # Amarillo suave
+    age_red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid") # Rojo suave
     
     # Detectar si es Carga Masiva por el nombre de la hoja
     es_carga_masiva = (ws.title == "Carga Masiva")
@@ -166,8 +168,12 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
     # Estilizar celdas de datos - Centrado horizontal y vertical
     for i, row in enumerate(ws.iter_rows(min_row=2), start=0):
         # Check metadata for this row index (i matches list index because min_row=2 skips header)
+        age_status = None
         has_age_alert = False
+        
         if rows_metadata and i < len(rows_metadata):
+            # Preferir el status nuevo, fallback al booleano antiguo
+            age_status = rows_metadata[i].get("_age_validation_status", None)
             has_age_alert = rows_metadata[i].get("_age_alert", False)
             
         for cell in row:
@@ -175,9 +181,16 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
             col_name = header_map.get(cell.column, "")
             
             # 1. Alerta de Edad (Prioridad Alta)
-            if has_age_alert and col_name == "edad":
-                cell.fill = age_alert_fill
-                cell.font = Font(color="FFFFFF", bold=True, size=9) # Texto blanco para contraste
+            if col_name == "edad":
+                if age_status == "green":
+                    cell.fill = age_green_fill
+                    cell.font = Font(color="006100", bold=True, size=9) # Verde texto
+                elif age_status == "yellow":
+                    cell.fill = age_yellow_fill
+                    cell.font = Font(color="9C5700", bold=True, size=9) # Naranja/Cafe texto
+                elif age_status == "red" or has_age_alert: # Fallback a alerta antigua si es red
+                    cell.fill = age_red_fill
+                    cell.font = Font(color="9C0006", bold=True, size=9) # Rojo texto
             
             # 2. Detección de Prestaciones Futuras (! )
             elif val.startswith("! "):
@@ -246,6 +259,11 @@ def _escribir_y_estilizar(writer, resultados_por_mision):
         safe_name = str(m_name).replace(":", "").replace("/", "").replace("\\", "")[:30]
         
         df_clean.to_excel(writer, sheet_name=safe_name, index=False)
+        
+        # Metadata validation
+        if hasattr(writer, 'book') and hasattr(writer.book, 'properties'):
+            writer.book.properties.author = "NZLP-7733-CL"
+            writer.book.properties.comments = "Build (PROD): 2026-NZT-M01"
         
         ws = writer.sheets[safe_name]
         _aplicar_estilos(ws, metadata_list)

@@ -1,0 +1,54 @@
+{
+  "MISSIONS": [
+    {
+      "nombre": "Cáncer Cervicouterino Nuevo",
+      "keywords": [
+        "Cáncer Cervicouterino Segmento"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "0801001"
+      ],
+      "excluyentes": [
+        "0801101"
+      ],
+      "familia": "3",
+      "especialidad": "13-04-02\n",
+      "frecuencia": "Mensual",
+      "edad_min": 25,
+      "edad_max": 65,
+      "NOMBRE_DE_LA_MISION": "Tamizajes",
+      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
+      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos",
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tamizajes.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes",
+      "keywords_contra": [
+        "Invasor"
+      ],
+      "frecuencia_cantidad": 1,
+      "periodicidad": "Mensual",
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_oa": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": 0,
+        "nombre": 2,
+        "fecha": 6
+      },
+      "anios_codigo": []
+    }
+  ]
+}

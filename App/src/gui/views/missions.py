@@ -5,6 +5,7 @@ Editor de Misiones (V2)
 Gestiona la lista de misiones con tarjetas detalladas (Cards).
 """
 import customtkinter as ctk
+import tkinter.messagebox
 import os
 import sys
 
@@ -224,6 +225,8 @@ class MissionsView(ctk.CTkFrame):
         # destacar tarjeta y scroll
         self.after(20, lambda: self._highlight_card(local_idx))
 
+
+
     def _highlight_card(self, local_idx: int):
         if 0 <= local_idx < len(self.mission_cards):
             card = self.mission_cards[local_idx]
@@ -240,6 +243,58 @@ class MissionsView(ctk.CTkFrame):
                 self.after(600, lambda: card.configure(border_color=border_normal))
             except Exception:
                 pass
+    
+    def _clean_mission_data(self, mission_data: dict) -> dict:
+        """
+        Limpia los datos de una misión eliminando campos numéricos con valores None o inválidos.
+        Retorna una copia limpia de los datos.
+        """
+        cleaned = mission_data.copy()
+        
+        numeric_fields = [
+            "edad_min", "edad_max", "vigencia_dias",
+            "max_objetivos", "max_habilitantes", "max_excluyentes",
+            "max_ipd", "max_oa", "max_aps", "max_sic",
+            "frecuencia_cantidad"
+        ]
+        
+        fields_to_remove = []
+        
+        for f in numeric_fields:
+            if f in cleaned:
+                val = cleaned[f]
+                # Si es None, marcarlo para eliminación
+                if val is None:
+                    fields_to_remove.append(f)
+                # Si ya es un int, dejarlo como está
+                elif isinstance(val, int):
+                    continue
+                # Si es float, convertir a int
+                elif isinstance(val, float):
+                    cleaned[f] = int(val)
+                # Si es string, procesar
+                elif isinstance(val, str):
+                    val = val.strip()
+                    if val == "" or val.lower() == "none":
+                        fields_to_remove.append(f)
+                    else:
+                        try:
+                            cleaned[f] = int(val)
+                        except (ValueError, TypeError):
+                            fields_to_remove.append(f)
+                else:
+                    # Cualquier otro tipo, intentar convertir o eliminar
+                    try:
+                        cleaned[f] = int(val)
+                    except (ValueError, TypeError):
+                        fields_to_remove.append(f)
+        
+        # Eliminar los campos marcados
+        for f in fields_to_remove:
+            if f in cleaned:
+                del cleaned[f]
+        
+        return cleaned
 
     def _update_nav_state(self):
         """Habilita/deshabilita flechas según página actual."""
@@ -299,6 +354,16 @@ class MissionsView(ctk.CTkFrame):
                     command=lambda idx=global_idx: self._delete_mission_prompt(idx)
                 )
                 del_btn.pack(side="right")
+                
+                # Botón guardar plantilla junto al de eliminar
+                save_tmpl_btn = ctk.CTkButton(
+                    c_mis.header, text="💾", width=32, height=24,
+                    fg_color=self.colors.get("accent", "#7c4dff"),
+                    font=ctk.CTkFont(size=13, weight="bold"),
+                    command=lambda idx=global_idx: self._save_mission_as_template(idx)
+                )
+                save_tmpl_btn.pack(side="right", padx=(0, 4))
+
 
                 basic = ctk.CTkFrame(c_mis.content, fg_color="transparent")
                 basic.pack(fill="x")
@@ -417,7 +482,7 @@ class MissionsView(ctk.CTkFrame):
             mission_data = missions[tmpl_idx]
 
             # Dialogo agregar vs sobrescribir
-            res = ctk.messagebox.askyesnocancel(
+            res = tkinter.messagebox.askyesnocancel(
                 "Aplicar plantilla",
                 "¿Agregar misión extra (Sí) o Sobrescribir (No)?\nCancelar para abortar."
             )
@@ -445,6 +510,12 @@ class MissionsView(ctk.CTkFrame):
         import tkinter as tk
         top = ctk.CTkToplevel(self)
         top.title("Elegir misión a sobrescribir")
+        try:
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "assets", "icon.ico")
+            if os.path.exists(icon_path):
+                top.iconbitmap(icon_path)
+        except Exception:
+            pass
         top.grab_set()
         ctk.CTkLabel(top, text="Seleccione misión destino", font=ctk.CTkFont(weight="bold")).pack(padx=10, pady=8)
         values = [f"{i}: {m.get('nombre', f'Misión {i+1}')}" for i, m in enumerate(self.current_missions_list)]
@@ -646,6 +717,17 @@ class MissionsView(ctk.CTkFrame):
         if not path:
             get_notifications().show_warning("Seleccione una plantilla")
             return
+        
+        # Confirmación antes de eliminar
+        confirmacion = tkinter.messagebox.askyesno(
+            "Confirmar eliminación",
+            f"¿Está seguro que desea eliminar la plantilla '{tmpl_name}'?\n\nEsta acción no se puede deshacer.",
+            icon='warning'
+        )
+        
+        if not confirmacion:
+            return  # Usuario canceló la eliminación
+        
         try:
             os.remove(path)
             self._refresh_repo_list()
@@ -663,6 +745,112 @@ class MissionsView(ctk.CTkFrame):
             except Exception: pass
         except Exception as e:
             get_notifications().show_error(str(e))
+
+    def _save_mission_as_template(self, mission_idx):
+        """Guarda una misión específica como plantilla (nuevo archivo o sobrescribir)."""
+        try:
+            # Guardar cambios actuales primero
+            self._save_internal(wait=True)
+            
+            # Obtener la misión
+            config = self.controller.load_config(force_reload=True)
+            missions = config.get("MISSIONS", [])
+            if mission_idx >= len(missions):
+                get_notifications().show_error(f"Misión {mission_idx} no existe")
+                return
+            
+            mission_data = missions[mission_idx]
+            mission_name = mission_data.get("nombre", f"Misión {mission_idx+1}")
+            
+            # Diálogo para elegir nombre y si sobrescribir
+            import tkinter as tk
+            top = ctk.CTkToplevel(self)
+            top.title(f"Guardar '{mission_name}' como Plantilla")
+            top.geometry("450x200")
+            try:
+                icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "assets", "icon.ico")
+                if os.path.exists(icon_path):
+                    top.iconbitmap(icon_path)
+            except Exception:
+                pass
+            top.grab_set()
+            
+            ctk.CTkLabel(top, text=f"Guardar: {mission_name}", 
+                        font=ctk.CTkFont(size=14, weight="bold")).pack(padx=15, pady=(15,10))
+            
+            # Frame para nombre archivo
+            name_frame = ctk.CTkFrame(top, fg_color="transparent")
+            name_frame.pack(fill="x", padx=15, pady=5)
+            ctk.CTkLabel(name_frame, text="Nombre archivo:", width=120, anchor="w").pack(side="left")
+            
+            default_name = mission_name.replace(" ", "_").lower() + ".json"
+            name_entry = ctk.CTkEntry(name_frame, width=250)
+            name_entry.insert(0, default_name)
+            name_entry.pack(side="left", padx=5, fill="x", expand=True)
+            
+            # Checkbox sobrescribir si existe
+            overwrite_var = tk.BooleanVar(value=False)
+            overwrite_check = ctk.CTkCheckBox(
+                top, text="Sobrescribir si ya existe",
+                variable=overwrite_var
+            )
+            overwrite_check.pack(pady=10)
+            
+            # Botones
+            result = {"saved": False}
+            def do_save():
+                filename = name_entry.get().strip()
+                if not filename:
+                    get_notifications().show_warning("Ingrese un nombre de archivo")
+                    return
+                if not filename.endswith(".json"):
+                    filename += ".json"
+                
+                file_path = os.path.join(self.repo_dir, filename)
+                
+                # Check si existe
+                if os.path.exists(file_path) and not overwrite_var.get():
+                    get_notifications().show_warning(f"'{filename}' ya existe. Active 'Sobrescribir' para reemplazarlo.")
+                    return
+                
+                # Limpiar datos antes de guardar para evitar None y otros valores problemáticos
+                cleaned_mission = self._clean_mission_data(mission_data)
+                
+                # Crear estructura de plantilla
+                template_data = {
+                    "MISSIONS": [cleaned_mission]
+                }
+                
+                # Guardar
+                try:
+                    import json
+                    os.makedirs(self.repo_dir, exist_ok=True)
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        json.dump(template_data, f, indent=2, ensure_ascii=False)
+                    
+                    result["saved"] = True
+                    top.destroy()
+                except Exception as e:
+                    get_notifications().show_error(f"Error guardado: {e}")
+            
+            btn_frame = ctk.CTkFrame(top, fg_color="transparent")
+            btn_frame.pack(pady=15)
+            ctk.CTkButton(btn_frame, text="💾 Guardar", width=120, command=do_save,
+                         fg_color=self.colors.get("success", "green")).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text="Cancelar", width=100, 
+                         command=top.destroy).pack(side="left", padx=5)
+            
+            top.wait_window()
+            
+            if result["saved"]:
+                self._refresh_repo_list()
+                get_notifications().show_success(f"Plantilla guardada")
+                try:
+                    log_ui("template_save", mission_idx=mission_idx)
+                except Exception:
+                    pass
+        except Exception as e:
+            get_notifications().show_error(f"Error guardando plantilla: {e}")
 
     def _save_internal(self, wait: bool = True):
         # Recopilación compleja similar a control_panel original
@@ -704,12 +892,60 @@ class MissionsView(ctk.CTkFrame):
                 if idx not in missions_updates: missions_updates[idx] = {}
                 missions_updates[idx]["anios_codigo"] = widget.get_data()
 
+
         # Clean Lists
         for idx, m_data in missions_updates.items():
              for f in ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio"]:
                  if f in m_data and isinstance(m_data[f], str):
                      clean = m_data[f].replace("[", "").replace("]", "").replace('"', "").replace("'", "")
                      m_data[f] = [x.strip() for x in clean.split(",") if x.strip()]
+             
+             # Normalizar campos numéricos para evitar errores de conversión
+             numeric_fields = [
+                 "edad_min", "edad_max", "vigencia_dias", 
+                 "max_objetivos", "max_habilitantes", "max_excluyentes",
+                 "max_ipd", "max_oa", "max_aps", "max_sic",
+                 "frecuencia_cantidad"
+             ]
+             
+             # Almacenar campos a eliminar para no modificar el dict durante iteración
+             fields_to_remove = []
+             
+             for f in numeric_fields:
+                 if f in m_data:
+                     val = m_data[f]
+                     # Si es None, marcarlo para eliminación
+                     if val is None:
+                         fields_to_remove.append(f)
+                     # Si ya es un int, dejarlo como está
+                     elif isinstance(val, int):
+                         continue  # Valor válido, no hacer nada
+                     # Si es float, convertir a int
+                     elif isinstance(val, float):
+                         m_data[f] = int(val)
+                     # Si es string, procesar
+                     elif isinstance(val, str):
+                         val = val.strip()
+                         if val == "" or val.lower() == "none":
+                             # Campo vacío o texto "None", marcar para eliminación
+                             fields_to_remove.append(f)
+                         else:
+                             try:
+                                 m_data[f] = int(val)
+                             except (ValueError, TypeError):
+                                 # Si no se puede convertir, marcar para eliminación
+                                 fields_to_remove.append(f)
+                     else:
+                         # Cualquier otro tipo, intentar convertir o eliminar
+                         try:
+                             m_data[f] = int(val)
+                         except (ValueError, TypeError):
+                             fields_to_remove.append(f)
+             
+             # Eliminar los campos marcados después de la iteración
+             for f in fields_to_remove:
+                 if f in m_data:
+                     del m_data[f]
 
         current_config = self.controller.load_config(force_reload=True)
         final = []
@@ -721,7 +957,9 @@ class MissionsView(ctk.CTkFrame):
             base = curr_miss[i].copy() if i < len(curr_miss) else {}
             if i in missions_updates:
                 base.update(missions_updates[i])
-            final.append(base)
+            # CRÍTICO: Limpiar CADA misión antes de agregarla a final
+            cleaned = self._clean_mission_data(base)
+            final.append(cleaned)
 
         full_data = current_config.copy()
         full_data["MISSIONS"] = final

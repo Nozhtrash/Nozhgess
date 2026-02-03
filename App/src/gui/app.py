@@ -66,7 +66,7 @@ class NozhgessApp(ctk.CTk):
         self.config = get_config()
         
         # 2. Configuración de ventana
-        self.title("Nozhgess v3.0 - Automatización de Datos Médicos")
+        self.title("Nozhgess Platform v3.2 - Licensed for Medical Data Automation")
         
         w = self.config.get("window.width", 1100)
         h = self.config.get("window.height", 700)

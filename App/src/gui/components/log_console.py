@@ -35,12 +35,16 @@ class LogConsole(ctk.CTkFrame):
         # Text Area
         font_to_use = font if font else ctk.CTkFont(family="Consolas", size=11)
         
+        # FORZAR colores contrastantes para asegurar visibilidad
+        # Fondo negro, texto blanco para máximo contraste
         self.text_area = ctk.CTkTextbox(
             self,
             activate_scrollbars=True,
             font=font_to_use,
-            fg_color=self.colors.get("bg_input", "#000"),
-            text_color=self.colors.get("text_primary", "#fff")
+            fg_color="#0a0a0a",  # Negro casi puro
+            text_color="#f0f0f0",  # Blanco casi puro
+            border_width=1,
+            border_color="#333333"
         )
         self.text_area.pack(fill="both", expand=True)
         self.text_area.configure(state="disabled")
@@ -113,9 +117,10 @@ class LogConsole(ctk.CTkFrame):
 
     def update_colors(self, colors):
         self.colors = colors
+        # MANTENER colores forzados para visibilidad
         self.text_area.configure(
-            fg_color=colors.get("bg_input", "#000"),
-            text_color=colors.get("text_primary", "#fff")
+            fg_color="#0a0a0a",
+            text_color="#f0f0f0"
         )
         self.clear_btn.configure(
             fg_color=colors.get("bg_elevated", "#333")

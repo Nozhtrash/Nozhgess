@@ -482,6 +482,47 @@ class EnhancedNozhgessProcessor:
         
         return {'success': True, 'results': results}
 
+    def _validate_age_range(self, edad_val: Any, edad_min: int, edad_max: int) -> str:
+        """
+        Valida la edad contra los rangos y retorna el estado de color:
+        - 'green': Cumple ambas reglas (min <= edad <= max)
+        - 'yellow': Cumple solo una regla
+        - 'red': No cumple ninguna o error
+        """
+        try:
+            if not isinstance(edad_val, (int, float, str)):
+                return "red"
+                
+            # Convertir a entero seguro
+            if isinstance(edad_val, str):
+                edad_val = int(edad_val.strip())
+            else:
+                edad_val = int(edad_val)
+                
+            cumple_min = True
+            cumple_max = True
+            
+            # Verificar min (si está configurado > 0)
+            if edad_min is not None and edad_min > 0:
+                if edad_val < edad_min:
+                    cumple_min = False
+                    
+            # Verificar max (si está configurado > 0)
+            if edad_max is not None and edad_max > 0:
+                if edad_val > edad_max:
+                    cumple_max = False
+            
+            # Determinar color
+            if cumple_min and cumple_max:
+                return "green"
+            elif cumple_min or cumple_max:
+                return "yellow"
+            else:
+                return "red"
+                
+        except Exception:
+            return "red"
+
     def _process_single_mission(self, mission: Dict, input_path: str) -> pd.DataFrame:
         """Procesa una única misión usando la lógica Dorada de Conexiones.py."""
         import pandas as pd
@@ -505,6 +546,14 @@ class EnhancedNozhgessProcessor:
             logging.error(f"Error iniciando driver: {e}")
             return pd.DataFrame()
 
+        # Extract age limits from mission
+        try:
+            edad_min = int(mission.get('edad_min', 0) or 0)
+            edad_max = int(mission.get('edad_max', 0) or 0)
+        except:
+            edad_min = 0
+            edad_max = 0
+
         # 3. Process Rows using Real Logic
         results = []
         total = len(data)
@@ -522,7 +571,25 @@ class EnhancedNozhgessProcessor:
                 )
                 
                 if filas:
-                    results.append(filas[0]) # Get the result for this mission
+                    fila_resultado = filas[0]
+                    
+                    # === AGE VALIDATION ===
+                    # Buscar campo de edad (puede ser "Edad", "edad", "EDAD")
+                    val_edad = fila_resultado.get("Edad") or fila_resultado.get("edad") or fila_resultado.get("EDAD")
+                    
+                    # Validar
+                    status = self._validate_age_range(val_edad, edad_min, edad_max)
+                    
+                    # Agregar metadata
+                    fila_resultado["_age_validation_status"] = status
+                    
+                    # Compatibilidad con alerta antigua (Rojo = Alerta)
+                    if status == "red":
+                        fila_resultado["_age_alert"] = True
+                    else:
+                        fila_resultado["_age_alert"] = False
+                    
+                    results.append(fila_resultado)
                 else:
                     # Fallback empty row if something weird happened
                     results.append(vac_row(mission, "", "", "", "Error Interno Integrator"))

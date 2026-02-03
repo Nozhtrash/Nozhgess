@@ -5,9 +5,9 @@
                     NOZHGESS PLATFORM - LAUNCHER
 ==============================================================================
 Punto de entrada oficial para la plataforma.
+Software Licenciado - (c) 2026 Nozhtrash.
 Configura el entorno y lanza la GUI principal desde App/.
-
-No editar este archivo. La lógica reside en App/src.
+Build: 2026-NZT-STD
 """
 import sys
 import os

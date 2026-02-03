@@ -1,0 +1,53 @@
+{
+  "MISSIONS": [
+    {
+      "nombre": "Enfermedad Renal Crónica Nomina",
+      "keywords": [
+        "enfermedad renal",
+        "renal",
+        "renal cronica"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "2506001"
+      ],
+      "excluyentes": [
+        "2506002"
+      ],
+      "familia": "1",
+      "especialidad": "07-108-2",
+      "frecuencia": "Mensual",
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Nefrología (165) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
+      "keywords_contra": [],
+      "periodicidad": "Cada Vez",
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": true,
+      "indices": {
+        "rut": 1,
+        "nombre": 3,
+        "fecha": 10
+      },
+      "anios_codigo": [
+        "2506001",
+        "2506002"
+      ],
+      "frecuencia_cantidad": 1,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1
+    }
+  ]
+}
