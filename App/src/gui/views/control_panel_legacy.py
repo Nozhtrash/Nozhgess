@@ -541,6 +541,18 @@ class ControlPanelView(ctk.CTkFrame):
             _add(c_mis.content, f"{prefix}habilitantes", "Habilitantes (sep. coma)")
             _add(c_mis.content, f"{prefix}excluyentes", "Excluyentes (sep. coma)")
             
+            # --- Configuración Específica (VIH) ---
+            vih_frame = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+            vih_frame.pack(fill="x", pady=5)
+            
+            # Switch Folio VIH
+            self.rows[f"{prefix}folio_vih"] = FormRow(vih_frame, label="Rastrear Folios VIH", input_type="switch", value=mission.get("folio_vih", False), colors=self.colors)
+            self.rows[f"{prefix}folio_vih"].pack(side="left", padx=5)
+            
+            # Códigos VIH
+            self.rows[f"{prefix}folio_vih_codigos"] = FormRow(vih_frame, label="Códigos VIH (sep. coma)", value=mission.get("folio_vih_codigos"), colors=self.colors)
+            self.rows[f"{prefix}folio_vih_codigos"].pack(side="left", fill="x", expand=True, padx=5)
+            
             meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
             meta.grid_columnconfigure((0, 1), weight=1)
             meta.pack(fill="x", pady=5)
@@ -765,7 +777,7 @@ class ControlPanelView(ctk.CTkFrame):
                                 missions_updates[idx] = {}
                             
                             # Auto-convert lists (Fix compatibility)
-                            if field in ["keywords", "objetivos", "habilitantes", "excluyentes"] and isinstance(val, str):
+                            if field in ["keywords", "objetivos", "habilitantes", "excluyentes", "folio_vih_codigos"] and isinstance(val, str):
                                 # Limpieza robusta: eliminar corchetes y comillas si el usuario pegó una lista de Python
                                 clean_val = val.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
                                 val = [x.strip() for x in clean_val.split(",") if x.strip()]

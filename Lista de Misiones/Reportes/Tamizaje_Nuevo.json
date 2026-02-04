@@ -48,7 +48,9 @@
         "nombre": 2,
         "fecha": 6
       },
-      "anios_codigo": []
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": []
     }
   ]
 }

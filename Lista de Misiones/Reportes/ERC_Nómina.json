@@ -47,7 +47,9 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     }
   ]
 }

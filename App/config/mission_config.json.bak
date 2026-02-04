@@ -1,107 +1,10 @@
 {
   "DIRECCION_DEBUG_EDGE": "localhost:9222",
   "EDGE_DRIVER_PATH": "C:/Windows/System32/msedgedriver.exe",
-  "MAX_REINTENTOS_POR_PACIENTE": 5,
+  "MAX_REINTENTOS_POR_PACIENTE": 6,
   "MISION_POR_HOJA": false,
   "MISION_POR_ARCHIVO": true,
   "MISSIONS": [
-    {
-      "nombre": "Cáncer Cervicouterino Nuevo",
-      "keywords": [
-        "Cáncer Cervicouterino Segmento"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "0801001"
-      ],
-      "excluyentes": [
-        "0801101"
-      ],
-      "familia": "3",
-      "especialidad": "13-04-02\n",
-      "frecuencia": "Mensual",
-      "edad_min": 25,
-      "edad_max": 65,
-      "NOMBRE_DE_LA_MISION": "Tamizajes",
-      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tamizajes.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes",
-      "keywords_contra": [
-        "Invasor"
-      ],
-      "frecuencia_cantidad": 1,
-      "periodicidad": "Mensual",
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_oa": 1,
-      "max_sic": 1,
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 0,
-        "nombre": 2,
-        "fecha": 6
-      },
-      "anios_codigo": []
-    },
-    {
-      "nombre": "Cancer Cervicouterino Invasor - Preinvasor",
-      "keywords": [
-        "Invasor"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "3101003"
-      ],
-      "excluyentes": [
-        "3101004"
-      ],
-      "familia": "3",
-      "especialidad": "07-301-3",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tamizajes.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes",
-      "keywords_contra": [
-        "Cáncer Cervicouterino Segmento"
-      ],
-      "periodicidad": "Mensual",
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 0,
-        "nombre": 2,
-        "fecha": 6
-      },
-      "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1
-    },
     {
       "nombre": "Tumores Primarios",
       "keywords": [
@@ -150,7 +53,9 @@
         "nombre": 3,
         "fecha": 5
       },
-      "anios_codigo": []
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Cáncer de Próstata",
@@ -196,7 +101,9 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Asma Mayores",
@@ -240,7 +147,9 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "VIH Nómina",
@@ -249,7 +158,11 @@
         "sida",
         "vih/sida"
       ],
-      "objetivos": [],
+      "objetivos": [
+        "2506019",
+        "3107215",
+        "3107314"
+      ],
       "habilitantes": [
         "2508015",
         "2504092",
@@ -259,9 +172,7 @@
         "2505877"
       ],
       "excluyentes": [
-        "2506019",
-        "3107215",
-        "3107314"
+        "2504092"
       ],
       "familia": "18",
       "especialidad": "07-118-2",
@@ -296,17 +207,19 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Artritis Reumatoide",
       "keywords": [
         "artritis reumatoidea"
       ],
-      "objetivos": [],
-      "habilitantes": [
+      "objetivos": [
         "0101113"
       ],
+      "habilitantes": [],
       "excluyentes": [],
       "familia": "52",
       "especialidad": "07-110-2",
@@ -340,7 +253,9 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Enfermedad Renal Crónica Nomina",
@@ -349,13 +264,13 @@
         "renal",
         "renal cronica"
       ],
-      "objetivos": [],
-      "habilitantes": [
+      "objetivos": [
         "2506001"
       ],
-      "excluyentes": [
+      "habilitantes": [
         "2506002"
       ],
+      "excluyentes": [],
       "familia": "1",
       "especialidad": "07-108-2",
       "frecuencia": "Mensual",
@@ -389,7 +304,9 @@
       "max_ipd": 1,
       "max_oa": 1,
       "max_aps": 1,
-      "max_sic": 1
+      "max_sic": 1,
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Urología Nómina",
@@ -433,7 +350,9 @@
         "nombre": 3,
         "fecha": 10
       },
-      "anios_codigo": []
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Artrosis de Cadera",
@@ -478,7 +397,9 @@
         "nombre": 3,
         "fecha": 10
       },
-      "anios_codigo": []
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": []
     },
     {
       "nombre": "Endoprótesis de Cadera",
@@ -521,7 +442,9 @@
         "nombre": 3,
         "fecha": 10
       },
-      "anios_codigo": []
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": []
     }
   ]
 }

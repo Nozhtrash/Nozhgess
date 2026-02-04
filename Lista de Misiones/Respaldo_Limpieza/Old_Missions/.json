@@ -8,5 +8,7 @@
   "especialidad": "",
   "frecuencia": "Mensual",
   "edad_min": "",
-  "edad_max": ""
+  "edad_max": "",
+  "folio_vih": false,
+  "folio_vih_codigos": []
 }

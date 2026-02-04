@@ -1,6 +1,6 @@
 # 🩺 NOZHGESS: Clinical Grade Automation Platform v3.2
 
-[![Version](https://img.shields.io/badge/Version-3.2.0_Nuclear-blue?style=for-the-badge)](./Documentacion/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-3.3.0_Nuclear_Audit-blue?style=for-the-badge)](./Documentacion/CHANGELOG.md)
 [![Architecture](https://img.shields.io/badge/Architecture-MVC--S-orange?style=for-the-badge)](./Documentacion/BIBLIA_TECNICA_NOZHGESS.md)
 [![Engine](https://img.shields.io/badge/Engine-Selenium_Hybrid-43B02A?style=for-the-badge&logo=selenium&logoColor=white)]()
 [![UI](https://img.shields.io/badge/UI-CustomTkinter_Pro-7c4dff?style=for-the-badge)](./Documentacion/DOCUMENTACION_FRONTEND_PROFUNDA.md)
@@ -38,6 +38,11 @@ Nozhgess fue construido para resolver el problema del "Fatiga del Auditor": revi
     *   **Rojo:** Alerta Médica (Habilitante encontrado).
     *   **Verde:** Cumplimiento Normativo.
     *   **Azul:** Datos Demográficos.
+    *   **Cyan:** Nueva hoja "Carga Masiva" para importaciones bulk.
+
+5.  **Strict Mission Compliance (Nuevo en v3.3.0):**
+    *   **Anti-Alucinación Estricta:** El motor ahora obedece ciegamente los límites de configuración. Si la misión dice "Máximo 1 Habilitante", el sistema fuerza ese límite, ignorando distracciones.
+    *   **Limpieza de Columnas:** Lógica inteligente que elimina columnas irrelevantes ("Folio VIH", "Código Año") si la misión no las requiere explícitamente.
 
 ---
 
@@ -165,7 +170,7 @@ Hemos creado una biblioteca completa para cubrir cada aspecto del software. No h
 **Desarrollado con pasión por la eficiencia clínica.**
 Este software representa miles de horas de ingeniería de precisión para garantizar que ningún paciente GES pierda su garantía por un error administrativo.
 
-*   **Versión:** 3.2.0 "Nuclear"
+*   **Versión:** 3.3.0 "Nuclear Audit"
 *   **Licencia:** Privada / Interna
 *   **Año:** 2026
 

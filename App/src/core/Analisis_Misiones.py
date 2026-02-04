@@ -153,7 +153,7 @@ def analizar_misiones(
             REVISAR_FUTUROS,
             ANIOS_REVISION_MAX,
             REVISAR_HISTORIA_COMPLETA,
-            10,
+            m.get('max_objetivos', 10),
         )
 
         habilitantes = buscar_codigos(
@@ -164,7 +164,7 @@ def analizar_misiones(
             REVISAR_FUTUROS,
             ANIOS_REVISION_MAX,
             REVISAR_HISTORIA_COMPLETA,
-            HABILITANTES_MAX,
+            m.get('max_habilitantes', HABILITANTES_MAX),
         )
 
         excluyentes = buscar_codigos(
@@ -175,7 +175,7 @@ def analizar_misiones(
             REVISAR_FUTUROS,
             ANIOS_REVISION_MAX,
             REVISAR_HISTORIA_COMPLETA,
-            EXCLUYENTES_MAX,
+            m.get('max_excluyentes', EXCLUYENTES_MAX),
         )
 
         fila = construir_fila(

@@ -436,8 +436,14 @@ class MissionsView(ctk.CTkFrame):
                 dyn.pack(fill="x", pady=8)
                 self._add_switch(dyn, f"{prefix}filtro_folio_activo", "Activar Filtro Folio", combined)
                 self._add_row(dyn, f"{prefix}codigos_folio", "Códigos Folio (csv)", combined).pack(fill="x")
+                
+                # Sección Folio VIH
+                self._add_switch(dyn, f"{prefix}folio_vih", "Activar Folio VIH", combined)
+                self._add_row(dyn, f"{prefix}folio_vih_codigos", "Códigos VIH (csv)", combined).pack(fill="x")
+                
                 self._add_switch(dyn, f"{prefix}active_year_codes", "¿Tiene códigos por Año?", combined)
                 self._add_year_code_editor(dyn, f"{prefix}anios_codigo", mission.get("anios_codigo", []), global_idx)
+
 
                 ind = ctk.CTkFrame(c_mis.content, fg_color="transparent")
                 ind.pack(fill="x", pady=5)
@@ -895,7 +901,7 @@ class MissionsView(ctk.CTkFrame):
 
         # Clean Lists
         for idx, m_data in missions_updates.items():
-             for f in ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio"]:
+             for f in ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio", "folio_vih_codigos"]:
                  if f in m_data and isinstance(m_data[f], str):
                      clean = m_data[f].replace("[", "").replace("]", "").replace('"', "").replace("'", "")
                      m_data[f] = [x.strip() for x in clean.split(",") if x.strip()]

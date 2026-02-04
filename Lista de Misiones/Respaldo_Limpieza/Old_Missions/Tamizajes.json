@@ -19,5 +19,7 @@
   "edad_max": "",
   "NOMBRE_DE_LA_MISION": "Tamizajes",
   "RUTA_ARCHIVO_ENTRADA": "C:/Users/knoth/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-  "RUTA_CARPETA_SALIDA": "C:/Users/knoth/OneDrive/Documentos"
+  "RUTA_CARPETA_SALIDA": "C:/Users/knoth/OneDrive/Documentos",
+  "folio_vih": false,
+  "folio_vih_codigos": []
 }

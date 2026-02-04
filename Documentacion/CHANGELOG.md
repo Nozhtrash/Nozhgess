@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-02-04
+### 🛡️ Audit & Compliance (Critical)
+- **Strict Limit Enforcement:** Fixed a core logic flaw where global defaults overrode mission limits. `Analisis_Misiones.py` now strictly obeys `max_habilitantes`, `max_objetivos`, etc., from `mission_config.json`.
+- **Ghost Column Elimination:** Implemented strict conditional logic in `Conexiones.py`. Columns like "Código Año", "Apto Caso", "Folio VIH", and "Observación Folio" now ONLY appear if explicitly enabled in the mission.
+
+### 📊 Excel Reporting Engine 3.0
+- **Dynamic "Diccionario" Sheet:** Now features categorized columns ("Identificación", "Clínico", "Lógica"), detailed technical descriptions, and premium dark-blue styling. Auto-generated in every report.
+- **New "Carga Masiva" Sheet:** Automatically generates a specific sheet for bulk uploads (Cyan headers) with columns: `Fecha`, `Rut`, `DV`, `Prestaciones`, `Tipo`, `PS-Fam`, `Especialidad`. (Data population pending/manual as requested).
+
+### 🐛 Bug Fixes
+- **Folio VIH Consistency:** Fixed a discrepancy where column creation used a global default (True) but data filling used a local default (False). Now forced to `False` (Opt-in) everywhere.
+
 ## [3.2.0] - 2026-02-02
 ### 🚀 Critical Improvements
 - **Nuclea Login Fix:** Implemented a robust "Visual + Native Event" strategy for the login process (`flows.py`). 

@@ -76,6 +76,13 @@ from C_Mision.Mision_Actual import (
     CODIGOS_FOLIO_BUSCAR
 )
 
+# Imports tolerantes a fallos para nuevas variables (evita crash si Mision_Actual.py está desactualizado)
+try:
+    from C_Mision.Mision_Actual import FOLIO_VIH, FOLIO_VIH_CODIGOS
+except ImportError:
+    FOLIO_VIH = False
+    FOLIO_VIH_CODIGOS = []
+
 # Local - Principales
 from Z_Utilidades.Principales.DEBUG import should_show_timing
 from Z_Utilidades.Principales.Direcciones import XPATHS
@@ -292,6 +299,129 @@ def buscar_inteligencia_historia(sigges, root, estado_caso: str) -> Dict[str, st
     }
 
 
+def buscar_folio_vih(sigges, root, folio_vih_codigos: List[str]) -> str:
+    """
+    Busca códigos VIH específicos en OA y verifica si sus folios fueron usados en Prestaciones Otorgadas (PO).
+    Retorna el más reciente de cada código.
+    
+    Flujo:
+    1. Lee TODAS las OAs (n=0)
+    2. Filtra por códigos VIH especificados
+    3. Lee tabla de Prestaciones Otorgadas (PO) para extraer referencias OA
+    4. Para cada código, verifica si el folio OA fue usado en PO
+    5. Guarda solo el más reciente por cada código
+    6. Retorna formato: "codigo / fecha_oa / folio | codigo2 / fecha_oa / folio"
+    
+    Args:
+        sigges: Objeto driver
+        root: Elemento raíz del caso expandido
+        folio_vih_codigos: Lista de códigos a buscar (ej: ["0305091", "0305090", "9001043"])
+        
+    Returns:
+        str: Formato "codigo / fecha / folio | codigo2 / fecha / folio" o "" si no hay coincidencias
+    """
+    if not folio_vih_codigos:
+        return ""
+    
+    # Normalizar códigos de búsqueda
+    codigos_norm = {normalizar_codigo(c) for c in folio_vih_codigos if c}
+    
+    if not codigos_norm:
+        return ""
+    
+    # 1. Leer TODAS las OAs (n=0 = todas las filas)
+    # Retorna: fechas, derivados, diagnósticos, códigos, folios
+    try:
+        f_oa, d_oa, diag_oa, c_oa, folios_oa = sigges.leer_oa_desde_caso(root, 0)
+    except Exception as e:
+        log_warn(f"❌ No se pudieron leer OAs para Folio VIH: {e}")
+        return ""
+    
+    if not folios_oa or not c_oa:
+        return ""
+    
+    # 2. Leer tabla de Prestaciones Otorgadas (PO) para extraer referencias OA
+    # Esta tabla tiene la columna "Referencia de OA" con formato "OA 12246128"
+    try:
+        # Usar selector de locators.py: PRESTACIONES_TBODY
+        from Z_Utilidades.Principales.Direcciones import XPATHS
+        from App.src.core.modules.selectors import SelectorEngine
+        
+        selectors = SelectorEngine(sigges.driver)
+        tb = selectors.find_with_fallbacks(
+            XPATHS.get("PRESTACIONES_TBODY", []),
+            condition="presence",
+            timeout=5.0,
+            key="PRESTACIONES_TBODY"
+        )
+        
+        if tb:
+            prestaciones_data = sigges.leer_prestaciones_desde_tbody(tb)
+        else:
+            prestaciones_data = []
+    except Exception as e:
+        log_warn(f"❌ No se pudieron leer Prestaciones Otorgadas para Folio VIH: {e}")
+        prestaciones_data = []
+    
+    # 3. Extraer referencias OA de prestaciones
+    # Las referencias tienen formato "OA 12246128", necesitamos solo el número
+    refs_prestaciones = set()
+    for prest in prestaciones_data:
+        ref = prest.get("referencia", "") or ""
+        # Limpiar referencia: "OA 12246128" -> "12246128"
+        ref_clean = _norm(ref).replace("oa", "").strip()
+        if ref_clean:
+            refs_prestaciones.add(ref_clean)
+    
+    # 4. Procesar OAs y filtrar por códigos VIH + verificar uso en prestaciones
+    # Diccionario: codigo_norm -> (fecha_oa_dt, folio, fecha_str, codigo_original)
+    codigo_data = {}
+    
+    for i, folio_num in enumerate(folios_oa):
+        # Obtener datos de esta fila OA
+        codigo_oa = c_oa[i] if i < len(c_oa) else ""
+        if not codigo_oa:
+            continue
+        
+        # ¿Este código está en la lista de VIH?
+        codigo_norm = normalizar_codigo(codigo_oa)
+        if codigo_norm not in codigos_norm:
+            continue
+        
+        # ¿El folio está usado en Prestaciones Otorgadas?
+        folio_clean = _norm(str(folio_num)).replace("oa", "").strip()
+        if not (folio_clean and folio_clean in refs_prestaciones):
+            continue
+        
+        # Obtener fecha OA
+        fecha_oa_str = f_oa[i] if i < len(f_oa) else ""
+        if not fecha_oa_str:
+            continue
+        
+        # Parsear fecha para comparación
+        dt_oa = dparse(fecha_oa_str)
+        if not dt_oa:
+            continue
+        
+        # Si ya teníamos este código, quedarnos con el más reciente
+        if codigo_norm in codigo_data:
+            if dt_oa > codigo_data[codigo_norm][0]:
+                codigo_data[codigo_norm] = (dt_oa, folio_num, fecha_oa_str, codigo_oa)
+        else:
+            codigo_data[codigo_norm] = (dt_oa, folio_num, fecha_oa_str, codigo_oa)
+    
+    # 5. Formatear salida
+    if not codigo_data:
+        return ""
+    
+    # Crear lista de entries
+    entries = []
+    for codigo_norm, (dt_oa, folio, fecha_str, codigo_original) in codigo_data.items():
+        entries.append(f"{codigo_original} / {fecha_str} / {folio}")
+    
+    return " | ".join(entries)
+
+
 def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str], 
                         fobj: Optional[datetime]) -> List[Tuple[str, datetime]]:
     """
@@ -384,14 +514,37 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     # Apto RE = Resolución/Evaluación (IPD con Sí o APS/OA creados)
     cols += [
         "Familia", "Especialidad", "Fallecido",
-        "Caso", "Estado", "Apertura", "¿Cerrado?",
-        "Apto SE", "Apto RE", "Apto Caso"
+        "Caso", "Estado", "Apertura", "¿Cerrado?"
     ]
-    if req_eleccion:
-        cols.insert(cols.index("Apto SE"), "Apto Elección")
+    
+    # "Apto" columns only if some clinical review/intelligence is involved
+    show_apto = (
+        req_ipd or req_oa or req_aps or req_sic or 
+        req_eleccion or 
+        bool(m.get("inteligencia_activa", True)) # Default True, requires user opt-out if desired
+    )
+    # User requested audit: "Apto Caso" appearing even if functions not active.
+    # Assuming "functions" means clinical checks. 
+    # If NO clinical checks, Apto is useless.
+    # We'll use a slightly stricter check: if no read/check is enabled, no Apto.
+    show_apto_strict = req_ipd or req_oa or req_aps or req_sic or req_eleccion
+
+    if show_apto_strict:
+        cols += ["Apto SE", "Apto RE", "Apto Caso"]
+        if req_eleccion:
+            # Insert carefully
+            try:
+                idx_se = cols.index("Apto SE")
+                cols.insert(idx_se, "Apto Elección")
+            except ValueError:
+                cols.append("Apto Elección")
+
     if add_mensual:
         cols.append("Mensual")
-    cols.append("Código Año")
+        
+    # FIX: Código Año conditional on anios_codigo
+    if m.get("anios_codigo"):
+        cols.append("Código Año")
     # Periodicidad eliminada del Excel según solicitud del usuario
 
     # Habilitantes (controlado por toggle global)
@@ -417,15 +570,23 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     # Observación: solo para fallecimiento u otros datos críticos
     cols.append("Observación")
     
-    # Observación Folio: solo si revisamos OA
-    if REVISAR_OA:
+    # Observación Folio: solo si revisamos OA (misión-específico)
+    if req_oa:
         cols.append("Observación Folio")
+        
+        # Folio VIH: solo si está activado Y revisamos OA
+        # Usamos False por defecto para que sea estrictamente opt-in por misión
+        if m.get("folio_vih", False):
+            cols.append("Folio VIH")
 
     # Campos "En Contra" solo si se definieron keywords_contra
     if has_contra:
         cols += [
             "Caso en Contra", "Estado en Contra", "Apertura en Contra",
-            "Estado IPD en Contra", "Fecha IPD en Contra", "Diag IPD en Contra"
+            "Estado IPD en Contra", "Fecha IPD en Contra", "Diag IPD en Contra",
+            "Código OA en Contra", "Fecha OA en Contra", "Folio OA en Contra", "Derivado OA en Contra", "Diagnóstico OA en Contra",
+            "Fecha APS en Contra", "Estado APS en Contra",
+            "Fecha SIC en Contra", "Derivado SIC en Contra"
         ]
 
     return cols
@@ -455,6 +616,15 @@ def vac_row(m: Dict[str, Any], fecha: str, rut: str, nombre: str,
     if "Estado IPD en Contra" in r: r["Estado IPD en Contra"] = ""
     if "Fecha IPD en Contra" in r: r["Fecha IPD en Contra"] = ""
     if "Diag IPD en Contra" in r: r["Diag IPD en Contra"] = ""
+    if "Código OA en Contra" in r: r["Código OA en Contra"] = ""
+    if "Fecha OA en Contra" in r: r["Fecha OA en Contra"] = ""
+    if "Folio OA en Contra" in r: r["Folio OA en Contra"] = ""
+    if "Derivado OA en Contra" in r: r["Derivado OA en Contra"] = ""
+    if "Diagnóstico OA en Contra" in r: r["Diagnóstico OA en Contra"] = ""
+    if "Fecha APS en Contra" in r: r["Fecha APS en Contra"] = ""
+    if "Estado APS en Contra" in r: r["Estado APS en Contra"] = ""
+    if "Fecha SIC en Contra" in r: r["Fecha SIC en Contra"] = ""
+    if "Derivado SIC en Contra" in r: r["Derivado SIC en Contra"] = ""
     if "Mensual" in r: r["Mensual"] = "Sin Día"
     r["Familia"] = m.get("familia", "")
     r["Especialidad"] = m.get("especialidad", "")
@@ -487,6 +657,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     filas_oa = int(m.get("max_oa", FILAS_OA))
     filas_aps = int(m.get("max_aps", FILAS_APS))
     filas_sic = int(m.get("max_sic", FILAS_SIC))
+    filas_hab = int(m.get("max_habilitantes", HABILITANTES_MAX))
+    filas_excl = int(m.get("max_excluyentes", EXCLUYENTES_MAX))
+    max_objs = int(m.get("max_objetivos", 10))
 
     res = vac_row(m, fecha, rut, nombre, "")
     res["Edad"] = str(edad_paciente) if edad_paciente is not None else ""
@@ -776,21 +949,62 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                 if root_c:
                     log_debug(f"✅ Caso en Contra expandido. Flags originales: req_ipd={req_ipd}, req_aps={req_aps} -> FORZANDO LECTURA para Contra")
                     
-                    # FORZAR lectura de IPD para Contra (siempre que existe el caso contra)
-                    # Esto asegura llenar las columnas "Estado IPD en Contra", etc.
-                    f_ipd_c, e_ipd_c, d_ipd_c = sigges.leer_ipd_desde_caso(root_c, min(1, filas_ipd))
-                    log_debug(f"  -> IPD Contra leídos: {len(f_ipd_c)} filas")
-                    res["Fecha IPD en Contra"] = join_clean(_trim(f_ipd_c, 1))
-                    res["Estado IPD en Contra"] = join_clean(_trim(e_ipd_c, 1))
-                    res["Diag IPD en Contra"] = join_clean(_trim(d_ipd_c, 1))
-                    contra_ipd_dt = dparse(f_ipd_c[0]) if f_ipd_c and f_ipd_c[0] else None
-                    contra_ipd_pos = any("si" in (s or "").lower() or "sí" in (s or "").lower() for s in e_ipd_c)
+                    # === IPD CONTRA ===
+                    try:
+                        f_ipd_c, e_ipd_c, d_ipd_c = sigges.leer_ipd_desde_caso(root_c, filas_ipd)
+                        f_ipd_c = _trim(f_ipd_c, filas_ipd)
+                        e_ipd_c = _trim(e_ipd_c, filas_ipd)
+                        d_ipd_c = _trim(d_ipd_c, filas_ipd)
+                        res["Fecha IPD en Contra"] = join_clean(f_ipd_c)
+                        res["Estado IPD en Contra"] = join_clean(e_ipd_c)
+                        res["Diag IPD en Contra"] = join_clean(d_ipd_c)
+                        
+                        contra_ipd_dt = dparse(f_ipd_c[0]) if f_ipd_c and f_ipd_c[0] else None
+                        contra_ipd_pos = any("si" in (s or "").lower() or "sí" in (s or "").lower() for s in e_ipd_c)
+                    except Exception as e_ipd_c:
+                        log_warn(f"Error IPD Contra: {e_ipd_c}")
 
-                    # FORZAR lectura de APS para Contra (para cálculo interno de Apto Caso)
-                    f_aps_c, e_aps_c = sigges.leer_aps_desde_caso(root_c, min(1, filas_aps))
-                    log_debug(f"  -> APS Contra leídos: {len(f_aps_c)} filas")
-                    contra_aps_dt = dparse(f_aps_c[0]) if f_aps_c and f_aps_c[0] else None
-                    contra_aps_pos = any("confirm" in (s or "").lower() for s in e_aps_c or [])
+                    # === OA CONTRA ===
+                    try:
+                        f_oa_c, p_oa_c, d_oa_c, c_oa_c, fol_oa_c = sigges.leer_oa_desde_caso(root_c, filas_oa)
+                        f_oa_c = _trim(f_oa_c, filas_oa)
+                        p_oa_c = _trim(p_oa_c, filas_oa)
+                        d_oa_c = _trim(d_oa_c, filas_oa)
+                        c_oa_c = _trim(c_oa_c, filas_oa)
+                        fol_oa_c = _trim(fol_oa_c, filas_oa)
+                        
+                        res["Fecha OA en Contra"] = join_clean(f_oa_c)
+                        res["Código OA en Contra"] = join_clean(c_oa_c)
+                        res["Folio OA en Contra"] = join_clean(fol_oa_c)
+                        res["Derivado OA en Contra"] = join_clean(p_oa_c)
+                        res["Diagnóstico OA en Contra"] = join_clean(d_oa_c)
+                    except Exception as e_oa_c:
+                        log_warn(f"Error OA Contra: {e_oa_c}")
+
+                    # === APS CONTRA ===
+                    try:
+                        f_aps_c, e_aps_c = sigges.leer_aps_desde_caso(root_c, filas_aps)
+                        f_aps_c = _trim(f_aps_c, filas_aps)
+                        e_aps_c = _trim(e_aps_c, filas_aps)
+                        
+                        res["Fecha APS en Contra"] = join_clean(f_aps_c)
+                        res["Estado APS en Contra"] = join_clean(e_aps_c)
+                        
+                        contra_aps_dt = dparse(f_aps_c[0]) if f_aps_c and f_aps_c[0] else None
+                        contra_aps_pos = any("confirm" in (s or "").lower() for s in e_aps_c or [])
+                    except Exception as e_aps_c:
+                        log_warn(f"Error APS Contra: {e_aps_c}")
+
+                    # === SIC CONTRA ===
+                    try:
+                        f_sic_c, d_sic_c = sigges.leer_sic_desde_caso(root_c, filas_sic)
+                        f_sic_c = _trim(f_sic_c, filas_sic)
+                        d_sic_c = _trim(d_sic_c, filas_sic)
+                        
+                        res["Fecha SIC en Contra"] = join_clean(f_sic_c)
+                        res["Derivado SIC en Contra"] = join_clean(d_sic_c)
+                    except Exception as e_sic_c:
+                        log_warn(f"Error SIC Contra: {e_sic_c}")
                 else:
                     log_warn("❌ No se pudo obtener root_c para Caso en Contra")
 
@@ -823,6 +1037,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
 
     # Ordenar por fecha más reciente
     obj_info.sort(key=lambda x: x[1][0] if x[1] else datetime.min, reverse=True)
+    
+    # Limitar objetivos según configuración
+    obj_info = obj_info[:max_objs]
 
     fechas_obj_all = []
     # Solo crear columnas para los objetivos que realmente existen en la configuración
@@ -885,7 +1102,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         habs_found = listar_habilitantes(prestaciones, habs_cfg, fobj)
 
         if habs_found:
-            top = habs_found[:HABILITANTES_MAX]
+            top = habs_found[:filas_hab]
             res["C Hab"] = join_clean([h[0] for h in top])
             res["F Hab"] = join_clean([h[1].strftime("%d/%m/%Y") for h in top])
 
@@ -914,7 +1131,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                 excl_found.append((c_norm, f_txt, dt))
 
         excl_found.sort(key=lambda x: x[2], reverse=True)
-        excl_found = excl_found[:EXCLUYENTES_MAX]
+        excl_found = excl_found[:filas_excl]
 
         if excl_found:
             res["C Excluyente"] = join_clean([x[0] for x in excl_found])
@@ -953,6 +1170,26 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                         obs_folio_list.append(f"Fol {folio} / Cód {codigo} / Fec {fecha_str}")
 
         res["Observación Folio"] = " | ".join(obs_folio_list)
+    
+    # ===== FOLIO VIH =====
+    # Si la misión tiene folio_vih activado, buscar códigos VIH en OA y verificar uso en PO
+    if m.get("folio_vih", False):
+        folio_vih_codigos = m.get("folio_vih_codigos", [])
+        if folio_vih_codigos:
+            try:
+                vih_text = buscar_folio_vih(sigges, root, folio_vih_codigos)
+                res["Folio VIH"] = vih_text
+                if vih_text:
+                    log_info(f"🧬 Folio VIH encontrado: {vih_text}")
+            except Exception as e:
+                log_error(f"❌ Error en Folio VIH: {e}")
+                res["Folio VIH"] = ""
+        else:
+            res["Folio VIH"] = ""
+    else:
+        # Solo agregar columna si está activado
+        if "Folio VIH" in res:
+            res["Folio VIH"] = ""
 
     # ===== OBSERVACIÓN GENERAL =====
     # Solo fallecimiento, como pidió el usuario.
@@ -1030,24 +1267,56 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                     if not is_valid:
                         raise FatalConnectionError(error_msg)
                 
-                # Estrategia de reintentos
-                if intento == 2:
-                    log_warn(f"Reintento 2 para {rut}")
-                    espera("reintento_1")
+                # 🔄 ESTRATEGIA DE REINTENTOS PROGRESIVA (6 intentos con tiempos incrementales)
+                if intento == 1:
+                    # Reintento 1: Normal, espera 5 segundos
+                    log_warn(f"🔄 Reintento 1/{MAX_REINTENTOS_POR_PACIENTE} para {rut}")
+                    time.sleep(5)  # Espera 5 segundos
                     sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
                     sigges.ir(XPATHS["BUSQUEDA_URL"])
+                    
+                elif intento == 2:
+                    # Reintento 2: Normal, espera 10 segundos
+                    log_warn(f"🔄 Reintento 2/{MAX_REINTENTOS_POR_PACIENTE} para {rut} - Espera extendida")
+                    time.sleep(10)  # Espera 10 segundos
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
+                    
                 elif intento == 3:
-                    log_warn(f"Reintento 3 para {rut}")
-                    espera("reintento_2")
-                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
-                    sigges.ir(XPATHS["BUSQUEDA_URL"])
-                elif intento >= 4:
-                    log_warn(f"Reintento final para {rut}")
+                    # Reintento 3: REFRESH + espera 10 segundos
+                    log_warn(f"🔄 Reintento 3/{MAX_REINTENTOS_POR_PACIENTE} para {rut} - REFRESH DE PÁGINA")
                     try:
                         sigges.driver.refresh()
-                    except Exception:
-                        pass
-                    espera("reintento_3")
+                        log_info("✅ Refresh ejecutado en reintento 3")
+                    except Exception as e:
+                        log_error(f"❌ Error en refresh reintento 3: {e}")
+                    time.sleep(10)  # Espera 10 segundos para que cargue completamente
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
+                    
+                elif intento == 4:
+                    # Reintento 4: Normal, espera 10 segundos
+                    log_warn(f"🔄 Reintento 4/{MAX_REINTENTOS_POR_PACIENTE} para {rut}")
+                    time.sleep(10)  # Espera 10 segundos
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
+                    
+                elif intento == 5:
+                    # Reintento 5: Normal, espera 10 segundos
+                    log_warn(f"🔄 Reintento 5/{MAX_REINTENTOS_POR_PACIENTE} para {rut}")
+                    time.sleep(10)  # Espera 10 segundos
+                    sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
+                    sigges.ir(XPATHS["BUSQUEDA_URL"])
+                    
+                elif intento == 6:
+                    # Reintento 6: REFRESH FINAL + espera 30 segundos
+                    log_warn(f"🔄 Reintento 6/{MAX_REINTENTOS_POR_PACIENTE} para {rut} - REFRESH FINAL CON ESPERA EXTENDIDA")
+                    try:
+                        sigges.driver.refresh()
+                        log_info("✅ Refresh final ejecutado en reintento 6")
+                    except Exception as e:
+                        log_error(f"❌ Error en refresh reintento 6: {e}")
+                    time.sleep(30)  # Espera 30 segundos (máximo) para estabilizar
                     sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
                     sigges.ir(XPATHS["BUSQUEDA_URL"])
 
@@ -1210,7 +1479,27 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 clasificar_error(e, silencioso=False)
 
         if not resuelto:
-            # 🔧 MEJORA: Razón detallada de omisión + datos básicos poblados
+            # ⚠️ Paciente saltado después de agotar todos los reintentos
+            log_warn(f"⚠️ Paciente {rut} SALTADO tras {MAX_REINTENTOS_POR_PACIENTE} reintentos")
+            
+            # 🔄 CRÍTICO: Refresh completo para limpiar estado corrupto antes de siguiente paciente
+            try:
+                log_info("🔄 Ejecutando refresh POST-REINTENTOS para limpiar estado corrupto...")
+                sigges.driver.refresh()
+                time.sleep(10)  # Espera 10 segundos para recarga completa
+                
+                log_info("🧭 Navegando a pantalla de búsqueda limpia...")
+                sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
+                sigges.ir(XPATHS["BUSQUEDA_URL"])
+                time.sleep(3)  # Espera adicional para estabilizar
+                
+                log_ok("✅ Estado limpiado exitosamente - listo para siguiente paciente")
+                
+            except Exception as e:
+                log_error(f"❌ Error durante refresh post-reintentos: {pretty_error(e)}")
+                # Continuar de todas formas - no queremos detener toda la ejecución
+            
+            # 🔧 Razón detallada de omisión + datos básicos poblados
             skip_reason = f"Paciente Saltado Automáticamente ({MAX_REINTENTOS_POR_PACIENTE} intentos fallidos)"
             res_paci = []
             for m in ACTIVE_MISSIONS:

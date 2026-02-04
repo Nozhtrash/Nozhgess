@@ -60,6 +60,23 @@ Detecta por qué se cerró un caso.
 
 ---
 
+# 3. OUTPUTS DINÁMICOS Y EXCEL
+
+El Excel final no es estático. Nozhgess decide qué columnas mostrar basándose en `mission_config.json`.
+
+## 3.1. Reglas de Visibilidad (v3.3.0)
+*   **"Código Año"**: Solo aparece si `anios_codigo` está configurado.
+*   **"Apto SE/RE/Caso"**: Solo aparecen si la misión tiene activas funciones clínicas (`require_ipd`, `require_oa`, etc.).
+*   **"Folio VIH"**: Estrictamente **OPT-IN**. Solo aparece si `"folio_vih": true`.
+*   **"Observación Folio"**: Solo aparece si `req_oa` (lectura de órdenes) está activo para esa misión.
+
+## 3.2. Carga Masiva
+Se genera una hoja adicional con encabezados CYAN:
+*   `Fecha`, `Rut`, `DV`, `Prestaciones`, `Tipo`, `PS-Fam`, `Especialidad`.
+*   Esta estructura es fija para compatibilidad con sistemas externos.
+
+---
+
 # 3. LÓGICA DE NEGOCIO Y EXCEL (`mission_config.json`)
 
 El archivo JSON define cómo se interpreta lo extraído.

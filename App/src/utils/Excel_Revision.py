@@ -278,184 +278,432 @@ def _escribir_y_estilizar(writer, resultados_por_mision):
 # =============================================================================
 #                    HOJA DICCIONARIO DE COLUMNAS
 # =============================================================================
-def _describe_column(col: str) -> tuple:
+def _describe_column(col: str) -> dict:
     """
-    Retorna (descripcion, fuente, notas) para una columna conocida.
-    Usa heurísticas para columnas dinámicas.
-    """
-    name = (col or "").lower()
-    
-    # Dinámicos
-    if name.startswith("código año") or name.startswith("cod año") or name.startswith("códigos año"):
-        return (
-            "Se selecciona en el Panel de Mision.",
-            "Cálculo: Año Objetivo vs Año IPD",
-            "La celda selecciona el código correspondiente al año de tratamiento. \n"
-            "Regla: Se calcula la diferencia de años (Año Objetivo - Año IPD). \n"
-            "Ejemplo: Si IPD es 2021 y Objetivo es 2024, diferencia es 3 años -> Se elige el tercer codigo de la lista."
-        )
-    if name.startswith("f obj") or "objetivo" in name:
-        return ("Fecha Objetivo configurada.", "Configuración Misión", "Fecha contra la que se comparan las prestaciones.")
-    if name.startswith("c hab") or name.startswith("f hab") or name.startswith("hab vi"):
-         return ("Criterio Habilitante.", "Configuración Misión", "Verifica diagnósticos previos habilitantes.")
-    if name.startswith("c excl") or name.startswith("f excl"):
-         return ("Criterio Excluyente.", "Configuración Misión", "Verifica si el paciente debe ser excluido.")
-
-    mapping = {
-        "fecha": (
-            "Se extrae del Excel Objetivo", 
-            "Excel Entrada", 
-            "Fecha original del archivo cargado."
-        ),
-        "rut": (
-            "Se extrae del Excel Objetivo", 
-            "Excel Entrada", 
-            "Identificador del paciente."
-        ),
-        "edad": (
-            "Se extrae del sistema Sigges", 
-            "SIGGES", 
-            "Edad actual del paciente según registros."
-        ),
-        "familia": (
-            "Se llena en el panel de Mision", 
-            "Configuración", 
-            "Familia diagnóstica asignada."
-        ),
-        "especialidad": (
-            "Se llena en el panel de Mision", 
-            "Configuración", 
-            "Especialidad médica asignada."
-        ),
-        "fallecido": (
-            "Se extrae del sistema Sigges", 
-            "SIGGES Historia", 
-            "Verifica si hay marca de fallecimiento."
-        ),
-        "caso": (
-            "Se extrae del sistema Sigges", 
-            "SIGGES Mini-tabla", 
-            "Nombre del caso GES vigente."
-        ),
-        "estado": (
-            "Se extrae del sistema Sigges", 
-            "SIGGES Mini-tabla", 
-            "Estado administrativo (Vigente, Cerrado, etc)."
-        ),
-        "apertura": (
-            "Se extrae del sistema Sigges (Fecha que se abrió el caso)", 
-            "SIGGES Mini-tabla", 
-            "Fecha de inicio del caso."
-        ),
-        "¿cerrado?": (
-            "Se extrae del sistema Sigges (Si está cerrado el caso o no)", 
-            "SIGGES Mini-tabla", 
-            "Indicador Si/No."
-        ),
-        "apto elección": (
-            "Cumplimiento de Requisitos Específicos (IPD/APS).", 
-            "Lógica Compleja", 
-            "Evalúa requisitos activables en configuración '¿Requiere IPD?' y '¿Requiere APS?'. \n"
-            "IPD Positivo = Estado 'Sí'. APS Positivo = Estado 'Caso Confirmado'. \n"
-            "Muestra combinaciones como: 'SI IPD | NO APS', 'NO REQ IPD | SI APS', etc. \n"
-            "Depende totalmente de los toggles de activación en el panel."
-        ),
-        "apto se": (
-            "Apto para Seguimiento.", 
-            "Historia (OA/SIC)", 
-            "Busca si en algún momento de su vida en el caso, tuvo seguimiento ya sea en tabla OA o SIC. \n"
-            "Respuesta: Si / No."
-        ),
-        "apto re": (
-            "Apto para Resolución/Evaluación (Criterios rígidos).", 
-            "IPD / OA / APS", 
-            "Revisa si se cumplen criterios específicos: \n"
-            "1. IPD debe decir 'Sí'. \n"
-            "2. OA debe decir 'Caso en Tratamiento' (derivado). \n"
-            "3. APS debe decir 'Caso Confirmado'. \n"
-            "Muestra cuáles se cumplen: 'IPD +' | 'OA +' | 'APS +'."
-        ),
-        "apto caso": (
-            "Comparación con Caso en Contra (Más reciente).", 
-            "Lógica Comparativa", 
-            "Avisa si el Caso en Contra (Keywords) es MÁS RECIENTE que el caso principal. \n"
-            "Compara Fechas de Apertura, fecha IPD (solo si 'Sí') y fecha APS (solo si 'Confirmado'). \n"
-            "Salidas: 'IPD + Reciente', 'APS + Reciente', 'Apertura + Reciente'."
-        ),
-        "mensual": (
-            "Verificación de Frecuencia Mensual/Anual.", 
-            "Cartola Histórica", 
-            "Verifica si hay prestaciones con el mismo código objetivo en el mismo mes/año. \n"
-            "Si 'Código por Año' está activo, usa EL CÓDIGO CALCULADO (no el objetivo base) para buscar repeticiones."
-        ),
-        "periodicidad": (
-            "Frecuencia esperada.", 
-            "Configuración", 
-            "Columna informativa (actualmente no utilizada)."
-        ),
-        # Columnas estándar (mantener descripciones breves si el usuario no dio específicas, 
-        # o usar genéricas basadas en su estilo "Se extrae de...")
-        "fecha ipd": ("Fecha del IPD.", "SIGGES IPD", "Se lee de la tabla IPD."),
-        "estado ipd": ("Estado del IPD (Sí/No).", "SIGGES IPD", "Determinante para Apto RE y Código Año."),
-        "diagnóstico ipd": ("Diagnóstico clínico IPD.", "SIGGES IPD", ""),
-        "código oa": ("Código de la Orden de Atención.", "SIGGES OA", ""),
-        "fecha oa": ("Fecha de emisión OA.", "SIGGES OA", ""),
-        "folio oa": ("Folio único OA.", "SIGGES OA", ""),
-        "derivado oa": ("Destino/Motivo OA.", "SIGGES OA", "Clave para Apto RE ('Caso en Tratamiento')."),
-        "diagnóstico oa": ("Diagnóstico OA.", "SIGGES OA", ""),
-        "fecha aps": ("Fecha registro APS.", "SIGGES APS", ""),
-        "estado aps": ("Estado APS.", "SIGGES APS", "Clave para Apto Elección ('Caso Confirmado')."),
-        "fecha sic": ("Fecha Solicitud Interconsulta.", "SIGGES SIC", ""),
-        "derivado sic": ("Destino SIC.", "SIGGES SIC", ""),
-        "observación": ("Bitácora de revisión.", "Cálculo Interno", "Errores, bloqueos, info crítica."),
-        "observación folio": ("Trazabilidad de Folio.", "Cruce OA vs Prestaciones", ""),
-        
-        # En Contra
-        "caso en contra": ("Nombre del caso 'En Contra' encontrado.", "SIGGES", "Caso secundario que coincide con keywords negativas."),
-        "estado en contra": ("Estado del caso en contra.", "SIGGES", ""),
-        "apertura en contra": ("Fecha apertura caso en contra.", "SIGGES", ""),
-        "fecha ipd en contra": ("Fecha IPD del caso en contra.", "SIGGES IPD", ""),
-        "estado ipd en contra": ("Estado IPD del caso en contra.", "SIGGES IPD", ""),
-        "diag ipd en contra": ("Diagnóstico IPD del caso en contra.", "SIGGES IPD", ""),
+    Retorna metadatos detallados para una columna.
+    Devuelve dict: {
+        "Categoria": str, 
+        "Descripcion": str, 
+        "Fuente": str, 
+        "Nota": str
     }
+    """
+    name = (col or "").lower().strip()
+    
+    # -------------------------------------------------------------------------
+    # 1. HEURÍSTICAS DINÁMICAS
+    # -------------------------------------------------------------------------
+    if name.startswith("código año") or name.startswith("cod año"):
+        return {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Código seleccionado automáticamente según la antigüedad del tratamiento.",
+            "Fuente": "Cálculo Interno",
+            "Nota": "Se calcula: [Año Objetivo] - [Año IPD]. Ejemplo: IPD 2021 vs Obj 2024 = 3 años de antigüedad."
+        }
+    if name.startswith("f obj") or "objetivo" in name:
+        return {
+            "Categoria": "Gestión y Seguimiento",
+            "Descripcion": "Fechas encontradas para el cumplimiento de Objetivos Sanitarios.",
+            "Fuente": "Prestaciones (SIGGES)",
+            "Nota": "Se buscan códigos específicos configurados en la misión. Muestra la fecha más reciente."
+        }
+    if name.startswith("c hab") or name.startswith("f hab") or name.startswith("hab vi"):
+        return {
+            "Categoria": "Criterios de Inclusión",
+            "Descripcion": "Evaluación de Habilitantes (Diagnósticos o prestaciones previas requeridas).",
+            "Fuente": "Prestaciones (SIGGES)",
+            "Nota": "Si no se encuentran habilitantes vigentes, el paciente podría no calificar."
+        }
+    if name.startswith("c excl") or name.startswith("f excl"):
+        return {
+            "Categoria": "Criterios de Exclusión",
+            "Descripcion": "Detección de Excluyentes (Códigos que invalidan la misión para este paciente).",
+            "Fuente": "Prestaciones (SIGGES)",
+            "Nota": "La presencia de estos códigos generalmente descarta el caso."
+        }
+    if "folio vih" in name:
+         return {
+            "Categoria": "Datos Clínicos Específicos",
+            "Descripcion": "Folio asociado a prestaciones o diagnósticos de VIH (si aplica).",
+            "Fuente": "SIGGES OA/Prestaciones",
+            "Nota": "Rastreo específico para misiones que requieren trazabilidad de VIH."
+         }
+
+    # -------------------------------------------------------------------------
+    # 2. DICCIONARIO ESTÁTICO
+    # -------------------------------------------------------------------------
+    mapping = {
+        # --- IDENTIFICACIÓN ---
+        "rut": {
+            "Categoria": "Identificación Paciente",
+            "Descripcion": "RUT del paciente normalizado.",
+            "Fuente": "Excel de Entrada",
+            "Nota": "Clave principal de búsqueda."
+        },
+        "nombre": {
+            "Categoria": "Identificación Paciente",
+            "Descripcion": "Nombre completo del paciente.",
+            "Fuente": "Excel de Entrada",
+            "Nota": ""
+        },
+        "edad": {
+            "Categoria": "Identificación Paciente",
+            "Descripcion": "Edad actual del paciente registrada en sistema.",
+            "Fuente": "SIGGES (Datos Demográficos)",
+            "Nota": "Puede activar alertas de colores si está fuera del rango configurado."
+        },
+        "fallecido": {
+            "Categoria": "Identificación Paciente",
+            "Descripcion": "Indicador de fallecimiento.",
+            "Fuente": "SIGGES (Historia)",
+            "Nota": "Si dice 'Sí', el paciente suele ser descartado o marcado en observación."
+        },
+
+        # --- DATOS DEL CASO ---
+        "caso": {
+            "Categoria": "Datos del Caso GES",
+            "Descripcion": "Nombre del problema de salud GES activo.",
+            "Fuente": "SIGGES (Mini-tabla)",
+            "Nota": "Debe coincidir con las 'keywords' de la misión."
+        },
+        "estado": {
+            "Categoria": "Datos del Caso GES",
+            "Descripcion": "Estado administrativo del caso (ej. Vigente, Cerrado).",
+            "Fuente": "SIGGES (Mini-tabla)",
+            "Nota": ""
+        },
+        "apertura": {
+            "Categoria": "Datos del Caso GES",
+            "Descripcion": "Fecha de inicio del caso GES.",
+            "Fuente": "SIGGES (Mini-tabla)",
+            "Nota": "Determina la antigüedad administrativa."
+        },
+        "¿cerrado?": {
+            "Categoria": "Datos del Caso GES",
+            "Descripcion": "Confirmación explícita de si el caso está cerrado.",
+            "Fuente": "SIGGES",
+            "Nota": "Casos cerrados generalmente no se gestionan."
+        },
+
+        # --- DATOS CLÍNICOS (IPD) ---
+        "fecha ipd": {
+            "Categoria": "Datos Clínicos (IPD)",
+            "Descripcion": "Fecha del Informe de Proceso Diagnóstico.",
+            "Fuente": "SIGGES (Pestaña IPD)",
+            "Nota": "Base para calcular antigüedad clínica."
+        },
+        "estado ipd": {
+            "Categoria": "Datos Clínicos (IPD)",
+            "Descripcion": "Resultado del IPD (ej. 'Sí', 'No', 'En estudio').",
+            "Fuente": "SIGGES (Pestaña IPD)",
+            "Nota": "Debe ser 'Sí' para considerar al paciente Apto RE (generalmente)."
+        },
+        "diagnóstico ipd": {
+            "Categoria": "Datos Clínicos (IPD)",
+            "Descripcion": "Detalle del diagnóstico confirmado en IPD.",
+            "Fuente": "SIGGES (Pestaña IPD)",
+            "Nota": ""
+        },
+
+        # --- DATOS CLÍNICOS (OA) ---
+        "fecha oa": {
+            "Categoria": "Datos Clínicos (OA)",
+            "Descripcion": "Fecha de emisión de la Orden de Atención.",
+            "Fuente": "SIGGES (Pestaña OA)",
+            "Nota": ""
+        },
+        "código oa": {
+            "Categoria": "Datos Clínicos (OA)",
+            "Descripcion": "Código de prestación asociado a la OA.",
+            "Fuente": "SIGGES (Pestaña OA)",
+            "Nota": ""
+        },
+        "folio oa": {
+            "Categoria": "Datos Clínicos (OA)",
+            "Descripcion": "Folio único de la Orden de Atención.",
+            "Fuente": "SIGGES (Pestaña OA)",
+            "Nota": "Usado para trazabilidad y cruce con prestaciones realizadas."
+        },
+        "derivado oa": {
+            "Categoria": "Datos Clínicos (OA)",
+            "Descripcion": "Estado de derivación/tratamiento OA.",
+            "Fuente": "SIGGES (Pestaña OA)",
+            "Nota": "Si indica 'Caso en Tratamiento', suma puntos para Apto RE."
+        },
+        "diagnóstico oa": {
+            "Categoria": "Datos Clínicos (OA)",
+            "Descripcion": "Diagnóstico asociado a la OA.",
+            "Fuente": "SIGGES (Pestaña OA)",
+            "Nota": ""
+        },
+
+        # --- DATOS CLÍNICOS (APS) ---
+        "fecha aps": {
+            "Categoria": "Datos Clínicos (APS)",
+            "Descripcion": "Fecha de registro en Atención Primaria.",
+            "Fuente": "SIGGES (Pestaña APS)",
+            "Nota": ""
+        },
+        "estado aps": {
+            "Categoria": "Datos Clínicos (APS)",
+            "Descripcion": "Estado de confirmación APS (ej. 'Caso Confirmado').",
+            "Fuente": "SIGGES (Pestaña APS)",
+            "Nota": "Clave para determinar elegibilidad en ciertos cánceres."
+        },
+
+        # --- DATOS CLÍNICOS (SIC) ---
+        "fecha sic": {
+            "Categoria": "Datos Clínicos (SIC)",
+            "Descripcion": "Fecha de Solicitud de Interconsulta.",
+            "Fuente": "SIGGES (Pestaña SIC)",
+            "Nota": ""
+        },
+        "derivado sic": {
+            "Categoria": "Datos Clínicos (SIC)",
+            "Descripcion": "Destino o motivo de la interconsulta.",
+            "Fuente": "SIGGES (Pestaña SIC)",
+            "Nota": ""
+        },
+
+        # --- LÓGICA DE NEGOCIO (CALCULADA) ---
+        "apto elección": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Evaluación compuesta de requisitos IPD/APS configurables.",
+            "Fuente": "Algoritmo Interno",
+            "Nota": "Muestra si cumple requisitos activados (ej: 'SI IPD | NO APS'). Útil para decisiones flexibles."
+        },
+        "apto se": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Apto para Seguimiento (Histórico).",
+            "Fuente": "Algoritmo Interno",
+            "Nota": "Indica si el paciente ha tenido historial de seguimiento (OA/SIC) previamente."
+        },
+        "apto re": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Apto para Resolución (Criterios Estrictos).",
+            "Fuente": "Algoritmo Interno",
+            "Nota": "Evalúa cumplimiento simultáneo: IPD + (Sí), OA + (En Tratamiento), APS + (Confirmado)."
+        },
+        "apto caso": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Comparativa con casos 'En Contra'.",
+            "Fuente": "Algoritmo Interno",
+            "Nota": "Indica si existe un caso contradictorio más reciente que el actual (ej. un cáncer nuevo)."
+        },
+        "mensual": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Verificación de cobertura periódica (Mensual/Anual).",
+            "Fuente": "Cruce Prestaciones",
+            "Nota": "Muestra si se encontró la prestación requerida en la frecuencia configurada (ej. 1/1 Mes)."
+        },
+        "periodicidad": {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Frecuencia teórica configurada.",
+            "Fuente": "Configuración Misión",
+            "Nota": "Informativo."
+        },
+
+        # --- AUDITORÍA Y TRAZABILIDAD ---
+        "observación": {
+            "Categoria": "Auditoría Interna",
+            "Descripcion": "Bitácora de errores o hallazgos críticos.",
+            "Fuente": "Sistema",
+            "Nota": "Revisar siempre si tiene contenido (errores de conexión, datos faltantes, fallecimiento)."
+        },
+        "observación folio": {
+            "Categoria": "Auditoría Interna",
+            "Descripcion": "Verificación cruzada de Folio OA.",
+            "Fuente": "Sistema",
+            "Nota": "Confirma si el folio de la OA fue utilizado en alguna prestación facturada."
+        },
+        "familia": {
+             "Categoria": "Configuración",
+             "Descripcion": "Familia GES asignada.",
+             "Fuente": "Misión",
+             "Nota": ""
+        },
+        "especialidad": {
+             "Categoria": "Configuración",
+             "Descripcion": "Especialidad asignada.",
+             "Fuente": "Misión",
+             "Nota": ""
+        }
+    }
+
+    # Búsqueda en mapa estático
     if name in mapping:
         return mapping[name]
-    # Fallback
-    return (
-        "Columna generada durante la revisión.",
-        "Fuente mixta (SIGGES/Configuración/Procesamiento)",
-        "Se incluye para trazabilidad; puede quedar vacía si no aplica."
-    )
+    
+    # Búsqueda parcial para "En Contra"
+    if "contra" in name:
+        return {
+            "Categoria": "Caso en Contra (Incompatibilidad)",
+            "Descripcion": "Datos provenientes de un caso secundario detectado como conflicto.",
+            "Fuente": "SIGGES (Caso Secundario)",
+            "Nota": "Usado para descartar pacientes que ya tienen otro diagnóstico prevalente."
+        }
+
+    # Fallback Genérico
+    return {
+        "Categoria": "Otros Datos",
+        "Descripcion": "Columna generada dinámicamente o dato adicional.",
+        "Fuente": "Procesamiento General",
+        "Nota": ""
+    }
 
 
 def _escribir_diccionario(writer, columnas: List[str]) -> None:
+    """
+    Genera la hoja 'Diccionario' con formato Premium.
+    """
     if not columnas:
         return
-    rows = []
+
+    # 1. Preparar datos
+    data = []
+    seen = set()
+    
+    # Ordenar columnas: Primero por categoría lógica (hardcoded sort), luego alfabético
+    # Definir prioridad de categorías
+    cat_priority = {
+        "Identificación Paciente": 1,
+        "Lógica de Negocio": 2,
+        "Datos del Caso GES": 3,
+        "Datos Clínicos (IPD)": 4,
+        "Datos Clínicos (OA)": 5,
+        "Datos Clínicos (APS)": 6,
+        "Datos Clínicos (SIC)": 7,
+        "Gestión y Seguimiento": 8,
+        "Criterios de Inclusión": 9,
+        "Criterios de Exclusión": 10,
+        "Caso en Contra (Incompatibilidad)": 11,
+        "Auditoría Interna": 99,
+        "Otros Datos": 100
+    }
+
     for col in columnas:
-        desc, fuente, notas = _describe_column(col)
-        rows.append({
-            "Columna": col,
-            "Descripción": desc,
-            "Fuente": fuente,
-            "Notas": notas
+        if col in seen: continue
+        seen.add(col)
+        
+        info = _describe_column(col)
+        # Asignar prioridad de orden
+        prio = cat_priority.get(info["Categoria"], 50)
+        
+        data.append({
+            "_sort": prio,
+            "Categoría": info["Categoria"],
+            "Columna Excel": col,
+            "Descripción Detallada": info["Descripcion"],
+            "Fuente de Datos": info["Fuente"],
+            "Nota Técnica": info["Nota"]
         })
-    df_dict = pd.DataFrame(rows)
-    df_dict.to_excel(writer, sheet_name="Diccionario", index=False)
-    ws = writer.sheets["Diccionario"]
-    try:
+
+    # Ordenar data
+    data.sort(key=lambda x: (x["_sort"], x["Categoría"], x["Columna Excel"]))
+    
+    # Eliminar llave temporal corrección
+    clean_data = [{k: v for k, v in d.items() if k != "_sort"} for d in data]
+
+    # 2. Crear DataFrame
+    df = pd.DataFrame(clean_data)
+    
+    # 3. Escribir a Excel
+    sheet_name = "Diccionario"
+    df.to_excel(writer, sheet_name=sheet_name, index=False)
+    
+    # 4. Estilizar (Premium)
+    ws = writer.sheets[sheet_name]
+    
+    if STYLES_AVAILABLE:
+        # Definir estilos
+        header_fill = PatternFill(start_color="002060", end_color="002060", fill_type="solid") # Azul oscuro
+        header_font = Font(color="FFFFFF", bold=True, size=11, name="Calibri")
+        
+        cat_font = Font(bold=True, color="000000", size=10)
+        text_font = Font(size=10, name="Calibri")
+        
+        border = Border(
+            left=Side(style='thin', color='BFBFBF'),
+            right=Side(style='thin', color='BFBFBF'),
+            top=Side(style='thin', color='BFBFBF'),
+            bottom=Side(style='thin', color='BFBFBF')
+        )
+        
+        # Estilizar Headers
         for cell in ws[1]:
-            cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        for column_cells in ws.columns:
-            max_len = max(len(str(c.value or "")) for c in column_cells)
-            ws.column_dimensions[column_cells[0].column_letter].width = min(max(max_len + 2, 18), 60)
-    except Exception:
-        pass
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = border
+            
+        # Estilizar Cuerpo
+        for row in ws.iter_rows(min_row=2):
+            for i, cell in enumerate(row):
+                cell.border = border
+                cell.alignment = Alignment(vertical="center", wrap_text=True)
+                
+                # Columna A (Categoría) en Negrita
+                if i == 0: 
+                    cell.font = cat_font
+                    cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+                else:
+                    cell.font = text_font
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        # Dimensiones
+        # Categoría
+        ws.column_dimensions["A"].width = 25
+        # Columna
+        ws.column_dimensions["B"].width = 25
+        # Descripción
+        ws.column_dimensions["C"].width = 60
+        # Fuente
+        ws.column_dimensions["D"].width = 20
+        # Nota
+        ws.column_dimensions["E"].width = 40
+        
+        # Altura de filas automática (aproximada, openpyxl no hace autofit height real bien, pero wrap_text ayuda)
+
 
 # =============================================================================
 #                     FUNCIN PRINCIPAL DE EXPORTACIN
 # =============================================================================
+
+
+def _crear_hoja_carga_masiva(writer) -> None:
+    """
+    Crea la hoja 'Carga Masiva' solo con los encabezados solicitados.
+    """
+    headers = ["Fecha", "Rut", "DV", "Prestaciones", "Tipo", "PS-Fam", "Especialidad"]
+    df = pd.DataFrame(columns=headers)
+    
+    sheet_name = "Carga Masiva"
+    df.to_excel(writer, sheet_name=sheet_name, index=False)
+    
+    # Estilizar headers (Cyan)
+    if STYLES_AVAILABLE:
+        ws = writer.sheets[sheet_name]
+        header_fill = PatternFill(start_color="00FFFF", end_color="00FFFF", fill_type="solid") # Cyan
+        header_font = Font(color="000000", bold=True, size=11, name="Calibri")
+        
+        border = Border(
+            left=Side(style='thin', color='BFBFBF'),
+            right=Side(style='thin', color='BFBFBF'),
+            top=Side(style='thin', color='BFBFBF'),
+            bottom=Side(style='thin', color='BFBFBF')
+        )
+        
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = border
+            
+        # Ajustar anchos
+        for col_idx, _ in enumerate(headers, 1):
+            col_letter = get_column_letter(col_idx)
+            ws.column_dimensions[col_letter].width = 20
+
 
 def generar_excel_revision(
     resultados_por_mision: Dict[int, List[Dict[str, Any]]],
@@ -479,6 +727,7 @@ def generar_excel_revision(
         # INTENTO 1: Ruta Original
         with pd.ExcelWriter(ruta_salida, engine="openpyxl") as writer:
             cols = _escribir_y_estilizar(writer, resultados_por_mision)
+            _crear_hoja_carga_masiva(writer) # <--- NUEVA HOJA AGREGADA
             _escribir_diccionario(writer, cols)
             
         log_ok(f" Excel guardado: {filename}")
@@ -500,6 +749,7 @@ def generar_excel_revision(
             
             with pd.ExcelWriter(ruta_backup, engine="openpyxl") as writer:
                 cols = _escribir_y_estilizar(writer, resultados_por_mision)
+                _crear_hoja_carga_masiva(writer) # <--- NUEVA HOJA AGREGADA EN BACKUP TAMBIEN
                 _escribir_diccionario(writer, cols)
                 
             log_ok(f" RESCATADO: Excel guardado en respaldo: {ruta_backup}")

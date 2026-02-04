@@ -414,8 +414,9 @@ class DataParsingMixin:
                     filas_descartadas += 1
                     continue
                 
-                # Use helper for date parsing
-                f = (tds[2].text.strip().split(" ")[0] if len(tds) > 2 else "")
+                # CORREGIDO: usar tds[3] (Fecha Prestación) en vez de tds[2] (Fecha Digitación)
+                # Bug reportado: excluyentes y habilitantes estaban usando fecha incorrecta
+                f = (tds[3].text.strip().split(" ")[0] if len(tds) > 3 else "")
                 if not dparse(f):
                     for c in tds:
                         m = _ddmmyyyy.search(c.text or "")
