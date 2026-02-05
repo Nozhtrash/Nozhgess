@@ -1,5 +1,3 @@
-﻿from .config_manager import get_config as get_config
-from .notification_manager import get_notifications as get_notifications
-from .view_manager import ViewManager as ViewManager
-
-__all__ = ['get_config', 'get_notifications', 'ViewManager']
+﻿from .config_manager import get_config, ConfigManager
+from .view_manager import ViewManager
+from .notification_manager import NotificationManager

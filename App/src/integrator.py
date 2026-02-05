@@ -599,18 +599,6 @@ class EnhancedNozhgessProcessor:
                 results.append(vac_row(mission, "", "", "", f"Error: {str(e)}"))
 
         return pd.DataFrame(results)
-                contra_res = self._extract_case_data(sigges, rut, keywords_contra)
-                enriched['Caso en Contra'] = contra_res.get('Caso Found', '')
-                enriched['Estado en Contra'] = "Sí" if contra_res.get('IPD') != 'No' else "No" # Simplificado
-                # Populate other contra cols if needed
-                
-                # Apto Caso Logic
-                # "Apertura + Nueva" if Apertura Contra > Apertura Principal
-                # Implementation simplified for now
-            
-            enriched_rows.append(enriched)
-            
-        return pd.DataFrame(enriched_rows)
 
     def _extract_case_data(self, driver, rut, keywords):
         """Helper para buscar y extraer datos de un caso."""

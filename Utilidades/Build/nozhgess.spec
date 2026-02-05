@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['Utilidades\\GUI\\app.py'],
+    ['App\\src\\gui\\app.py'],
     pathex=[],
     binaries=[],
-    datas=[('Utilidades/GUI', 'Utilidades/GUI'), ('Mision_Actual', 'Mision_Actual'), ('Lista de Misiones', 'Lista de Misiones'), ('Utilidades', 'Utilidades'), ('Extras', 'Extras'), ('Iniciador', 'Iniciador')],
+    datas=[('App/src/gui', 'src/gui'), ('Mision_Actual', 'Mision_Actual'), ('Lista de Misiones', 'Lista de Misiones'), ('Utilidades', 'Utilidades'), ('Extras', 'Extras'), ('Iniciador', 'Iniciador')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -13,6 +13,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any
 
+import logging
+from src.utils.logger_manager import LOGGER_SECURE
+
 class SecureLogger:
     """Logger seguro con máscara de datos sensibles"""
     
@@ -20,20 +23,12 @@ class SecureLogger:
         # Configuración desde variables de entorno
         self.mask_sensitive = os.getenv('MASK_SENSITIVE_DATA', 'true').lower() == 'true'
         self.enable_audit = os.getenv('ENABLE_AUDIT_LOG', 'true').lower() == 'true'
-        self.log_retention_days = int(os.getenv('LOG_RETENTION_DAYS', '30'))
         
         # Patrones para máscara de datos sensibles (robustos, con acentos)
         self.rut_pattern = re.compile(r'\b(?:\d{1,2}\.\d{3}\.\d{3}|\d{7,8})-[0-9Kk]\b')
         self.name_pattern = re.compile(r'\b[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+)+\b')
         self.folio_pattern = re.compile(r'\b\d{7,8}\b')
         
-        # Directorio de logs seguros
-        self.secure_log_dir = Path(__file__).parent.parent.parent / "Logs" / "Secure"
-        self.secure_log_dir.mkdir(exist_ok=True)
-        
-        # Archivo de auditoría
-        self.audit_file = self.secure_log_dir / "audit.log"
-    
     def mask_sensitive_data(self, message: str) -> str:
         """Aplica máscara a datos sensibles en el mensaje"""
         if not self.mask_sensitive:
@@ -74,8 +69,8 @@ class SecureLogger:
         }
         
         try:
-            with open(self.audit_file, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
+            logger = logging.getLogger(LOGGER_SECURE)
+            logger.info(json.dumps(audit_entry, ensure_ascii=False))
         except Exception:
             pass  # Silencioso para no interrumpir operación
     
@@ -85,15 +80,8 @@ class SecureLogger:
         return hashlib.sha256(session_data.encode()).hexdigest()[:16]
     
     def cleanup_old_logs(self):
-        """Limpia logs antiguos según política de retención"""
-        try:
-            cutoff_date = datetime.now().timestamp() - (self.log_retention_days * 24 * 3600)
-            
-            for log_file in self.secure_log_dir.glob("*.log"):
-                if log_file.stat().st_mtime < cutoff_date:
-                    log_file.unlink()
-        except Exception:
-            pass
+        """DEPRECATED: Log rotation handled by LoggerManager."""
+        pass
 
 # Instancia global del logger seguro
 secure_logger = SecureLogger()

@@ -21,9 +21,9 @@ for path in [ruta_proyecto, ruta_app, ruta_src]:
 try:
     from src.utils.smart_file_detector import detect_excel_files, select_excel_file_with_dialog
     FILE_DETECTION_AVAILABLE = True
-    print("[RUNNER] Detección inteligente de archivos disponible")
+    # print("[RUNNER] Detección inteligente de archivos disponible") # Removed verbose print
 except ImportError as e:
-    print(f"[RUNNER] Error importando detector: {e}")
+    # print(f"[RUNNER] Error importando detector: {e}") # Squelch import errors unless critical
     FILE_DETECTION_AVAILABLE = False
 
 # Importar sistema existente
@@ -32,10 +32,14 @@ try:
     from Errores import log_event, log_error, log_success, log_warning
     from DebugSystem import debug, set_level, INFO, ERROR, DEBUG
     EXISTING_SYSTEM_AVAILABLE = True
-    print("[RUNNER] Sistema existente disponible")
+    # print("[RUNNER] Sistema existente disponible")
 except ImportError as e:
     print(f"[RUNNER] Error importando sistema existente: {e}")
     EXISTING_SYSTEM_AVAILABLE = False
+
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("SmartRunner")
 
 class SmartFileRunner:
     """Runner con detección inteligente de archivos"""
@@ -48,7 +52,7 @@ class SmartFileRunner:
         # Cargar configuración
         self._load_configuration()
         
-        print("[RUNNER] Runner inteligente inicializado")
+        logger.info("Runner inteligente inicializado")
     
     def _load_configuration(self):
         """Cargar configuración actual"""
@@ -70,18 +74,18 @@ class SmartFileRunner:
                     if current_path:
                         self.current_file_path = current_path
                     
-                    print(f"[RUNNER] Configuración cargada desde: {config_source}")
+                    logger.info(f"Configuración cargada desde: {config_source}")
                     break
             
         except Exception as e:
-            print(f"[RUNNER] Error cargando configuración: {e}")
+            logger.error(f"Error cargando configuración: {e}")
             self.config = {}
     
     def get_smart_file_path(self) -> str:
         """Obtener ruta inteligente de archivo"""
         # 1. Verificar si la ruta actual existe
         if self.current_file_path and Path(self.current_file_path).exists():
-            print(f"[RUNNER] Usando ruta actual existente: {self.current_file_path}")
+            logger.info(f"Usando ruta actual existente: {self.current_file_path}")
             return self.current_file_path
         
         # 2. Usar detección inteligente
@@ -90,11 +94,11 @@ class SmartFileRunner:
             
             if found_files:
                 self.available_files = found_files
-                print(f"[RUNNER] Se encontraron {len(found_files)} archivos")
+                logger.info(f"Se encontraron {len(found_files)} archivos")
                 
                 # Usar el mejor archivo encontrado
                 best_file = found_files[0]
-                print(f"[RUNNER] Seleccionado archivo: {best_file['description']}")
+                logger.info(f"Seleccionado archivo: {best_file['description']}")
                 
                 # Actualizar configuración
                 self._update_config_file_path(best_file['path'])
@@ -118,10 +122,10 @@ class SmartFileRunner:
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
             
-            print(f"[RUNNER] Configuración actualizada: {new_path}")
+            logger.info(f"Configuración actualizada: {new_path}")
             
         except Exception as e:
-            print(f"[RUNNER] Error actualizando configuración: {e}")
+            logger.error(f"Error actualizando configuración: {e}")
     
     def _show_file_selection_dialog(self) -> str:
         """Mostrar diálogo de selección de archivos"""
@@ -212,7 +216,7 @@ class SmartFileRunner:
                 log_error("ERROR_REVISION_SMART", f"Error: {str(e)}")
                 debug(f"❌ Error en revisión inteligente: {e}")
             else:
-                print(f"Error en revisión inteligente: {e}")
+                logger.error(f"Error en revisión inteligente: {e}")
             
             raise
     
@@ -228,14 +232,10 @@ class SmartFileRunner:
         
         modified_dt = datetime.fromtimestamp(modified_time)
         
-        print(f"[RUNNER] 📄 Archivo seleccionado:")
-        print(f"   📍 Ruta: {file_path}")
-        print(f"   📊 Tamaño: {size_mb:.2f} MB")
-        print(f"   📅 Modificado: {modified_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"   📁 Existe: {file_info.exists()}")
-        
         if EXISTING_SYSTEM_AVAILABLE:
             log_success("ARCHIVO_INFO", f"Path: {file_path}, Size: {size_mb:.2f}MB")
+        else:
+            logger.info(f"Archivo: {file_path} ({size_mb:.2f} MB)")
     
     def _start_review_process(self, file_path: str):
         """Iniciar el proceso de revisión"""
@@ -245,7 +245,7 @@ class SmartFileRunner:
         
         # Aquí iría el código original de procesamiento
         # Por ahora, simulamos el proceso
-        print(f"[RUNNER] 🚀 Iniciando procesamiento del archivo: {file_path}")
+        logger.info(f"🚀 Iniciando procesamiento del archivo: {file_path}")
         
         # Simulación de procesamiento
         import time
@@ -255,8 +255,7 @@ class SmartFileRunner:
             log_success("PROCESO_INICIADO", f"Procesamiento iniciado: {file_path}")
             debug("✅ Proceso de revisión iniciado exitosamente")
         
-        print(f"[RUNNER] ✅ Proceso de revisión iniciado exitosamente")
-        print(f"[RUNNER] 📊 El archivo está listo para ser procesado")
+        logger.info("✅ Proceso de revisión iniciado exitosamente")
 
 
 def run_smart_review():
@@ -267,7 +266,7 @@ def run_smart_review():
         runner.run_with_smart_file_detection()
         return True
     except Exception as e:
-        print(f"Error en revisión inteligente: {e}")
+        logger.error(f"Error en revisión inteligente: {e}")
         return False
 
 

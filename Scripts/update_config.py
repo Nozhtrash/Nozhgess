@@ -1,7 +1,10 @@
 import json
 import os
 
-config_path = r"C:\Users\usuariohgf\OneDrive\Documentos\Extras\Apps\Proyectos\Nozhgess original\App\config\mission_config.json"
+# Auto-detect project root
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+config_path = os.path.join(project_root, "App", "config", "mission_config.json")
 
 try:
     with open(config_path, 'r', encoding='utf-8') as f:

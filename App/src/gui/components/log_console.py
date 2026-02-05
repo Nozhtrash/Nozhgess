@@ -64,13 +64,24 @@ class LogConsole(ctk.CTkFrame):
 
     def append(self, text: str, tags: tuple = None):
         """Escribe texto crudo."""
+        # Smart Autoscroll: Verificar si estamos al final antes de escribir
+        try:
+            # yview retorna (top, bottom). Si bottom >= 1.0 (o cerca), estamos al final.
+            is_at_bottom = self.text_area.yview()[1] >= 0.98
+        except Exception:
+            is_at_bottom = True
+
         self.text_area.configure(state="normal")
         if tags:
             self.text_area.insert("end", text, tags)
         else:
             self.text_area.insert("end", text)
         self._truncate_if_needed()
-        self.text_area.see("end")
+        
+        # Solo scrollear si el usuario estaba viendo el final
+        if is_at_bottom:
+            self.text_area.see("end")
+        
         self.text_area.configure(state="disabled")
 
     def clear(self):

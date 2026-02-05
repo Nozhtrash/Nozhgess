@@ -87,16 +87,23 @@ def main():
     # 3. Crash reporting (opcional)
     try:
         from src.utils.CrashReporting import configurar_crash_reporting
-        configurar_crash_reporting(SCRIPT_DIR)
+        configurar_crash_reporting(ROOT_DIR)
     except:
         pass
     
     # 4. Crear directorios en la raíz
     for d in [
-        os.path.join(ROOT_DIR, "Crash_Reports"),
+        os.path.join(ROOT_DIR, "Logs", "Crash"),
         os.path.join(ROOT_DIR, "Logs"),
     ]:
         os.makedirs(d, exist_ok=True)
+
+    # 4.1 Inicializar Sistema Centralizado de Logging
+    try:
+        from src.utils.logger_manager import setup_loggers
+        setup_loggers(ROOT_DIR)
+    except Exception as e:
+        print(f"Error inicializando logs: {e}")
     
     # 5. Ejecutar app directamente (sin splash complejo)
     from src.gui.app import NozhgessApp

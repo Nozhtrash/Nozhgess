@@ -204,7 +204,7 @@ class SiggesDriver:
             try:
                 el = WebDriverWait(self.driver, timeout).until(cond((By.XPATH, xp)))
                 return el
-            except:
+            except Exception:
                 continue
         return None
 
@@ -224,7 +224,7 @@ class SiggesDriver:
         except Exception:
             try:
                 self.driver.execute_script("arguments[0].click();", el)
-            except:
+            except Exception:
                 return False
                 
         if wait_spinner:
@@ -237,7 +237,7 @@ class SiggesDriver:
         try:
             return \
                 len(self.driver.find_elements(By.XPATH, xpath)) > 0
-        except:
+        except Exception:
             return False
 
     # =========================================================================
@@ -263,7 +263,7 @@ class SiggesDriver:
             try:
                 self.driver.execute_script("arguments[0].click();", element)
                 return True
-            except:
+            except Exception:
                 return False
 
     def _click_xpath(self, xpath: str) -> bool:
@@ -280,7 +280,7 @@ class SiggesDriver:
                 return WebDriverWait(self.driver, timeout).until(
                     EC.element_to_be_clickable((By.XPATH, xp))
                 )
-            except:
+            except Exception:
                 continue
         return None
 
@@ -290,7 +290,7 @@ class SiggesDriver:
             element.clear()
             element.send_keys(text)
             return True
-        except:
+        except Exception:
             return False
 
     def scroll_to(self, element, align: str = "center") -> bool:
@@ -299,7 +299,7 @@ class SiggesDriver:
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", element)
             return True
-        except:
+        except Exception:
             return False
 
     # =========================================================================
@@ -314,6 +314,7 @@ class SiggesDriver:
         3. Ingresar RUT
         4. Click Buscar
         """
+        t0 = time.time()
         # 1. Verificar Sesión
         if self.sesion_cerrada():
             log_warn("🔐 Sesión cerrada detectada por URL. Iniciando login...")
@@ -343,13 +344,16 @@ class SiggesDriver:
                  raise Exception("Botón Buscar no encontrado o no clickeable.")
         
         self._wait_smart()
+        
+        dt = time.time() - t0
+        log_info(f"⏱️ [PERF] Búsqueda de paciente completada en {dt:.2f}s")
 
     def ir(self, url: str):
         """Wrapper simple para ir a URL."""
         try:
             self.driver.get(url)
             self._wait_smart()
-        except:
+        except Exception:
             pass
 
     def sesion_cerrada(self) -> bool:
@@ -418,7 +422,7 @@ class SiggesDriver:
 
         if "login" not in self.driver.current_url.lower():
             self.driver.get(XPATHS["LOGIN_URL"])
-            time.sleep(2)
+            self._wait_smart()
 
         # XPATH FULL según solicitud del usuario (Biblia Sigges)
         FULL_XPATH_INGRESAR = "/html/body/div/div/div[2]/div[1]/form/div[3]/button"
@@ -428,7 +432,6 @@ class SiggesDriver:
         while intentos_click < 5:
             try:
                 # Intentar buscar con el full path EXPLICITAMENTE CON WAIT
-                # Esto evita el log de "falló selector principal" porque lo manejamos aquí
                 btn = WebDriverWait(self.driver, 2).until(
                     EC.element_to_be_clickable((By.XPATH, FULL_XPATH_INGRESAR))
                 )
@@ -438,13 +441,11 @@ class SiggesDriver:
                     exito_click = True
                     break
             except Exception:
-                # Si falla el wait, intentamos con el helper estándar (que tiene sus propios fallbacks)
-                # Solo si el full xpath falló por timeout
                 pass
             
-            # Fallback a búsqueda normal (si el full xpath no apareció)
+            # Fallback a búsqueda normal
             try:
-                btn_ingresar = self._find_clickable(XPATHS["LOGIN_BTN_INGRESAR"], wait_seconds=1)
+                btn_ingresar = self._find_clickable(XPATHS["LOGIN_BTN_INGRESAR"], timeout=1)
                 if btn_ingresar:
                     self.click(btn_ingresar)
                     exito_click = True
@@ -454,6 +455,7 @@ class SiggesDriver:
             
             intentos_click += 1
             if intentos_click < 5:
+                # Pequeño backoff es aceptable aquí
                 time.sleep(1)
                 log_warn(f"Reintentando click en Ingresar ({intentos_click+1}/5)...")
             
@@ -461,44 +463,50 @@ class SiggesDriver:
             log_error("✖ Botón 'Ingresar' no encontrado o no clickeable tras reintentos.")
             return False
             
-        time.sleep(1)
+        # Optimization: Wait for next element instead of sleep
+        # time.sleep(1) -> Removed
 
         log_info("➜ Paso 2: Seleccionar Unidad")
-        sel_unidad = self._find_clickable(XPATHS["LOGIN_SEL_UNIDAD_HEADER"])
+        sel_unidad = self._find_clickable(XPATHS["LOGIN_SEL_UNIDAD_HEADER"], timeout=5.0)
         if not sel_unidad:
             log_error("✖ Selector de Unidad no apareció.")
             return False
         self.click(sel_unidad)
-        time.sleep(0.5)
+        # time.sleep(0.5) -> Validado por _click implícito, pero reducimos si es necesario
 
         log_info("➜ Paso 3: Eligiendo Hospital")
-        op_hosp = self._find_clickable(XPATHS["LOGIN_OP_HOSPITAL"])
+        op_hosp = self._find_clickable(XPATHS["LOGIN_OP_HOSPITAL"], timeout=3.0)
         if not op_hosp:
             log_error("✖ Opción Hospital no encontrada.")
             return False
         self.click(op_hosp)
-        time.sleep(0.5)
 
         log_info("➜ Paso 4: Seleccionando Perfil")
-        perfil = self._find_clickable(XPATHS["LOGIN_TILE_INGRESO_SIGGES"])
+        perfil = self._find_clickable(XPATHS["LOGIN_TILE_INGRESO_SIGGES"], timeout=3.0)
         if not perfil:
             log_error("✖ Perfil 'Ingreso SIGGES' no encontrado.")
             return False
         self.click(perfil)
-        time.sleep(0.5)
 
         log_info("➜ Paso 5: Click en 'Conectar'")
-        btn_conectar = self._find_clickable(XPATHS["LOGIN_BTN_CONECTAR"])
+        btn_conectar = self._find_clickable(XPATHS["LOGIN_BTN_CONECTAR"], timeout=3.0)
         if not btn_conectar:
             log_error("✖ Botón 'Conectar' no encontrado.")
             return False
         self.click(btn_conectar)
-        time.sleep(3)
+        
+        # Optimization: Smart Wait for URL change or Menu
+        try:
+            WebDriverWait(self.driver, 10).until(
+                lambda d: "actualizaciones" in d.current_url.lower() or 
+                          len(d.find_elements(By.XPATH, XPATHS["MENU_CONTENEDOR"][0])) > 0
+            )
+        except TimeoutException:
+            log_warn("⚠️ Timeout esperando carga post-login. Continuando para verificar...")
 
         if "actualizaciones" in self.driver.current_url.lower():
             log_ok("✅ Login Exitoso.")
             return True
-        log_warn("⚠️ Login completado pero URL no es 'actualizaciones'. Verificando menú...")
         if self.find(XPATHS["MENU_CONTENEDOR"][0]):
             return True
         return False
@@ -604,6 +612,7 @@ class SiggesDriver:
         Updated 2026-01-29 per User 'Biblia Sigges'.
         """
         try:
+            t0 = time.time()
             log_debug(f"[DEBUG] expandir_caso: buscando contenedor de casos...")
             # 1. Buscar el contenedor de la tabla de casos
             # Xpath: .../div[5]/div[1]/div[2]
@@ -652,6 +661,9 @@ class SiggesDriver:
                     pass
                 
                 log_debug(f"[DEBUG] expandir_caso: caso {indice} expandido OK")
+                
+                dt = time.time() - t0
+                log_info(f"⏱️ [PERF] Caso {indice} expandido en {dt:.2f}s")
                 return fila
                 
             except Exception as e:
@@ -850,7 +862,7 @@ class SiggesDriver:
                         "establecimiento": c_estab,
                         "especialidad": c_esp,
                     })
-        except:
+        except Exception:
             pass
         return data
 
@@ -1244,7 +1256,9 @@ class SiggesDriver:
     # =========================================================================
     
     # Métodos dummy o legacy que otros módulos podrían llamar
-    def asegurar_menu_desplegado(self): pass
+    def asegurar_menu_desplegado(self): 
+        # No-op for legacy compatibility
+        pass
     def detectar_estado_actual(self): return "UNKNOWN"
     def asegurar_estado(self, estado): 
         if estado == "BUSQUEDA": self.asegurar_en_busqueda()
@@ -1283,7 +1297,7 @@ class SiggesDriver:
                 # Intentar parsear fecha
                 return dparse(el.text)
             return None
-        except:
+        except Exception:
             return None
 
     def activar_hitos_ges(self) -> None:
@@ -1296,7 +1310,7 @@ class SiggesDriver:
                  if not chk.is_selected():
                      self.click(chk)
                      self._wait_smart()
-        except:
+        except Exception:
             pass
 
     def extraer_tabla_provisoria_completa(self) -> List[Dict[str, Any]]:

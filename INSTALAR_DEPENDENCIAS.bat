@@ -41,7 +41,7 @@ echo.
 echo Instalando... Por favor espera...
 echo.
 
-pip install -r App/requirements.txt
+pip install -r requirements.txt
 
 if %errorlevel% neq 0 (
     color 0C

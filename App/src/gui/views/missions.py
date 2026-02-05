@@ -8,8 +8,11 @@ import customtkinter as ctk
 import tkinter.messagebox
 import os
 import sys
+import json
 
 from src.gui.components import Card, FormRow
+from src.gui.components.frequency_editor import FrequencyListEditor
+from src.gui.components.year_code_editor import YearCodeEditor
 from src.gui.controllers.mision_controller import MisionController
 from src.gui.managers.notification_manager import get_notifications
 from src.utils.telemetry import log_ui
@@ -22,6 +25,126 @@ ruta_proyecto = os.path.dirname(ruta_app)
 
 if ruta_app not in sys.path: sys.path.insert(0, ruta_app)
 if ruta_proyecto not in sys.path: sys.path.insert(0, ruta_proyecto)
+
+class ScrollableDropdown(ctk.CTkFrame):
+    """Dropdown personalizado con scroll real y altura máxima."""
+    def __init__(self, master, values=None, variable=None, command=None, width=200, height=30, **kwargs):
+        super().__init__(master, width=width, height=height, fg_color="transparent", **kwargs)
+        self.variable = variable
+        self.command = command
+        self.values = values or []
+        self.width = width
+        self.dropdown_window = None
+        
+        # Botón principal que simula el selector
+        text = variable.get() if variable else ""
+        self.main_btn = ctk.CTkButton(
+            self, text=text, 
+            width=width, height=height,
+            fg_color="#343638", # Dark bg
+            hover_color="#3a3a3a",
+            border_width=1, border_color="#565b5e",
+            text_color="#dce4ee",
+            anchor="w",
+            command=self.toggle_dropdown
+        )
+        self.main_btn.pack(fill="both", expand=True)
+
+        # Flecha (Unicode hack visual)
+        self.arrow = ctk.CTkLabel(self.main_btn, text="▼", width=20, fg_color="transparent", text_color="#dce4ee")
+        self.arrow.place(relx=1.0, x=-25, rely=0.5, anchor="w")
+
+        if self.variable:
+            self.variable.trace_add("write", self._update_text)
+
+    def configure(self, **kwargs):
+        if "values" in kwargs:
+            self.values = kwargs.pop("values")
+        if "variable" in kwargs:
+            self.variable = kwargs.pop("variable")
+            self.main_btn.configure(text=self.variable.get())
+        if "state" in kwargs:
+            state = kwargs.pop("state")
+            self.main_btn.configure(state=state)
+        self.main_btn.configure(**kwargs)
+
+    def _update_text(self, *args):
+        if self.variable:
+            self.main_btn.configure(text=self.variable.get())
+
+    def toggle_dropdown(self):
+        if self.dropdown_window:
+            self.dropdown_window.destroy()
+            self.dropdown_window = None
+            return
+            
+        # Crear Toplevel sin bordes
+        self.dropdown_window = ctk.CTkToplevel(self)
+        self.dropdown_window.overrideredirect(True)
+        self.dropdown_window.attributes('-topmost', True)
+        
+        # Geometría inteligente
+        x = self.main_btn.winfo_rootx()
+        y = self.main_btn.winfo_rooty() + self.main_btn.winfo_height() + 2
+        
+        # Altura dinámica: Max 350px (aprox 10 items)
+        row_h = 32
+        list_h = len(self.values) * row_h
+        final_h = min(list_h + 10, 350)
+        
+        self.dropdown_window.geometry(f"{self.width}x{final_h}+{x}+{y}")
+        
+        # Scrollable Frame
+        scroll = ctk.CTkScrollableFrame(self.dropdown_window, fg_color="#2b2b2b", corner_radius=0)
+        scroll.pack(fill="both", expand=True)
+        
+        # Limit items to prevent UI Lag
+        MAX_ITEMS = 50
+        display_values = self.values[:MAX_ITEMS]
+        
+        for v in display_values:
+            btn = ctk.CTkButton(
+                scroll, text=v, anchor="w", fg_color="transparent",
+                hover_color="#3a3a3a", height=row_h,
+                text_color="#dce4ee",
+                command=lambda val=v: self.select(val)
+            )
+            btn.pack(fill="x")
+            
+        if len(self.values) > MAX_ITEMS:
+            ctk.CTkLabel(
+                scroll, 
+                text=f"... (+{len(self.values)-MAX_ITEMS} más) ...", 
+                text_color="gray",
+                font=("Arial", 10, "italic")
+            ).pack(fill="x", pady=2)
+            
+        # Cerrar al perder foco (simulación de comportamiento nativo)
+        self.dropdown_window.bind("<FocusOut>", lambda e: self._check_close(e))
+        self.dropdown_window.focus_set()
+
+    def _check_close(self, event):
+        # Pequeño delay para permitir clic dentro
+        self.after(100, lambda: self._safe_close_focus())
+
+    def _safe_close_focus(self):
+        # Si el foco se fue a la ventana del dropdown (scroll) o un hijo, no cerrar
+        if not self.dropdown_window: return
+        try:
+            focus_w = self.focus_get()
+            if focus_w and (str(focus_w).startswith(str(self.dropdown_window))):
+                return
+            self.dropdown_window.destroy()
+            self.dropdown_window = None
+        except: pass
+
+    def select(self, value):
+        if self.variable: self.variable.set(value)
+        self.main_btn.configure(text=value)
+        if self.dropdown_window:
+            self.dropdown_window.destroy()
+            self.dropdown_window = None
+        if self.command: self.command(value)
 
 class MissionsView(ctk.CTkFrame):
     """
@@ -40,7 +163,9 @@ class MissionsView(ctk.CTkFrame):
         self.current_missions_list = []
         self._last_config = None
         self.repo_dir = os.path.join(ruta_proyecto, "Lista de Misiones", "Reportes")
-        self.repo_files = []  # (label, path)
+        self.repo_structure = {} # {category: [(label, path), ...]}
+        self.repo_files = []  # Flat list for validation
+        self.category_var = ctk.StringVar(value="Reportes") # Default category
         self.repo_var = ctk.StringVar(value="")
         self.template_mission_var = ctk.StringVar(value="")
         self.jump_var = ctk.StringVar(value="")
@@ -50,9 +175,11 @@ class MissionsView(ctk.CTkFrame):
         self.font_label = ctk.CTkFont(size=12)
         # Construcción incremental
         self._pending_build_job = None
-        # Paginación (ligeramente más compacta)
-        self.page_size = 4
+        # Paginación OPTIMIZADA (1 Misión por página = 0 Lag)
+        self.page_size = 1
         self.current_page = 0
+        self.working_config = None # MEMORY STATE
+        self._last_saved_config = None
         
         # Header
         self._setup_header()
@@ -65,49 +192,88 @@ class MissionsView(ctk.CTkFrame):
         self.form_container = ctk.CTkFrame(self.scroll, fg_color="transparent")
         self.form_container.pack(fill="x", expand=True)
         
-        self.reload_ui()
+        # Carga inicial
+        self.reload_ui(force_disk_reload=True)
         
         # Footer
         self._setup_footer()
         try:
             log_ui("missions_view_loaded")
-        except Exception:
-            pass
+        except: pass
 
     def _setup_templates_bar(self):
-        """Barra superior para gestionar plantillas guardadas (más clara)."""
+        """Barra unificada: Plantillas (con filtro) + Navegación."""
         bar = ctk.CTkFrame(self, fg_color=self.colors.get("bg_card", "#1f1f1f"))
         bar.pack(fill="x", padx=20, pady=(0, 12))
-        bar.grid_columnconfigure((0,1,2,3,4,5,6), weight=0)
-        bar.grid_columnconfigure(7, weight=1)
+        
+        # Grid Layout
+        # 0: Label "Carpeta" | 1: Folder Combo | 2: Template Combo | 3: Usar | 4: Eliminar
+        # ... Spacer ...
+        # 6: Prev | 7: Label Pág | 8: Next | 9: Jump | 10: New Mission
+        
+        bar.grid_columnconfigure(5, weight=1) # Spacer
 
-        ctk.CTkLabel(bar, text="Lista de plantillas", font=self.font_header,
-                     text_color=self.colors["text_primary"]).grid(row=0, column=0, padx=(8,4), pady=6, sticky="w")
-        self.repo_menu = ctk.CTkOptionMenu(bar, variable=self.repo_var, values=["(sin plantillas)"], width=220,
-                                           command=lambda v: self._on_template_change())
-        self.repo_menu.grid(row=0, column=1, padx=4, pady=6, sticky="w")
+        # --- SECCIÓN PLANTILLAS ---
+        # 1. Filtro Carpeta
+        self.cat_menu = ctk.CTkOptionMenu(
+            bar, width=130,
+            variable=self.category_var,
+            values=["Base Mision", "Nóminas", "Reportes"],
+            command=self._on_category_change,
+            fg_color=self.colors.get("bg_primary", "#111")
+        )
+        self.cat_menu.grid(row=0, column=0, padx=(10, 5), pady=8)
 
-        ctk.CTkButton(bar, text="Usar ahora", width=110,
-                      fg_color=self.colors.get("success", "#22c55e"),
-                      command=self._on_use_click).grid(row=0, column=2, padx=4, pady=6)
-        ctk.CTkButton(bar, text="Eliminar", width=90,
-                      fg_color=self.colors.get("error", "#ef4444"),
-                      command=self._delete_template).grid(row=0, column=3, padx=4, pady=6)
+        # 2. Selector Plantilla (Custom Scrollable Dropdown)
+        self.repo_menu = ScrollableDropdown(
+            bar, width=230,
+            variable=self.repo_var,
+            values=["(sin plantillas)"],
+            command=lambda v: self._on_template_change()
+        )
+        self.repo_menu.grid(row=0, column=1, padx=5, pady=8)
 
-        ctk.CTkLabel(bar, text="Misión en plantilla", text_color=self.colors["text_secondary"]).grid(row=0, column=4, padx=4, pady=6, sticky="w")
-        self.template_mission_menu = ctk.CTkOptionMenu(bar, variable=self.template_mission_var, values=["(primera)"], width=190)
-        self.template_mission_menu.grid(row=0, column=5, padx=4, pady=6, sticky="w")
+        # 3. Acciones Plantilla
+        hex_success = self.colors.get("success", "#22c55e")
+        hex_error = self.colors.get("error", "#ef4444")
+        
+        # Botón Usar (Icono o Texto corto)
+        ctk.CTkButton(bar, text="✔ Usar", width=70, fg_color=hex_success, command=self._use_template).grid(row=0, column=2, padx=5, pady=8)
+        # Botón Eliminar
+        ctk.CTkButton(bar, text="🗑", width=40, fg_color=hex_error, command=self._delete_template).grid(row=0, column=3, padx=5, pady=8)
 
-        self.template_info = ctk.CTkLabel(bar, text="Sin plantilla cargada", anchor="w",
-                                          text_color=self.colors["text_secondary"])
-        self.template_info.grid(row=0, column=6, padx=8, pady=6, sticky="ew")
+        # --- SECCIÓN NAVEGACIÓN (Movida aquí) ---
+        nav_frame = ctk.CTkFrame(bar, fg_color="transparent")
+        nav_frame.grid(row=0, column=6, padx=10, pady=8, sticky="e")
+        
+        self.prev_btn = ctk.CTkButton(nav_frame, text="◀", width=30, command=self._prev_page)
+        self.prev_btn.pack(side="left", padx=2)
+        
+        self.page_label = ctk.CTkLabel(nav_frame, text="1/1", text_color=self.colors["text_secondary"], width=40)
+        self.page_label.pack(side="left", padx=2)
+        
+        self.next_btn = ctk.CTkButton(nav_frame, text="▶", width=30, command=self._next_page)
+        self.next_btn.pack(side="left", padx=2)
+        
+        # Jump
+        self.jump_menu = ctk.CTkOptionMenu(nav_frame, variable=self.jump_var, values=["(ir a...)"], width=120, command=lambda _: self._jump_to_mission())
+        self.jump_menu.pack(side="left", padx=8)
+
+        # New Mission
+        ctk.CTkButton(
+            nav_frame, text="✚  Nueva Misión", width=120,
+            fg_color=self.colors["accent"],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._add_mission
+        ).pack(side="left", padx=(5,0))
 
         # Inicializar listas
         self._refresh_repo_list()
 
     def _setup_header(self):
+        # Header Minimalista (Solo Título)
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=25, pady=(20, 10))
+        header.pack(fill="x", padx=25, pady=(15, 5))
         
         ctk.CTkLabel(
             header,
@@ -115,35 +281,13 @@ class MissionsView(ctk.CTkFrame):
             font=self.font_title,
             text_color=self.colors["text_primary"]
         ).pack(side="left")
-        
-        # Tools
-        tools = ctk.CTkFrame(header, fg_color="transparent")
-        tools.pack(side="right")
-        
-        ctk.CTkButton(
-            tools, text="➕ Nueva Misión", width=120, height=30,
-            fg_color=self.colors["accent"],
-            command=self._add_mission
-        ).pack(side="left", padx=5)
-
-        nav = ctk.CTkFrame(header, fg_color="transparent")
-        nav.pack(side="right", padx=(10,0))
-        self.prev_btn = ctk.CTkButton(nav, text="◀", width=30, command=self._prev_page)
-        self.prev_btn.pack(side="left", padx=2)
-        self.page_label = ctk.CTkLabel(nav, text="1/1", text_color=self.colors["text_secondary"])
-        self.page_label.pack(side="left", padx=2)
-        self.next_btn = ctk.CTkButton(nav, text="▶", width=30, command=self._next_page)
-        self.next_btn.pack(side="left", padx=2)
-        # Jump to mission
-        self.jump_menu = ctk.CTkOptionMenu(nav, variable=self.jump_var, values=["(ir a misión)"], width=140, command=lambda _: self._jump_to_mission())
-        self.jump_menu.pack(side="left", padx=6)
 
     def _setup_footer(self):
         footer = ctk.CTkFrame(self, fg_color="transparent")
         footer.pack(fill="x", padx=25, pady=15)
         
         self.save_btn = ctk.CTkButton(
-            footer, text="💾  Guardar Campos",
+            footer, text="💾  Guardar Todo (Disco)",
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=self.colors["accent"],
             height=40, corner_radius=8,
@@ -158,389 +302,497 @@ class MissionsView(ctk.CTkFrame):
             command=lambda: self.reload_ui(True)
         ).pack(side="right")
 
-    def reload_ui(self, force_refresh: bool = False):
-        try:
-            config = self.controller.load_config(force_reload=force_refresh)
-            # Evitar reconstruir si nada cambiÃ³ (mejora rendimiento al navegar)
-            try:
-                import copy
-                if not force_refresh and self._last_config and self._last_config == config:
-                    return
-            except Exception:
-                pass
-            total_m = len(config.get("MISSIONS", [])) or 1
-            self.total_pages = max(1, (total_m + self.page_size - 1) // self.page_size)
-            if self.current_page >= self.total_pages:
-                self.current_page = self.total_pages - 1
-            self._build_form(config)
-            jump_values = [f"{i}: {m.get('nombre', f'Misión {i+1}')}" for i, m in enumerate(config.get("MISSIONS", []))] or ["(sin misiones)"]
-            self.jump_menu.configure(values=jump_values)
-            if self.jump_var.get() not in jump_values:
-                self.jump_var.set(jump_values[0])
-            self._update_nav_state()
-            try:
-                log_ui("missions_reload", force=force_refresh, missions=len(config.get("MISSIONS", [])))
-            except Exception:
-                pass
-            self._last_config = copy.deepcopy(config)
-            # Actualizar listas de plantillas y targets
-            self._refresh_repo_list()
-            self._refresh_target_menu()
-            self._on_template_change()
-        except Exception as e:
-            get_notifications().show_error(str(e))
-
-    def _prev_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            cfg = self._last_config or self.controller.load_config(force_reload=True)
-            self._build_form(cfg)
-            self._update_nav_state()
-        else:
-            get_notifications().show_warning("Estás en la primera página")
-
-    def _next_page(self):
-        if hasattr(self, "total_pages") and self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            cfg = self._last_config or self.controller.load_config(force_reload=True)
-            self._build_form(cfg)
-            self._update_nav_state()
-        else:
-            get_notifications().show_warning("Estás en la última página")
-
-    def _jump_to_mission(self):
-        """Salta a la página que contiene la misión seleccionada."""
-        try:
-            sel = self.jump_var.get()
-            idx = int(sel.split(":")[0])
-        except Exception:
+    # =========================================================================
+    #  STATE MANAGEMENT & PERSISTENCE
+    # =========================================================================
+    def _sync_view_to_memory(self):
+        """
+        SCRAPE CRÍTICO: Lee los widgets actuales (self.rows) y actualiza 
+        self.working_config en memoria.
+        Esto previene la pérdida de datos al cambiar de página o pestaña.
+        """
+        if not self.working_config:
             return
-        target_page = idx // self.page_size
-        local_idx = idx % self.page_size
-        if target_page != self.current_page:
-            self.current_page = target_page
-            cfg = self._last_config or self.controller.load_config(force_reload=True)
-            self._build_form(cfg)
-            self._update_nav_state()
-        # destacar tarjeta y scroll
-        self.after(20, lambda: self._highlight_card(local_idx))
 
-
-
-    def _highlight_card(self, local_idx: int):
-        if 0 <= local_idx < len(self.mission_cards):
-            card = self.mission_cards[local_idx]
-            try:
-                canvas = self.scroll._parent_canvas
-                h_total = max(1, self.form_container.winfo_height())
-                canvas.yview_moveto(card.winfo_y() / h_total)
-            except Exception:
-                pass
-            try:
-                border_normal = self.colors.get("border", "#2d3540")
-                border_focus = self.colors.get("accent", "#7c4dff")
-                card.configure(border_color=border_focus)
-                self.after(600, lambda: card.configure(border_color=border_normal))
-            except Exception:
-                pass
-    
-    def _clean_mission_data(self, mission_data: dict) -> dict:
-        """
-        Limpia los datos de una misión eliminando campos numéricos con valores None o inválidos.
-        Retorna una copia limpia de los datos.
-        """
-        cleaned = mission_data.copy()
+        current_missions = self.working_config.get("MISSIONS", [])
         
-        numeric_fields = [
-            "edad_min", "edad_max", "vigencia_dias",
-            "max_objetivos", "max_habilitantes", "max_excluyentes",
-            "max_ipd", "max_oa", "max_aps", "max_sic",
-            "frecuencia_cantidad"
-        ]
+        # Mapa de widgets crudos
+        updates_by_idx = {}
+
+        for key, widget in self.rows.items():
+            if key.endswith("_raw"): continue
+            
+            # YearCodeEditors se manejan distinto
+            if key.endswith("_anios_editor"):
+                parts = key.split("_")
+                # formato: MIS_{idx}_anios_editor
+                idx = int(parts[1])
+                if hasattr(widget, "get_data"):
+                    if idx not in updates_by_idx: updates_by_idx[idx] = {}
+                    # KEY MUST MATCH what is loaded (anios_codigo)
+                    updates_by_idx[idx]["anios_codigo"] = widget.get_data()
+                continue
+            
+            if key.endswith("_frecuencias_editor"):
+                parts = key.split("_")
+                idx = int(parts[1])
+                if hasattr(widget, "get_data"):
+                    if idx not in updates_by_idx: updates_by_idx[idx] = {}
+                    # KEY MUST MATCH what is loaded (frecuencias)
+                    updates_by_idx[idx]["frecuencias"] = widget.get_data()
+                continue
+
+            # Widgets normales (FormRow)
+            try:
+                val = widget.get()
+            except:
+                continue
+
+            if key.startswith("MIS_"):
+                # formato: MIS_{idx}_{fieldname}
+                parts = key.split("_")
+                if len(parts) < 3: continue
+                
+                try:
+                    idx = int(parts[1])
+                except ValueError: continue
+                
+                field = "_".join(parts[2:]) # reconstruir nombre campo (ej: indices_rut)
+                
+                if idx not in updates_by_idx: updates_by_idx[idx] = {}
+
+                # Lógica especial para índices anidados
+                if field.startswith("indices_"):
+                    k = field.replace("indices_", "")
+                    if "indices" not in updates_by_idx[idx]: updates_by_idx[idx]["indices"] = {}
+                    # Si ya existe el dict indices en el update, usarlo. Si no, esperar merge.
+                    # Asumimos que updates_by_idx[idx]["indices"] es un dict temporal
+                    # Problema: si self.working_config ya tiene datos, debemos respetarlos
+                    # Mejor estrategia: guardar en temp y luego mergear
+                    updates_by_idx[idx]["indices"][k] = val
+                else:
+                    updates_by_idx[idx][field] = val
+
+        # Aplicar actualizaciones a self.working_config
+        for idx, updates in updates_by_idx.items():
+            if idx < len(current_missions):
+                # Mergear con cuidado
+                mission = current_missions[idx]
+                
+                # 1. Campos directos
+                for k, v in updates.items():
+                    if k == "indices":
+                        # Merge profundo para indices
+                        if "indices" not in mission: mission["indices"] = {}
+                        if isinstance(mission["indices"], dict):
+                            mission["indices"].update(v)
+                    else:
+                        mission[k] = v
+                
+                current_missions[idx] = mission
+            else:
+                # Misión nueva que no estaba en config?? (Raro si paginamos correctamente)
+                pass
         
-        fields_to_remove = []
+        self.working_config["MISSIONS"] = current_missions
+
+    def _save_to_disk(self):
+        """Vuelca la memoria (self.working_config) al disco."""
+        try:
+            self._sync_view_to_memory() # Asegurar último estado
+            
+            # Limpieza de datos antes de guardar
+            missions = self.working_config.get("MISSIONS", [])
+            for m in missions:
+                self._clean_mission_in_place(m)
+
+            self.controller.save_config(self.working_config)
+            self._last_saved_config = json.dumps(self.working_config, sort_keys=True)
+            return True
+        except Exception as e:
+            get_notifications().show_error(f"Error guardando: {e}")
+            return False
+
+    def _clean_mission_in_place(self, m_data: dict):
+        """Limpia tipos de datos en el dict de misión (referencia)."""
+        # Listas stringuificadas
+        for f in ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio", "folio_vih_codigos"]:
+            if f in m_data and isinstance(m_data[f], str):
+                 # Limpieza agresiva de basura residual "['...']"
+                 clean = m_data[f].replace("[", "").replace("]", "").replace('"', "").replace("'", "")
+                 m_data[f] = [x.strip() for x in clean.split(",") if x.strip()]
+        
+        # Numéricos
+        numeric_fields = ["edad_min", "edad_max", "vigencia_dias", "max_objetivos", "max_habilitantes", "max_excluyentes",
+                          "max_ipd", "max_oa", "max_aps", "max_sic", "frecuencia_cantidad"]
         
         for f in numeric_fields:
-            if f in cleaned:
-                val = cleaned[f]
-                # Si es None, marcarlo para eliminación
-                if val is None:
-                    fields_to_remove.append(f)
-                # Si ya es un int, dejarlo como está
-                elif isinstance(val, int):
-                    continue
-                # Si es float, convertir a int
-                elif isinstance(val, float):
-                    cleaned[f] = int(val)
-                # Si es string, procesar
-                elif isinstance(val, str):
-                    val = val.strip()
-                    if val == "" or val.lower() == "none":
-                        fields_to_remove.append(f)
-                    else:
-                        try:
-                            cleaned[f] = int(val)
-                        except (ValueError, TypeError):
-                            fields_to_remove.append(f)
+            if f in m_data:
+                val = m_data[f]
+                if val in [None, "", "None"]:
+                    del m_data[f]
                 else:
-                    # Cualquier otro tipo, intentar convertir o eliminar
-                    try:
-                        cleaned[f] = int(val)
-                    except (ValueError, TypeError):
-                        fields_to_remove.append(f)
-        
-        # Eliminar los campos marcados
-        for f in fields_to_remove:
-            if f in cleaned:
-                del cleaned[f]
-        
-        return cleaned
+                    try: m_data[f] = int(val)
+                    except: del m_data[f] # Si falla conversión, eliminar basura
 
-    def _update_nav_state(self):
-        """Habilita/deshabilita flechas según página actual."""
-        can_prev = self.current_page > 0
-        can_next = hasattr(self, "total_pages") and self.current_page < self.total_pages - 1
-        if hasattr(self, "prev_btn"):
-            self.prev_btn.configure(state="normal" if can_prev else "disabled")
-        if hasattr(self, "next_btn"):
-            self.next_btn.configure(state="normal" if can_next else "disabled")
+    def _clean_mission_data(self, m_data: dict) -> dict:
+        """Wrapper seguro que retorna una copia limpia (para Templates)."""
+        import copy
+        new_data = copy.deepcopy(m_data)
+        self._clean_mission_in_place(new_data)
+        return new_data
 
-    def _build_form(self, config: dict):
-        """Construye las tarjetas en pequeños lotes para no congelar la UI."""
+    # =========================================================================
+    #  CORE UI LOGIC
+    # =========================================================================
+
+    def reload_ui(self, force_disk_reload: bool = False):
+        try:
+            # Si forzamos disco, descartamos cambios en memoria
+            if force_disk_reload or self.working_config is None:
+                self.working_config = self.controller.load_config(force_reload=True)
+                self._last_saved_config = json.dumps(self.working_config, sort_keys=True)
+            
+            # Renderizar desde MEMORIA (self.working_config)
+            config = self.working_config
+            missions_list = config.get("MISSIONS", [])
+            
+            total_m = len(missions_list) or 1
+            self.total_pages = max(1, (total_m + self.page_size - 1) // self.page_size)
+            
+            # Validar página
+            if self.current_page >= self.total_pages:
+                self.current_page = max(0, self.total_pages - 1)
+            
+            self._build_form_from_memory() # Nueva función de construcción
+            
+            # Actualizar Navegación
+            self._update_nav_state()
+            self._refresh_jump_menu()
+            
+            # Actualizar templates (solo si reload total)
+            if force_disk_reload:
+                self._refresh_repo_list()
+                
+        except Exception as e:
+            get_notifications().show_error(f"Error UI: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _build_form_from_memory(self):
+        """Construye UI usando self.working_config."""
+        # Cancelar jobs previos
         if self._pending_build_job:
             try: self.after_cancel(self._pending_build_job)
-            except Exception: pass
+            except: pass
 
+        # Limpiar contenedor
         for widget in self.form_container.winfo_children(): widget.destroy()
         self.rows.clear()
         self.mission_cards = []
         
-        missions_list = config.get("MISSIONS", [])
-        if not missions_list: missions_list = [{}]
-        self.current_missions_list = missions_list
-        
-        combined = {}
-        for i, mission in enumerate(missions_list):
-            prefix = f"MIS_{i}_"
-            for k, v in mission.items(): combined[f"{prefix}{k}"] = v
+        missions_list = self.working_config.get("MISSIONS", [])
+        if not missions_list: missions_list = [{}] # Placeholder visual
 
         start_idx = self.current_page * self.page_size
         end_idx = min(start_idx + self.page_size, len(missions_list))
-        page_items = missions_list[start_idx:end_idx]
+        
+        # Update labels
+        self.page_label.configure(text=f"{self.current_page+1}/{self.total_pages}")
 
-        batch_size = 3
-        total = len(page_items)
+        # Render Loop
+        for i in range(start_idx, end_idx):
+            self._render_mission_card(i, missions_list[i])
+
+    def _render_mission_card(self, global_idx, mission_data):
+        """Renderiza una tarjeta individual."""
+        prefix = f"MIS_{global_idx}_"
+        m_name = mission_data.get("nombre", f"Misión {global_idx+1}")
+        
+        # --- CARD HEADER ---
+        c_mis = Card(self.form_container, f"#{global_idx+1}: {m_name}", colors=self.colors)
+        c_mis.pack(fill="x", pady=10)
+        self.mission_cards.append(c_mis) # Keep ref for higlight
+        
+        # Botones Header
+        # Eliminar
+        ctk.CTkButton(
+            c_mis.header, text="🗑", width=32, height=24,
+            fg_color=self.colors.get("error", "#ef4444"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda idx=global_idx: self._delete_mission_prompt(idx)
+        ).pack(side="right")
+        
+        # Guardar Plantilla
+        ctk.CTkButton(
+            c_mis.header, text="💾", width=32, height=24,
+            fg_color=self.colors.get("accent", "#7c4dff"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda idx=global_idx: self._save_mission_as_template(idx)
+        ).pack(side="right", padx=(0, 4))
+
+        # --- CONTENT ---
+        # Helper interno para data bindings
+        # Usamos 'mission_data' directo (que es una referencia a la lista en memoria) NO 'combined' plano
+        # Pero _add_row espera un dict plano "key": value.
+        # Crearemos un 'flat_view' para _add_row, pero el _sync_view_to_memory reconstruirá la estructura.
+        
+        flat_view = {}
+        for k,v in mission_data.items(): flat_view[f"{prefix}{k}"] = v
+        # Flatten indices
+        indices = mission_data.get("indices", {})
+        flat_view[f"{prefix}indices_rut"] = indices.get("rut", 1)
+        flat_view[f"{prefix}indices_nombre"] = indices.get("nombre", 3)
+        flat_view[f"{prefix}indices_fecha"] = indices.get("fecha", 5)
+
+        # 1. Básico
+        basic = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        basic.pack(fill="x")
+        self._add_row(basic, f"{prefix}nombre", "Nombre Misión", flat_view).pack(fill="x", pady=2)
+        self._add_row(basic, f"{prefix}ruta_entrada", "Excel Objetivo", flat_view, "path").pack(fill="x", pady=2)
+        self._add_row(basic, f"{prefix}ruta_salida", "Carpeta Salida", flat_view, "path_folder").pack(fill="x", pady=2)
+
+        # 2. Keywords
+        kws = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        kws.pack(fill="x", pady=5)
+        self._add_row(kws, f"{prefix}keywords", "Keywords Principal", flat_view).pack(fill="x", pady=2)
+        self._add_row(kws, f"{prefix}keywords_contra", "Keywords En Contra", flat_view).pack(fill="x", pady=2)
+
+        # 3. Códigos
+        codes = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        codes.pack(fill="x", pady=5)
+        codes.grid_columnconfigure((0,1,2), weight=1)
+        self._add_row(codes, f"{prefix}objetivos", "Objetivos", flat_view).grid(row=0, column=0, sticky="ew", padx=2)
+        self._add_row(codes, f"{prefix}habilitantes", "Habilitantes", flat_view).grid(row=0, column=1, sticky="ew", padx=2)
+        self._add_row(codes, f"{prefix}excluyentes", "Excluyentes", flat_view).grid(row=0, column=2, sticky="ew", padx=2)
+
+        # 4. Meta
+        meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        meta.pack(fill="x", pady=5)
+        meta.grid_columnconfigure((0,1), weight=1)
+        self._add_row(meta, f"{prefix}familia", "Familia (PS-FAM)", flat_view).grid(row=0, column=0, sticky="ew", padx=2)
+        self._add_row(meta, f"{prefix}especialidad", "Especialidad", flat_view).grid(row=0, column=1, sticky="ew", padx=2)
+
+        # 4b. Rango Etario
+        self._add_row(meta, f"{prefix}edad_min", "Edad Mínima", flat_view).grid(row=1, column=0, sticky="ew", padx=2, pady=5)
+        self._add_row(meta, f"{prefix}edad_max", "Edad Máxima", flat_view).grid(row=1, column=1, sticky="ew", padx=2, pady=5)
+
+        # 5. Frecuencia (NUEVO EDITOR)
+        # 5. Frecuencia (NUEVO EDITOR)
+        freq = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        freq.pack(fill="x", pady=5)
+        
+        # Header + Toggle Logic
+        f_header = ctk.CTkFrame(freq, fg_color="transparent")
+        f_header.pack(fill="x")
+        
+        ctk.CTkLabel(f_header, text="Reglas de Frecuencia (Vida, Año, Mes)", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=2)
+        
+        # Toggle control variable handled via flat_view and _add_row logic usually, 
+        # but here we need dynamic UI showing/hiding.
+        # Let's bind a custom switch.
+        
+        is_freq_active = bool(mission_data.get("active_frequencies", False))
+        
+        # Editor Container (to hide/show)
+        f_editor_container = ctk.CTkFrame(freq, fg_color="transparent")
+        if is_freq_active:
+            f_editor_container.pack(fill="x", expand=True, pady=2)
+            
+        def toggle_freq():
+            val = switch_var.get()
+            # Update data ref immediately (or rely on scrape later if we register it?)
+            # Scrape relies on widgets in self.rows. We should register this switch.
+            mission_data["active_frequencies"] = (val == 1)
+            
+            if val == 1:
+                f_editor_container.pack(fill="x", expand=True, pady=2)
+            else:
+                f_editor_container.pack_forget()
+
+        switch_var = ctk.IntVar(value=1 if is_freq_active else 0)
+        sw = ctk.CTkSwitch(f_header, text="Activar", variable=switch_var, command=toggle_freq, 
+                           width=80, height=24, font=ctk.CTkFont(size=11))
+        sw.pack(side="right", padx=5)
+        
+        # Register for sync
+        # We need to manually add it to flat_view or self.rows so _sync_view_to_memory picks it up?
+        # _sync_view_to_memory iterates self.rows. Let's add it manually.
+        self.rows[f"{prefix}active_frequencies"] = sw
+
+        # Inicializar lista si no existe
+        if "frecuencias" not in mission_data or not isinstance(mission_data["frecuencias"], list):
+            mission_data["frecuencias"] = []
+            
+            # Migración automática simple si existe legacy
+            if mission_data.get("frecuencia") and not mission_data["frecuencias"]:
+                try:
+                    legacy_qty = int(mission_data.get("frecuencia_cantidad", 1))
+                except: legacy_qty = 1
+                
+                # Adivinar tipo based on text
+                ft = "Mes"
+                txt = str(mission_data.get("frecuencia", "")).lower()
+                if "año" in txt or "anio" in txt: ft = "Año" 
+                elif "vida" in txt: ft = "Vida"
+                
+                mission_data["frecuencias"].append({
+                    "code": "LEGACY", # Placeholder, legacy logic used objectives.
+                    "freq_type": ft,
+                    "freq_qty": legacy_qty,
+                    "periodicity": mission_data.get("periodicidad", "")
+                })
+
+        # Editor
+        # Important: pass "mission_data['frecuencias']" ref.
+        # Also register in self.rows so _sync can scrape inner changes IF the editor supports get_data() logic inside sync (it does).
+        f_editor = FrequencyListEditor(f_editor_container, data_list=mission_data["frecuencias"])
+        f_editor.pack(fill="x", expand=True)
+        self.rows[f"{prefix}frecuencias_editor"] = f_editor
+
+        # 6. Límites (Solo Vigencia, Edad movida a Meta)
+        limits = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        limits.pack(fill="x", pady=5)
+        limits.grid_columnconfigure(0, weight=1)
+        self._add_row(limits, f"{prefix}vigencia_dias", "Vigencia (días)", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
+
+        # 7. Maximos
+        limits2 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        limits2.pack(fill="x", pady=2)
+        limits2.grid_columnconfigure((0,1,2), weight=1)
+        self._add_row(limits2, f"{prefix}max_objetivos", "Max Obj.", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
+        self._add_row(limits2, f"{prefix}max_habilitantes", "Max Hab.", flat_view).grid(row=0, column=1, sticky="ew", padx=1)
+        self._add_row(limits2, f"{prefix}max_excluyentes", "Max Excl.", flat_view).grid(row=0, column=2, sticky="ew", padx=1)
+
+        limits3 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        limits3.pack(fill="x", pady=(0,2))
+        limits3.grid_columnconfigure((0,1,2,3), weight=1)
+        self._add_row(limits3, f"{prefix}max_ipd", "Max IPD", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
+        self._add_row(limits3, f"{prefix}max_oa", "Max OA", flat_view).grid(row=0, column=1, sticky="ew", padx=1)
+        self._add_row(limits3, f"{prefix}max_aps", "Max APS", flat_view).grid(row=0, column=2, sticky="ew", padx=1)
+        self._add_row(limits3, f"{prefix}max_sic", "Max SIC", flat_view).grid(row=0, column=3, sticky="ew", padx=1)
+
+        # 8. Switches (Requisitos)
+        sw = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        sw.pack(fill="x", pady=10)
+        sw.grid_columnconfigure((0,1,2,3), weight=1)
+        self._add_switch(sw, f"{prefix}require_ipd", "IPD (Req)", flat_view, 0, 0)
+        self._add_switch(sw, f"{prefix}require_oa", "OA (Req)", flat_view, 0, 1)
+        self._add_switch(sw, f"{prefix}require_aps", "APS (Req)", flat_view, 0, 2)
+        self._add_switch(sw, f"{prefix}require_sic", "SIC (Req)", flat_view, 0, 3)
+        self._add_switch(sw, f"{prefix}show_futures", "Mostrar Futuros", flat_view, 1, 0)
+        self._add_switch(sw, f"{prefix}requiere_ipd", "Req. IPD (Apto)", flat_view, 1, 1)
+        self._add_switch(sw, f"{prefix}requiere_aps", "Req. APS (Apto)", flat_view, 1, 2)
+
+        # 9. Avanzado (Folios / Años)
+        dyn = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        dyn.pack(fill="x", pady=8)
+        self._add_switch(dyn, f"{prefix}filtro_folio_activo", "Activar Filtro Folio", flat_view)
+        self._add_row(dyn, f"{prefix}codigos_folio", "Códigos Folio (csv)", flat_view).pack(fill="x")
+        self._add_switch(dyn, f"{prefix}folio_vih", "Activar Folio VIH", flat_view)
+        self._add_row(dyn, f"{prefix}folio_vih_codigos", "Códigos VIH (csv)", flat_view).pack(fill="x")
+        
+        # YEAR CODES
+        self._add_switch(dyn, f"{prefix}active_year_codes", "¿Tiene códigos por Año?", flat_view)
+        
+        # Container for Year code (toggle visibility logic?)
+        # For now just render it. The switch logic is separate.
+        # Use CORRECT KEY: anios_codigo
+        if "anios_codigo" not in mission_data: mission_data["anios_codigo"] = []
+        
+        y_frame = ctk.CTkFrame(dyn, fg_color="transparent")
+        y_frame.pack(fill="x", pady=2)
+        
+        # Instantiate DIRECTLY to avoid helper mismatch
+        # Using imported YearCodeEditor
+        y_editor = YearCodeEditor(y_frame, data_list=mission_data["anios_codigo"], colors=self.colors)
+        y_editor.pack(fill="x", expand=True)
+        self.rows[f"{prefix}anios_editor"] = y_editor
+        
+        # NO DUPLICATE FREQUENCY EDITOR HERE.
+        # (It was already added at step 5 in this function).
+
+        # 11. Indices
+        ind = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        ind.pack(fill="x", pady=5)
+        ind.grid_columnconfigure((0,1,2), weight=1)
+        self._add_row(ind, f"{prefix}indices_rut", "Idx RUT", flat_view).grid(row=0, column=0)
+        self._add_row(ind, f"{prefix}indices_nombre", "Idx NOM", flat_view).grid(row=0, column=1)
+        self._add_row(ind, f"{prefix}indices_fecha", "Idx FEC", flat_view).grid(row=0, column=2)
+
+    # =========================================================================
+    #  NAVIGACION REFACTORIZADA
+    # =========================================================================
+    def _prev_page(self):
+        if self.current_page > 0:
+            self._sync_view_to_memory() # GUARDAR ESTADO ANTES DE SALIR
+            self.current_page -= 1
+            self.reload_ui(force_disk_reload=False)
+
+    def _next_page(self):
+        if self.current_page < self.total_pages - 1:
+            self._sync_view_to_memory() # GUARDAR ESTADO ANTES DE SALIR
+            self.current_page += 1
+            self.reload_ui(force_disk_reload=False)
+
+    def _jump_to_mission(self):
+        self._sync_view_to_memory() # GUARDAR ESTADO
         try:
-            total_pages = max(1, (len(missions_list) + self.page_size - 1) // self.page_size)
-            self.page_label.configure(text=f"{self.current_page+1}/{total_pages}")
-        except Exception:
-            pass
+            sel = self.jump_var.get()
+            idx = int(sel.split(":")[0])
+            self.current_page = idx // self.page_size
+            self.reload_ui(force_disk_reload=False)
+            
+            # Highlight local
+            local_idx = idx % self.page_size
+            self.after(50, lambda: self._highlight_card(0 if self.page_size==1 else local_idx))
+        except: pass
+    
+    def _refresh_jump_menu(self):
+        missions = self.working_config.get("MISSIONS", [])
+        jump_values = [f"{i}: {m.get('nombre', f'Misión {i+1}')}" for i, m in enumerate(missions)] or ["(sin misiones)"]
+        self.jump_menu.configure(values=jump_values)
+        if self.jump_var.get() not in jump_values:
+             if jump_values and len(jump_values) > self.current_page * self.page_size:
+                 self.jump_var.set(jump_values[self.current_page * self.page_size])
 
-        def build_range(start: int):
-            end = min(start + batch_size, total)
-            for i in range(start, end):
-                mission = page_items[i]
-                global_idx = start_idx + i
-                prefix = f"MIS_{global_idx}_"
-                m_name = mission.get("nombre", f"Misión {global_idx+1}")
-                c_mis = Card(self.form_container, f"#{global_idx+1}: {m_name}", colors=self.colors)
-                c_mis.pack(fill="x", pady=10)
-                self.mission_cards.append(c_mis)
-                # Botón eliminar compacto en header
-                del_btn = ctk.CTkButton(
-                    c_mis.header, text="🗑", width=32, height=24,
-                    fg_color=self.colors.get("error", "#ef4444"),
-                    font=ctk.CTkFont(size=13, weight="bold"),
-                    command=lambda idx=global_idx: self._delete_mission_prompt(idx)
-                )
-                del_btn.pack(side="right")
+
+
+
+    def _update_nav_state(self):
+        """Actualiza estado de botones de navegación."""
+        if self.total_pages <= 1:
+            self.prev_btn.configure(state="disabled")
+            self.next_btn.configure(state="disabled")
+        else:
+            self.prev_btn.configure(state="normal" if self.current_page > 0 else "disabled")
+            self.next_btn.configure(state="normal" if self.current_page < self.total_pages - 1 else "disabled")
+            
+        self.page_label.configure(text=f"{self.current_page+1}/{self.max(1, self.total_pages)}")
+
+    def max(self, a, b):
+        return a if a > b else b
+
+    def _highlight_card(self, local_idx):
+        """Resalta la tarjeta temporalmente para indicar salto."""
+        if 0 <= local_idx < len(self.mission_cards):
+            card = self.mission_cards[local_idx]
+            original_color = self.colors.get("bg_card", "#1f1f1f")
+            highlight_color = self.colors.get("accent", "#7c4dff")
+            
+            # Flash effect helper
+            def restore():
+                try: card.configure(border_color=original_color)
+                except: pass
                 
-                # Botón guardar plantilla junto al de eliminar
-                save_tmpl_btn = ctk.CTkButton(
-                    c_mis.header, text="💾", width=32, height=24,
-                    fg_color=self.colors.get("accent", "#7c4dff"),
-                    font=ctk.CTkFont(size=13, weight="bold"),
-                    command=lambda idx=global_idx: self._save_mission_as_template(idx)
-                )
-                save_tmpl_btn.pack(side="right", padx=(0, 4))
-
-
-                basic = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                basic.pack(fill="x")
-                self._add_row(basic, f"{prefix}nombre", "Nombre Misión", combined).pack(fill="x", pady=2)
-                self._add_row(basic, f"{prefix}ruta_entrada", "Excel Objetivo", combined, "path").pack(fill="x", pady=2)
-                self._add_row(basic, f"{prefix}ruta_salida", "Carpeta Salida", combined, "path_folder").pack(fill="x", pady=2)
-
-                kws = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                kws.pack(fill="x", pady=5)
-                self._add_row(kws, f"{prefix}keywords", "Keywords Principal", combined).pack(fill="x", pady=2)
-                self._add_row(kws, f"{prefix}keywords_contra", "Keywords En Contra", combined).pack(fill="x", pady=2)
-
-                codes = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                codes.pack(fill="x", pady=5)
-                codes.grid_columnconfigure((0,1,2), weight=1)
-                self._add_row(codes, f"{prefix}objetivos", "Objetivos", combined).grid(row=0, column=0, sticky="ew", padx=2)
-                self._add_row(codes, f"{prefix}habilitantes", "Habilitantes", combined).grid(row=0, column=1, sticky="ew", padx=2)
-                self._add_row(codes, f"{prefix}excluyentes", "Excluyentes", combined).grid(row=0, column=2, sticky="ew", padx=2)
-
-                meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                meta.pack(fill="x", pady=5)
-                meta.grid_columnconfigure((0,1), weight=1)
-                self._add_row(meta, f"{prefix}familia", "Familia (PS-FAM)", combined).grid(row=0, column=0, sticky="ew", padx=2)
-                self._add_row(meta, f"{prefix}especialidad", "Especialidad", combined).grid(row=0, column=1, sticky="ew", padx=2)
-
-                freq = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                freq.pack(fill="x", pady=5)
-                freq.grid_columnconfigure((0,1,2), weight=1)
-                self._add_row(freq, f"{prefix}frecuencia", "Frecuencia", combined).grid(row=0, column=0, sticky="ew", padx=2)
-                self._add_row(freq, f"{prefix}frecuencia_cantidad", "Cant. Frec.", combined).grid(row=0, column=1, sticky="ew", padx=2)
-                self._add_row(freq, f"{prefix}periodicidad", "Periodicidad", combined).grid(row=0, column=2, sticky="ew", padx=2)
-
-                limits = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                limits.pack(fill="x", pady=5)
-                limits.grid_columnconfigure((0,1,2,3), weight=1)
-                self._add_row(limits, f"{prefix}edad_min", "Edad Min", combined).grid(row=0, column=0, sticky="ew", padx=1)
-                self._add_row(limits, f"{prefix}edad_max", "Edad Max", combined).grid(row=0, column=1, sticky="ew", padx=1)
-                self._add_row(limits, f"{prefix}vigencia_dias", "Vigencia", combined).grid(row=0, column=2, sticky="ew", padx=1)
-                
-                limits2 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                limits2.pack(fill="x", pady=2)
-                limits2.grid_columnconfigure((0,1,2), weight=1)
-                self._add_row(limits2, f"{prefix}max_objetivos", "Max Obj.", combined).grid(row=0, column=0, sticky="ew", padx=1)
-                self._add_row(limits2, f"{prefix}max_habilitantes", "Max Hab.", combined).grid(row=0, column=1, sticky="ew", padx=1)
-                self._add_row(limits2, f"{prefix}max_excluyentes", "Max Excl.", combined).grid(row=0, column=2, sticky="ew", padx=1)
-
-                limits3 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                limits3.pack(fill="x", pady=(0,2))
-                limits3.grid_columnconfigure((0,1,2,3), weight=1)
-                self._add_row(limits3, f"{prefix}max_ipd", "Max IPD", combined).grid(row=0, column=0, sticky="ew", padx=1)
-                self._add_row(limits3, f"{prefix}max_oa", "Max OA", combined).grid(row=0, column=1, sticky="ew", padx=1)
-                self._add_row(limits3, f"{prefix}max_aps", "Max APS", combined).grid(row=0, column=2, sticky="ew", padx=1)
-                self._add_row(limits3, f"{prefix}max_sic", "Max SIC", combined).grid(row=0, column=3, sticky="ew", padx=1)
-
-                sw_lbl = ctk.CTkLabel(c_mis.content, text="Req. Secciones", font=self.font_header)
-                sw_lbl.pack(anchor="w", pady=(5,0))
-                sw = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                sw.pack(fill="x")
-                sw.grid_columnconfigure((0,1,2,3), weight=1)
-                
-                self._add_switch(sw, f"{prefix}require_ipd", "IPD (Req)", combined, 0, 0)
-                self._add_switch(sw, f"{prefix}require_oa", "OA (Req)", combined, 0, 1)
-                self._add_switch(sw, f"{prefix}require_aps", "APS (Req)", combined, 0, 2)
-                self._add_switch(sw, f"{prefix}require_sic", "SIC (Req)", combined, 0, 3)
-                self._add_switch(sw, f"{prefix}show_futures", "Mostrar Futuros", combined, 1, 0)
-                self._add_switch(sw, f"{prefix}requiere_ipd", "Req. IPD (Apto)", combined, 1, 1)
-                self._add_switch(sw, f"{prefix}requiere_aps", "Req. APS (Apto)", combined, 1, 2)
-
-                dyn = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                dyn.pack(fill="x", pady=8)
-                self._add_switch(dyn, f"{prefix}filtro_folio_activo", "Activar Filtro Folio", combined)
-                self._add_row(dyn, f"{prefix}codigos_folio", "Códigos Folio (csv)", combined).pack(fill="x")
-                
-                # Sección Folio VIH
-                self._add_switch(dyn, f"{prefix}folio_vih", "Activar Folio VIH", combined)
-                self._add_row(dyn, f"{prefix}folio_vih_codigos", "Códigos VIH (csv)", combined).pack(fill="x")
-                
-                self._add_switch(dyn, f"{prefix}active_year_codes", "¿Tiene códigos por Año?", combined)
-                self._add_year_code_editor(dyn, f"{prefix}anios_codigo", mission.get("anios_codigo", []), global_idx)
-
-
-                ind = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-                ind.pack(fill="x", pady=5)
-                ind.grid_columnconfigure((0,1,2), weight=1)
-                indices = mission.get("indices", {})
-                self._add_row(ind, f"{prefix}indices_rut", "Idx RUT", {f"{prefix}indices_rut": indices.get("rut", 1)}).grid(row=0, column=0)
-                self._add_row(ind, f"{prefix}indices_nombre", "Idx NOM", {f"{prefix}indices_nombre": indices.get("nombre", 3)}).grid(row=0, column=1)
-                self._add_row(ind, f"{prefix}indices_fecha", "Idx FEC", {f"{prefix}indices_fecha": indices.get("fecha", 5)}).grid(row=0, column=2)
-
-            if end < total:
-                self._pending_build_job = self.after(10, lambda: build_range(end))
-
-        build_range(0)
-
-    # ----------------- Acciones de plantillas simplificadas -----------------
-    def _on_use_click(self):
-        """Flujo guiado: elegir plantilla -> agregar o sobrescribir -> misión destino."""
-        try:
-            tmpl_name = self.repo_var.get()
-            if not self.repo_files:
-                get_notifications().show_warning("No hay plantillas disponibles")
-                return
-            path = None
-            for name, p in self.repo_files:
-                if name == tmpl_name:
-                    path = p
-                    break
-            if not path:
-                get_notifications().show_warning("Plantilla no encontrada")
-                return
-            data = self.controller.load_mission_file(path)
-            missions = data.get("MISSIONS", [])
-            if not missions:
-                get_notifications().show_warning("La plantilla no tiene misiones")
-                return
-            # misión dentro de plantilla
             try:
-                tmpl_idx = int(self.template_mission_var.get().split(":")[0])
-            except Exception:
-                tmpl_idx = 0
-            tmpl_idx = min(max(tmpl_idx, 0), len(missions)-1)
-            mission_data = missions[tmpl_idx]
-
-            # Dialogo agregar vs sobrescribir
-            res = tkinter.messagebox.askyesnocancel(
-                "Aplicar plantilla",
-                "¿Agregar misión extra (Sí) o Sobrescribir (No)?\nCancelar para abortar."
-            )
-            if res is None:
-                return
-            if res:  # yes -> agregar
-                self.controller.append_mission(mission_data)
-                self.reload_ui(True)
-                get_notifications().show_success(f"Plantilla '{tmpl_name}' agregada como nueva misión")
-                log_ui("template_append", template=tmpl_name)
-                return
-            # No -> sobrescribir: pedir índice
-            tgt_idx = self._prompt_overwrite_index()
-            if tgt_idx is None:
-                return
-            self.controller.overwrite_mission(tgt_idx, mission_data)
-            self.reload_ui(True)
-            get_notifications().show_success(f"Plantilla '{tmpl_name}' aplicada sobre misión {tgt_idx}")
-            log_ui("template_use", template=tmpl_name, target_idx=tgt_idx)
-        except Exception as e:
-            get_notifications().show_error(f"Error usando plantilla: {e}")
-
-    def _prompt_overwrite_index(self):
-        """Pequeño diálogo para elegir misión destino."""
-        import tkinter as tk
-        top = ctk.CTkToplevel(self)
-        top.title("Elegir misión a sobrescribir")
-        try:
-            icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "assets", "icon.ico")
-            if os.path.exists(icon_path):
-                top.iconbitmap(icon_path)
-        except Exception:
-            pass
-        top.grab_set()
-        ctk.CTkLabel(top, text="Seleccione misión destino", font=ctk.CTkFont(weight="bold")).pack(padx=10, pady=8)
-        values = [f"{i}: {m.get('nombre', f'Misión {i+1}')}" for i, m in enumerate(self.current_missions_list)]
-        var = tk.StringVar(value=values[0] if values else "")
-        menu = ctk.CTkOptionMenu(top, variable=var, values=values or ["(sin misiones)"], width=240)
-        menu.pack(padx=10, pady=6)
-        result = {"idx": None}
-        def ok():
-            try:
-                result["idx"] = int(var.get().split(":")[0])
-            except Exception:
-                result["idx"] = None
-            top.destroy()
-        ctk.CTkButton(top, text="OK", width=80, command=ok).pack(pady=8)
-        top.wait_window()
-        return result["idx"]
+                card.configure(border_color=highlight_color, border_width=2)
+                self.after(1500, restore)
+            except: pass
 
     def _add_row(self, parent, key, label, combined_data, type="entry"):
         val = combined_data.get(key)
+        if val is None: val = ""
         row = FormRow(parent, label=label, input_type=type, value=val, colors=self.colors)
         self.rows[key] = row
         return row
@@ -556,7 +808,7 @@ class MissionsView(ctk.CTkFrame):
 
     def _add_mission(self):
         try:
-            self._save_internal() # guardar antes de agregar
+            self._save_to_disk() # Usar lógica robusta de guardado
             self.controller.add_empty_mission()
             self.reload_ui(True)
             get_notifications().show_success("Misión Agregada")
@@ -567,7 +819,7 @@ class MissionsView(ctk.CTkFrame):
 
     def _delete_mission_prompt(self, idx):
         try:
-            self._save_internal()
+            self._save_to_disk() # Persistir estado actual antes de modificar lista
             self.controller.delete_mission(idx)
             self.reload_ui(True)
             get_notifications().show_success("Misión Eliminada")
@@ -576,137 +828,217 @@ class MissionsView(ctk.CTkFrame):
         except Exception as e:
             get_notifications().show_error(str(e))
 
-    # ====================== Plantillas ======================
+    # ====================== Plantillas 2.0 ======================
     def _refresh_repo_list(self):
-        """Actualiza el dropdown de plantillas disponibles."""
+        """Escanea múltiples carpetas y estructura las plantillas."""
+        base = os.path.join(ruta_proyecto, "Lista de Misiones")
+        folders = ["Base Mision", "Nóminas", "Reportes"]
+        
+        self.repo_structure = {}
+        all_found = []
+        
+        for ftype in folders:
+            p = os.path.join(base, ftype)
+            found_in_folder = []
+            
+            if os.path.exists(p):
+                try:
+                    for f in os.listdir(p):
+                        if f.lower().endswith(".json"):
+                            lbl = f
+                            full = os.path.join(p, f)
+                            found_in_folder.append((lbl, full))
+                            all_found.append((lbl, full))
+                except: pass
+            
+            # Sort individual lists
+            found_in_folder.sort(key=lambda x: x[0])
+            self.repo_structure[ftype] = found_in_folder
+            
+        self.repo_files = all_found # Keep flat list for validation
+        
+        # Initial populate based on current category
+        self._on_category_change()
+
+    def _on_category_change(self, *args):
+        """Actualiza el menú de plantillas basado en la categoría seleccionada."""
+        cat = self.category_var.get()
+        items = self.repo_structure.get(cat, [])
+        
+        values = [x[0] for x in items] or ["(vacío)"]
+        
+        # Update dropdown if exists
         try:
-            os.makedirs(self.repo_dir, exist_ok=True)
-            files = [f for f in os.listdir(self.repo_dir) if f.lower().endswith(".json")]
-            files.sort()
-            self.repo_files = [(f, os.path.join(self.repo_dir, f)) for f in files]
-            values = [f for f, _ in self.repo_files] or ["(sin plantillas)"]
             self.repo_menu.configure(values=values)
-            # Reset selección si la actual ya no existe
-            if self.repo_var.get() not in values:
-                self.repo_var.set(values[0])
-            # Refrescar misiones de la plantilla seleccionada
-            self._on_template_change()
-        except Exception:
-            self.repo_menu.configure(values=["(error leyendo)"])
-            self.repo_var.set("(error)")
+            if items:
+                 self.repo_var.set(values[0])
+            else:
+                 self.repo_var.set("(vacío)")
+        except: pass
+        
+        self._on_template_change()
 
     def _refresh_target_menu(self):
-        """Actualiza el dropdown con las misiones actuales para sobrescribir."""
-        pass  # Ya no se usa menú de destino directo
+        # Placeholder for future implementation
+        pass
 
     def _on_template_change(self):
-        """Cuando cambia la plantilla, actualizar lista de misiones dentro de ese archivo."""
-        tmpl_name = self.repo_var.get()
-        path = None
-        for name, p in self.repo_files:
-            if name == tmpl_name:
-                path = p
-                break
-        if not path:
-            self.template_mission_menu.configure(values=["(primera)"])
-            self.template_mission_var.set("(primera)")
-            self.template_info.configure(text="Sin plantilla cargada")
-            return
-        try:
-            data = self.controller.load_mission_file(path)
-            missions = data.get("MISSIONS", [])
-            values = []
-            for i, m in enumerate(missions):
-                label = m.get("nombre", f"Misión {i+1}")
-                values.append(f"{i}: {label}")
-            if not values:
-                values = ["(primera)"]
-            self.template_mission_menu.configure(values=values)
-            if self.template_mission_var.get() not in values:
-                self.template_mission_var.set(values[0])
-            self.template_info.configure(
-                text=f"{os.path.basename(path)} • {len(missions)} misión(es) disponibles"
-            )
-        except Exception:
-            self.template_mission_menu.configure(values=["(error)"])
-            self.template_mission_var.set("(error)")
-            self.template_info.configure(text="Error leyendo plantilla")
+        """Callback placeholder (info eliminada por UI clean)."""
+        pass
 
     def _use_template(self):
-        """Carga la plantilla seleccionada y sobrescribe la misión elegida."""
+        """Dialogo: ¿Sobrescribir actual o Crear nueva?"""
+        tmpl_name = self.repo_var.get()
+        if not self.repo_files or tmpl_name == "(sin plantillas)":
+             get_notifications().show_warning("Seleccione una plantilla válida")
+             return
+             
+        # Crear Dialogo Modal
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Usar Plantilla")
+        dialog.geometry("400x220")
+        dialog.transient(self) # Keep on top
+        dialog.grab_set()      # Modal
+        
+        # Center
+        try:
+            x = self.winfo_rootx() + (self.winfo_width() // 2) - 200
+            y = self.winfo_rooty() + (self.winfo_height() // 2) - 110
+            dialog.geometry(f"+{x}+{y}")
+        except: pass
+
+        ctk.CTkLabel(dialog, text=f"Plantilla: {tmpl_name}", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(20, 5))
+        ctk.CTkLabel(dialog, text="¿Qué desea hacer con esta plantilla?", text_color="gray").pack(pady=(0, 20))
+
+        def use_new():
+            dialog.destroy()
+            self._append_template()
+
+        def use_overwrite():
+            dialog.destroy()
+            self._overwrite_current_action() # Helper extraction
+
+        btn_color = self.colors["accent"]
+        
+        # New Mission
+        ctk.CTkButton(dialog, text="➕ Crear Nueva Misión", fg_color=self.colors.get("success", "#22c55e"), 
+                      height=35, anchor="w", command=use_new).pack(fill="x", padx=20, pady=5)
+
+        # Overwrite Check
+        msg_overwrite = f"🖊 Sobrescribir Misión ACTUAL (#{self.current_page + 1})"
+        ctk.CTkButton(dialog, text=msg_overwrite, fg_color=self.colors.get("error", "#ef4444"), 
+                      height=35, anchor="w", command=use_overwrite).pack(fill="x", padx=20, pady=5)
+
+        # --- Overwrite Specific ---
+        frame_spec = ctk.CTkFrame(dialog, fg_color="transparent")
+        frame_spec.pack(fill="x", padx=20, pady=5)
+        
+        # Get mission list for dropdown
+        current_data = self.working_config.get("MISSIONS", [])
+        m_values = [f"{i}: {m.get('nombre','Misión '+str(i+1))}" for i, m in enumerate(current_data)]
+        if not m_values: m_values = ["(sin misiones)"]
+        
+        sel_var = ctk.StringVar(value=m_values[0])
+        
+        ctk.CTkOptionMenu(frame_spec, values=m_values, variable=sel_var, width=180).pack(side="left", padx=(0,5))
+        
+        def use_specific():
+            try:
+                # Extract index from "0: Nombre"
+                txt = sel_var.get()
+                idx_spec = int(txt.split(":")[0])
+                dialog.destroy()
+                self._overwrite_specific_action(idx_spec)
+            except: pass
+
+        ctk.CTkButton(frame_spec, text="Sobrescribir", width=100, fg_color=self.colors.get("error", "#ef4444"),
+                      command=use_specific).pack(side="left")
+
+        # Cancel
+        ctk.CTkButton(dialog, text="Cancelar", fg_color="transparent", border_width=1,
+                      text_color="gray", command=dialog.destroy).pack(pady=10)
+        
+        # Resize for extra content
+        dialog.geometry("400x320")
+
+    def _overwrite_current_action(self):
+        """Lógica original de overwite refactorizada."""
         try:
             tmpl_name = self.repo_var.get()
-            if not self.repo_files:
-                get_notifications().show_warning("No hay plantillas disponibles")
-                return
-            # Buscar path
             path = None
             for name, p in self.repo_files:
                 if name == tmpl_name:
                     path = p
                     break
-            if not path:
-                get_notifications().show_warning("Plantilla no encontrada")
-                return
+            if not path: return
 
-            # Índice objetivo
-            target_sel = self.target_var.get()
-            try:
-                idx = int(target_sel.split(":")[0])
-            except Exception:
-                get_notifications().show_warning("Seleccione misión a sobrescribir")
-                return
+            idx = self.current_page
+            data = self.controller.load_mission_file(path)
+            missions = data.get("MISSIONS", [])
+            if not missions: return
+            
+            # Confirm double check (optional, but requested behavior is 'safety')
+            # Since user clicked explicit "Overwrite" button, maybe skip native OS popup?
+            # Let's keep one final fast confirm or just proceed.
+            # User said "prefiero que me pregunte... boton de confirmacion". The Dialog IS the confirmation.
+            
+            self.controller.overwrite_mission(idx, missions[0])
+            self.reload_ui(True)
+            get_notifications().show_success(f"Misión #{idx+1} Sobrescrita")
+        except Exception as e:
+            get_notifications().show_error(f"Error: {e}")
+
+    def _overwrite_specific_action(self, target_idx):
+        """Sobrescribe una misión específica seleccionada por índice."""
+        try:
+            tmpl_name = self.repo_var.get()
+            path = None
+            for name, p in self.repo_files:
+                if name == tmpl_name:
+                    path = p
+                    break
+            if not path: return
 
             data = self.controller.load_mission_file(path)
             missions = data.get("MISSIONS", [])
-            if not missions:
-                get_notifications().show_warning("La plantilla no tiene misiones")
-                return
-            # Seleccionar misión desde dropdown de plantilla
-            try:
-                tmpl_idx = int(self.template_mission_var.get().split(":")[0])
-            except Exception:
-                tmpl_idx = 0
-            tmpl_idx = min(max(tmpl_idx, 0), len(missions)-1)
-            mission_data = missions[tmpl_idx]
+            if not missions: return
 
-            self.controller.overwrite_mission(idx, mission_data)
+            self.controller.overwrite_mission(target_idx, missions[0])
             self.reload_ui(True)
-            get_notifications().show_success(f"Plantilla '{tmpl_name}' → misión {idx}: {mission_data.get('nombre','(sin nombre)')}")
-            try: log_ui("template_use", template=tmpl_name, target_idx=idx)
-            except Exception: pass
+            get_notifications().show_success(f"Misión #{target_idx} Sobrescrita")
         except Exception as e:
-            get_notifications().show_error(f"Error usando plantilla: {e}")
+            get_notifications().show_error(f"Error: {e}")
 
     def _append_template(self):
         """Agrega como nueva la misión seleccionada de la plantilla."""
         try:
             tmpl_name = self.repo_var.get()
-            if not self.repo_files:
-                get_notifications().show_warning("No hay plantillas disponibles")
-                return
+            if not self.repo_files: return
+
             path = None
             for name, p in self.repo_files:
                 if name == tmpl_name:
                     path = p
                     break
-            if not path:
-                get_notifications().show_warning("Plantilla no encontrada")
-                return
+            if not path: return
+
             data = self.controller.load_mission_file(path)
             missions = data.get("MISSIONS", [])
             if not missions:
                 get_notifications().show_warning("La plantilla no tiene misiones")
                 return
-            try:
-                tmpl_idx = int(self.template_mission_var.get().split(":")[0])
-            except Exception:
-                tmpl_idx = 0
-            tmpl_idx = min(max(tmpl_idx, 0), len(missions)-1)
-            mission_data = missions[tmpl_idx]
+            
+            # Default to first mission
+            mission_data = missions[0]
+            
             self.controller.append_mission(mission_data)
             self.reload_ui(True)
-            get_notifications().show_success(f"Plantilla '{tmpl_name}' agregada como nueva misión: {mission_data.get('nombre','(sin nombre)')}")
+            
+            # Jump to new mission (last page)
+            self.current_page = self.total_pages - 1
+            self.reload_ui(False)
+            
+            get_notifications().show_success(f"Plantilla agregada como Misión #{self.current_page+1}")
             try: log_ui("template_append", template=tmpl_name)
             except Exception: pass
         except Exception as e:
@@ -716,8 +1048,8 @@ class MissionsView(ctk.CTkFrame):
         """Elimina el archivo de plantilla seleccionado."""
         tmpl_name = self.repo_var.get()
         path = None
-        for name, p in self.repo_files:
-            if name == tmpl_name:
+        for lbl, p in self.repo_files:
+            if lbl == tmpl_name:
                 path = p
                 break
         if not path:
@@ -744,19 +1076,16 @@ class MissionsView(ctk.CTkFrame):
             get_notifications().show_error(f"No se pudo eliminar: {e}")
 
     def _on_save(self):
-        try:
-            self._save_internal(wait=False)
-            get_notifications().show_success("Misiones Guardadas")
-            try: log_ui("missions_save", missions=len(self.current_missions_list))
-            except Exception: pass
-        except Exception as e:
-            get_notifications().show_error(str(e))
+        if self._save_to_disk():
+            get_notifications().show_success("✅ Misiones Guardadas (Disco)")
+            try: log_ui("missions_save") 
+            except: pass
 
     def _save_mission_as_template(self, mission_idx):
         """Guarda una misión específica como plantilla (nuevo archivo o sobrescribir)."""
         try:
-            # Guardar cambios actuales primero
-            self._save_internal(wait=True)
+            # Guardar cambios actuales primero (Flujo correcto)
+            self._save_to_disk()
             
             # Obtener la misión
             config = self.controller.load_config(force_reload=True)
@@ -772,7 +1101,7 @@ class MissionsView(ctk.CTkFrame):
             import tkinter as tk
             top = ctk.CTkToplevel(self)
             top.title(f"Guardar '{mission_name}' como Plantilla")
-            top.geometry("450x200")
+            top.geometry("450x280")
             try:
                 icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "assets", "icon.ico")
                 if os.path.exists(icon_path):
@@ -784,6 +1113,14 @@ class MissionsView(ctk.CTkFrame):
             ctk.CTkLabel(top, text=f"Guardar: {mission_name}", 
                         font=ctk.CTkFont(size=14, weight="bold")).pack(padx=15, pady=(15,10))
             
+            # Selector de carpeta
+            folder_frame = ctk.CTkFrame(top, fg_color="transparent")
+            folder_frame.pack(fill="x", padx=15, pady=5)
+            ctk.CTkLabel(folder_frame, text="Carpeta:", width=120, anchor="w").pack(side="left")
+            folder_options = ["Reportes", "Nóminas", "Base Mision"]
+            folder_var = ctk.StringVar(value="Reportes")
+            ctk.CTkOptionMenu(folder_frame, variable=folder_var, values=folder_options, width=250).pack(side="left", padx=5)
+
             # Frame para nombre archivo
             name_frame = ctk.CTkFrame(top, fg_color="transparent")
             name_frame.pack(fill="x", padx=15, pady=5)
@@ -812,14 +1149,20 @@ class MissionsView(ctk.CTkFrame):
                 if not filename.endswith(".json"):
                     filename += ".json"
                 
-                file_path = os.path.join(self.repo_dir, filename)
+                # Determinar carpeta destino dinámica
+                selected_folder = folder_var.get()
+                base_repo = os.path.join(ruta_proyecto, "Lista de Misiones")
+                target_dir = os.path.join(base_repo, selected_folder)
+                os.makedirs(target_dir, exist_ok=True)
+                
+                file_path = os.path.join(target_dir, filename)
                 
                 # Check si existe
                 if os.path.exists(file_path) and not overwrite_var.get():
-                    get_notifications().show_warning(f"'{filename}' ya existe. Active 'Sobrescribir' para reemplazarlo.")
+                    get_notifications().show_warning(f"'{filename}' ya existe en {selected_folder}. Active 'Sobrescribir' para reemplazarlo.")
                     return
                 
-                # Limpiar datos antes de guardar para evitar None y otros valores problemáticos
+                # Limpiar datos antes de guardar
                 cleaned_mission = self._clean_mission_data(mission_data)
                 
                 # Crear estructura de plantilla
@@ -830,7 +1173,6 @@ class MissionsView(ctk.CTkFrame):
                 # Guardar
                 try:
                     import json
-                    os.makedirs(self.repo_dir, exist_ok=True)
                     with open(file_path, "w", encoding="utf-8") as f:
                         json.dump(template_data, f, indent=2, ensure_ascii=False)
                     
@@ -858,214 +1200,18 @@ class MissionsView(ctk.CTkFrame):
         except Exception as e:
             get_notifications().show_error(f"Error guardando plantilla: {e}")
 
-    def _save_internal(self, wait: bool = True):
-        # Recopilación compleja similar a control_panel original
-        missions_updates = {}
-        
-        for key, widget in self.rows.items():
-            if key.endswith("_raw"): continue
-            if key.endswith("anios_codigo_editor"): 
-                # Se guarda aparte para evitar contaminar mission_config
-                continue
-            val = widget.get()
-            
-            if key.startswith("MIS_"):
-                parts = key.split("_")
-                idx = int(parts[1])
-                field = "_".join(parts[2:])
-                
-                if idx not in missions_updates: missions_updates[idx] = {}
-                
-                if field.startswith("indices_"):
-                    k = field.replace("indices_", "")
-                    if "indices" not in missions_updates[idx]: missions_updates[idx]["indices"] = {}
-                    try: missions_updates[idx]["indices"][k] = int(val)
-                    except: missions_updates[idx]["indices"][k] = val
-                else:
-                    missions_updates[idx][field] = val
-            
-            # Retrieve data from YearCodeEditors
-            if key.endswith("anios_codigo_editor"):
-                 # This is a Frame/Wrapper, we need the actual data
-                 # But self.rows stores the editor instance if we set it up right
-                 pass
-
-        # Custom retrieval for Year Editors
-        for key, widget in self.rows.items():
-            if key.endswith("anios_codigo_editor") and hasattr(widget, "get_data"):
-                parts = key.split("_")
-                idx = int(parts[1])
-                if idx not in missions_updates: missions_updates[idx] = {}
-                missions_updates[idx]["anios_codigo"] = widget.get_data()
-
-
-        # Clean Lists
-        for idx, m_data in missions_updates.items():
-             for f in ["keywords", "keywords_contra", "objetivos", "habilitantes", "excluyentes", "codigos_folio", "folio_vih_codigos"]:
-                 if f in m_data and isinstance(m_data[f], str):
-                     clean = m_data[f].replace("[", "").replace("]", "").replace('"', "").replace("'", "")
-                     m_data[f] = [x.strip() for x in clean.split(",") if x.strip()]
-             
-             # Normalizar campos numéricos para evitar errores de conversión
-             numeric_fields = [
-                 "edad_min", "edad_max", "vigencia_dias", 
-                 "max_objetivos", "max_habilitantes", "max_excluyentes",
-                 "max_ipd", "max_oa", "max_aps", "max_sic",
-                 "frecuencia_cantidad"
-             ]
-             
-             # Almacenar campos a eliminar para no modificar el dict durante iteración
-             fields_to_remove = []
-             
-             for f in numeric_fields:
-                 if f in m_data:
-                     val = m_data[f]
-                     # Si es None, marcarlo para eliminación
-                     if val is None:
-                         fields_to_remove.append(f)
-                     # Si ya es un int, dejarlo como está
-                     elif isinstance(val, int):
-                         continue  # Valor válido, no hacer nada
-                     # Si es float, convertir a int
-                     elif isinstance(val, float):
-                         m_data[f] = int(val)
-                     # Si es string, procesar
-                     elif isinstance(val, str):
-                         val = val.strip()
-                         if val == "" or val.lower() == "none":
-                             # Campo vacío o texto "None", marcar para eliminación
-                             fields_to_remove.append(f)
-                         else:
-                             try:
-                                 m_data[f] = int(val)
-                             except (ValueError, TypeError):
-                                 # Si no se puede convertir, marcar para eliminación
-                                 fields_to_remove.append(f)
-                     else:
-                         # Cualquier otro tipo, intentar convertir o eliminar
-                         try:
-                             m_data[f] = int(val)
-                         except (ValueError, TypeError):
-                             fields_to_remove.append(f)
-             
-             # Eliminar los campos marcados después de la iteración
-             for f in fields_to_remove:
-                 if f in m_data:
-                     del m_data[f]
-
-        current_config = self.controller.load_config(force_reload=True)
-        final = []
-        # Update logic
-        curr_miss = current_config.get("MISSIONS", [])
-        limit = max(len(curr_miss), max(missions_updates.keys())+1 if missions_updates else 0)
-        
-        for i in range(limit):
-            base = curr_miss[i].copy() if i < len(curr_miss) else {}
-            if i in missions_updates:
-                base.update(missions_updates[i])
-            # CRÍTICO: Limpiar CADA misión antes de agregarla a final
-            cleaned = self._clean_mission_data(base)
-            final.append(cleaned)
-
-        full_data = current_config.copy()
-        full_data["MISSIONS"] = final
-        # Guardar en cola (wait opcional)
-        self.controller.queue_save(full_data, wait=wait)
+    # ====================== Frequency & Year Editors ======================
 
     def _add_year_code_editor(self, parent, key, current_data, idx):
         editor = YearCodeEditor(parent, current_data, self.colors)
         editor.pack(fill="x", padx=4, pady=5)
-        # Guardamos con sufijo editor para distinguir de campo plano
-        self.rows[f"{key}_editor"] = editor
+        self.rows[key] = editor
+
+    def _add_frequency_list_editor(self, parent, key, current_data, idx):
+        # Shared component does not need colors dict
+        editor = FrequencyListEditor(parent, data_list=current_data)
+        editor.pack(fill="x", padx=4, pady=5)
+        self.rows[key] = editor
 
 
-class YearCodeEditor(ctk.CTkFrame):
-    """Editor visual para lista de códigos por año (ordenados)."""
-    def __init__(self, master, data, colors, **kwargs):
-        super().__init__(master, fg_color="transparent", **kwargs)
-        self.colors = colors
-        # Sólo guardamos la lista de códigos en orden (primer año = idx 0)
-        self.items = []
-        
-        # Header
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x")
-        ctk.CTkLabel(header, text="Códigos por Año", font=ctk.CTkFont(size=11, weight="bold")).pack(side="left")
-        
-        # List Container
-        self.list_frame = ctk.CTkFrame(self, fg_color=self.colors.get("bg_input", "#2b2b2b"))
-        self.list_frame.pack(fill="x", pady=2)
-        
-        # Normalizar data inicial a lista simple de códigos
-        if isinstance(data, list):
-            for item in data:
-                # Legacy [Year, Code]
-                if isinstance(item, list) and len(item) >= 2:
-                    self.items.append(str(item[1]).strip())
-                # Legacy "Year,Code"
-                elif isinstance(item, str) and "," in item:
-                    parts = item.split(",")
-                    if len(parts) >= 2:
-                        self.items.append(parts[1].strip())
-                    else:
-                        self.items.append(item.strip())
-                else:
-                    self.items.append(str(item).strip())
-        
-        self._refresh_list()
-        
-        # Add New Row
-        add_frame = ctk.CTkFrame(self, fg_color="transparent")
-        add_frame.pack(fill="x", pady=5)
-        
-        self.new_code = ctk.CTkEntry(add_frame, placeholder_text="Código año (Ej: 3102001)", width=160)
-        self.new_code.pack(side="left", padx=(0, 5))
-        
-        ctk.CTkButton(
-            add_frame, text="✚ Agregar Año", width=120, 
-            fg_color=self.colors.get("success", "green"),
-            command=self._add_item
-        ).pack(side="left")
 
-    def _refresh_list(self):
-        for w in self.list_frame.winfo_children(): w.destroy()
-        
-        if not self.items:
-            ctk.CTkLabel(self.list_frame, text="(Sin códigos configurados)", text_color="grey").pack(pady=5)
-            return
-
-        for i, code in enumerate(self.items):
-            row = ctk.CTkFrame(self.list_frame, fg_color="transparent")
-            row.pack(fill="x", padx=5, pady=2)
-            
-            ctk.CTkLabel(row, text=f"Año {i+1}", width=70, anchor="w", font=ctk.CTkFont(weight="bold")).pack(side="left")
-            ctk.CTkLabel(row, text=f"➡ {code}", width=140, anchor="w").pack(side="left")
-            
-            # Solo se permite eliminar el último para no romper el orden
-            is_last = (i == len(self.items) - 1)
-            btn = ctk.CTkButton(
-                row, text="🗑️", width=30, height=20,
-                fg_color=self.colors.get("error", "red"),
-                command=lambda idx=i: self._remove_item(idx),
-                state="normal" if is_last else "disabled"
-            )
-            btn.pack(side="right")
-
-    def _add_item(self):
-        c = self.new_code.get().strip()
-        if c:
-            self.items.append(c) # Just store the code string
-            self.new_code.delete(0, "end")
-            self._refresh_list()
-
-    def _remove_item(self, idx):
-        # Solo eliminar el último elemento para mantener el orden
-        if idx == len(self.items) - 1:
-            self.items.pop(idx)
-            self._refresh_list()
-
-    def get(self):
-        return self.items
-
-    def get_data(self):
-        return self.items

@@ -15,7 +15,7 @@ CRASH_DIR = None
 def initialize_crash_reporting(project_root: str):
     """Inicializa el sistema de crash reporting."""
     global CRASH_DIR
-    CRASH_DIR = os.path.join(project_root, "Crash_Reports")
+    CRASH_DIR = os.path.join(project_root, "Logs", "Crash")
     os.makedirs(CRASH_DIR, exist_ok=True)
 
 def log_crash(exc_type, exc_value, exc_traceback):

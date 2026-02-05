@@ -1,390 +1,396 @@
 # E_GUI/views/logs_viewer.py
 # -*- coding: utf-8 -*-
 """
-Visor de Logs para Nozhgess GUI.
-Muestra los últimos logs de ejecución.
+Visor de Logs 2.0 - Dashboard de Observabilidad
+===============================================
+Moderno visor de logs con categorización, filtrado inteligente y 
+renderizado optimizado para archivos grandes.
 """
 import customtkinter as ctk
 import os
 import sys
+import json
 from tkinter import messagebox
+from datetime import datetime
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
+
 LOGS_PATH = os.path.join(ruta_proyecto, "Logs")
 
+# Iconos y Colores por Categoría
+CAT_CONFIG = {
+    "General":    {"icon": "📝", "color": "#3498db", "path": ["General"]},
+    "Terminal":   {"icon": "💻", "color": "#2ecc71", "path": ["Terminal"]},
+    "Debug":      {"icon": "🐞", "color": "#f1c40f", "path": ["Debug"]},
+    "App Log":    {"icon": "📱", "color": "#1abc9c", "path": ["App Log"]},
+    "Seguridad":  {"icon": "🛡️", "color": "#9b59b6", "path": ["Secure"]},
+    "Sistema":    {"icon": "⚙️", "color": "#e67e22", "path": ["Structured"]},
+    "Crash":      {"icon": "💥", "color": "#e74c3c", "path": ["Crash"]},
+    "Todo":       {"icon": "📂", "color": "#95a5a6", "path": ["General", "Terminal", "Debug", "App Log", "Secure", "Structured", "Crash"]}
+}
 
 class LogsViewerView(ctk.CTkFrame):
-    """Visor de archivos de log."""
+    """Visor de archivos de log Avanzado."""
     
     def __init__(self, master, colors: dict, **kwargs):
         super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
         
         self.colors = colors
         self.current_file = None
-        self.checkboxes = {} # Map full_path -> checkbox widget
+        self.current_category = "General"
         self._full_log_content = ""
         self._search_job = None
         
-        # Header
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=18, pady=(16, 8))
+        # --- Layout Principal (Sidebar + Content) ---
+        self.grid_columnconfigure(0, weight=0) # Sidebar
+        self.grid_columnconfigure(1, weight=1) # Content
+        self.grid_rowconfigure(0, weight=1)
         
-        self.title = ctk.CTkLabel(
-            header,
-            text="📜 Visor de Logs",
-            font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=colors["text_primary"]
-        )
-        self.title.pack(side="left")
+        # === SIDEBAR (Categorías + Lista de Archivos) ===
+        self.sidebar = ctk.CTkFrame(self, fg_color=colors["bg_secondary"], corner_radius=0, width=280)
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        self.sidebar.grid_propagate(False) # Fijo ancho
         
-        # Botón actualizar
-        self.refresh_btn = ctk.CTkButton(
-            header,
-            text="🔄 Actualizar",
-            font=ctk.CTkFont(size=13),
-            fg_color=colors["bg_card"],
-            hover_color=colors["accent"],
-            text_color=colors["text_primary"],
-            width=94,
-            height=32,
-            corner_radius=8,
-            command=self._load_logs
-        )
-        self.refresh_btn.pack(side="right", padx=(10, 0))
-        
-        # Botón eliminar
-        self.delete_btn = ctk.CTkButton(
-            header,
-            text="🗑️ Eliminar",
+        # 1. Título Sidebar
+        ctk.CTkLabel(
+            self.sidebar, 
+            text="📊 OBSERVABILIDAD", 
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color=colors["error"],
-            hover_color="#c0392b",
-            text_color="white",
-            width=94,
-            height=32,
-            corner_radius=8,
-            command=self._delete_selected_logs
+            text_color=colors["text_muted"]
+        ).pack(anchor="w", padx=20, pady=(24, 12))
+        
+        # 2. Selector de Categorías (Pestañas visuales)
+        self.cat_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.cat_frame.pack(fill="x", padx=10)
+        
+        self.cat_buttons = {}
+        # Orden de despliegue
+        cats_order = ["General", "Terminal", "Debug", "App Log", "Seguridad", "Sistema", "Crash"]
+        
+        for cat_name in cats_order:
+            btn = ctk.CTkButton(
+                self.cat_frame,
+                text=f"{CAT_CONFIG[cat_name]['icon']}  {cat_name}",
+                font=ctk.CTkFont(size=12),
+                fg_color="transparent",
+                text_color=colors["text_secondary"],
+                hover_color=colors["bg_card"],
+                anchor="w",
+                height=32,
+                corner_radius=6,
+                command=lambda c=cat_name: self._set_category(c)
+            )
+            btn.pack(fill="x", pady=1)
+            self.cat_buttons[cat_name] = btn
+            
+        # Separador
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=colors["border"]).pack(fill="x", padx=20, pady=16)
+        
+        # 3. Lista de Archivos
+        ctk.CTkLabel(
+            self.sidebar, 
+            text="ARCHIVOS RECIENTES", 
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=colors["text_muted"]
+        ).pack(anchor="w", padx=20, pady=(0, 8))
+        
+        self.file_list = ctk.CTkScrollableFrame(
+            self.sidebar, 
+            fg_color="transparent",
+            scrollbar_button_color=colors["bg_card"],
+            scrollbar_button_hover_color=colors["accent"]
         )
-        self.delete_btn.pack(side="right")
+        self.file_list.pack(fill="both", expand=True, padx=4, pady=(0, 10))
         
-        # Layout principal
-        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_frame.pack(fill="both", expand=True, padx=16, pady=8)
-        self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_columnconfigure(1, weight=4)
-        self.main_frame.grid_rowconfigure(0, weight=1)
+        # Botones Footer Sidebar
+        footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        footer.pack(fill="x", padx=10, pady=10)
         
-        # Panel izquierdo: Lista de logs
-        self.list_frame = ctk.CTkFrame(self.main_frame, fg_color=colors["bg_secondary"], corner_radius=12)
-        self.list_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        ctk.CTkButton(
+            footer, text="🔄 Recargar", 
+            font=ctk.CTkFont(size=12), fg_color=colors["bg_card"], 
+            text_color=colors["text_primary"], hover_color=colors["accent"],
+            height=32, command=self._reload_current_view
+        ).pack(side="left", fill="x", expand=True, padx=(0, 4))
         
-        list_header = ctk.CTkLabel(
-            self.list_frame,
-            text="Últimos Logs",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=colors["text_primary"]
-        )
-        list_header.pack(anchor="w", padx=10, pady=(10, 6))
-        
-        self.log_list = ctk.CTkScrollableFrame(self.list_frame, fg_color="transparent")
-        self.log_list.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        ctk.CTkButton(
+            footer, text="📂 Carpeta", 
+            font=ctk.CTkFont(size=12), fg_color=colors["bg_card"], 
+            text_color=colors["text_primary"], hover_color=colors["bg_hover"],
+            height=32, width=40, command=lambda: os.startfile(LOGS_PATH) if os.path.exists(LOGS_PATH) else None
+        ).pack(side="right", padx=(4, 0))
 
-        # Acción abrir carpeta
-        self.open_folder_btn = ctk.CTkButton(
-            self.list_frame,
-            text="Abrir carpeta Logs",
-            font=ctk.CTkFont(size=12),
-            fg_color=self.colors["bg_card"],
-            hover_color=self.colors.get("bg_hover", "#222a39"),
-            width=140,
-            height=30,
-            corner_radius=8,
-            command=lambda: os.startfile(LOGS_PATH) if os.path.exists(LOGS_PATH) else None
+        # === CONTENT AREA ===
+        self.content = ctk.CTkFrame(self, fg_color="transparent")
+        self.content.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        
+        # 1. Header Content
+        self.header_content = ctk.CTkFrame(self.content, fg_color=colors["bg_card"], corner_radius=12, height=60)
+        self.header_content.pack(fill="x", pady=(0, 16))
+        self.header_content.pack_propagate(False)
+        
+        # Icono archivo
+        self.file_icon_lbl = ctk.CTkLabel(self.header_content, text="📄", font=ctk.CTkFont(size=24))
+        self.file_icon_lbl.pack(side="left", padx=(20, 10))
+        
+        # Info archivo
+        info_frame = ctk.CTkFrame(self.header_content, fg_color="transparent")
+        info_frame.pack(side="left", fill="y", pady=10)
+        
+        self.filename_lbl = ctk.CTkLabel(
+            info_frame, text="Selecciona un archivo", 
+            font=ctk.CTkFont(size=15, weight="bold"), text_color=colors["text_primary"], anchor="w"
         )
-        self.open_folder_btn.pack(pady=(0, 10))
+        self.filename_lbl.pack(anchor="w")
         
-        # Panel derecho: Visor
-        self.viewer_frame = ctk.CTkFrame(self.main_frame, fg_color=colors["bg_card"], corner_radius=12)
-        self.viewer_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        
-        viewer_header = ctk.CTkFrame(self.viewer_frame, fg_color="transparent")
-        viewer_header.pack(fill="x", padx=10, pady=(10, 6))
-        
-        self.file_label = ctk.CTkLabel(
-            viewer_header,
-            text="Selecciona un log",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=colors["text_primary"]
+        self.meta_lbl = ctk.CTkLabel(
+            info_frame, text="-- KB • --", 
+            font=ctk.CTkFont(size=11), text_color=colors["text_muted"], anchor="w"
         )
-        self.file_label.pack(side="left")
-
-        # Search Bar
+        self.meta_lbl.pack(anchor="w")
+        
+        # Search Box
         self.search_entry = ctk.CTkEntry(
-            viewer_header,
-            placeholder_text="🔍 Buscar...",
-            width=150,
-            height=30,
-            font=ctk.CTkFont(size=12)
+            self.header_content, placeholder_text="🔍 Buscar en log...", 
+            width=200, border_color=colors["border"]
         )
-        self.search_entry.pack(side="left", padx=(15, 5))
+        self.search_entry.pack(side="right", padx=20, pady=12)
         self.search_entry.bind("<Return>", lambda e: self._search_log())
         self.search_entry.bind("<KeyRelease>", self._debounced_search)
+        
+        # Eliminar Btn
+        self.del_btn = ctk.CTkButton(
+            self.header_content, text="🗑️", width=32, height=32,
+            fg_color=colors["bg_secondary"], hover_color=colors["error"],
+            text_color="white", command=self._delete_current_file
+        )
+        self.del_btn.pack(side="right", padx=(0, 10))
 
-        self.search_btn = ctk.CTkButton(
-            viewer_header,
-            text="Buscar",
-            width=60,
-            height=30,
-            font=ctk.CTkFont(size=12),
-            fg_color=colors["bg_secondary"],
-            command=self._search_log
-        )
-        self.search_btn.pack(side="left", padx=(0, 5))
-        
-        # Botón copiar
-        
-        # Botón copiar
-        self.copy_btn = ctk.CTkButton(
-            viewer_header,
-            text="📋 Copiar",
-            font=ctk.CTkFont(size=12),
-            fg_color=colors["accent"],
-            hover_color=colors["success"],
-            width=90,
-            height=32,
-            corner_radius=8,
-            command=self._copy_log
-        )
-        self.copy_btn.pack(side="right")
-        
+        # 2. Log Viewer (Textbox)
         self.log_text = ctk.CTkTextbox(
-            self.viewer_frame,
-            font=ctk.CTkFont(family="Consolas", size=11),
-            fg_color=colors["bg_primary"],
-            text_color=colors["text_primary"],
-            corner_radius=10
+            self.content,
+            font=ctk.CTkFont(family="Consolas", size=12),
+            fg_color=colors["bg_card"],
+            text_color=colors["text_secondary"],
+            corner_radius=12,
+            wrap="none" # Scroll horizontal para logs largos
         )
-        self.log_text.pack(fill="both", expand=True, padx=12, pady=(8, 12))
+        self.log_text.pack(fill="both", expand=True)
         
-        self._logs_loaded = False  # lazy load; se carga en on_show
+        # Inicialización
+        self._highlight_category("General")
+        self._logs_loaded = False
 
     def on_show(self):
-        """Carga logs al entrar a la vista."""
+        """Carga inicial."""
         if not getattr(self, "_logs_loaded", False):
-            self._load_logs()
+            self._set_category("General")
             self._logs_loaded = True
-        try:
-            log_ui("logs_view_loaded")
-        except Exception:
-            pass
-    
-    def _load_logs(self):
-        """Carga los logs de Logs/ y sus subcarpetas (Terminal/Debug)."""
-        # Limpiar
-        self.checkboxes.clear()
-        for widget in self.log_list.winfo_children():
-            widget.destroy()
+            
+    def _highlight_category(self, active_cat):
+        """Visual feedback para categoría activa."""
+        self.current_category = active_cat
+        for cat, btn in self.cat_buttons.items():
+            if cat == active_cat:
+                btn.configure(fg_color=self.colors["bg_card"], text_color=self.colors["accent"])
+            else:
+                btn.configure(fg_color="transparent", text_color=self.colors["text_secondary"])
+
+    def _set_category(self, category):
+        """Cambia la categoría visualizada."""
+        self._highlight_category(category)
+        self._load_file_list(category)
+        
+    def _load_file_list(self, category):
+        """Carga lista de archivos según categoría."""
+        # Limpiar lista
+        for w in self.file_list.winfo_children(): w.destroy()
         
         if not os.path.exists(LOGS_PATH):
             return
+
+        target_subdirs = CAT_CONFIG[category]["path"]
+        files_found = []
         
-        # Buscar archivos .log recursivamente
-        log_files = []
-        for root, _, files in os.walk(LOGS_PATH):
-            for f in files:
-                if f.endswith(".log"):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, LOGS_PATH)
-                    mtime = os.path.getmtime(full_path)
-                    log_files.append((rel_path, full_path, mtime))
+        # Explorar directorios target
+        for subdir in target_subdirs:
+            path = os.path.join(LOGS_PATH, subdir) if subdir else LOGS_PATH
+            if not os.path.exists(path): continue
+            
+
+            
+            if os.path.isdir(path):
+                try:
+                    for f in os.listdir(path):
+                        if f.endswith(".log") or f.endswith(".jsonl"):
+                            full = os.path.join(path, f)
+                            if os.path.isfile(full):
+                                dt = os.path.getmtime(full)
+                                files_found.append((full, dt))
+                except: pass
         
-        # Ordenar por fecha (más reciente primero)
-        log_files.sort(key=lambda x: x[2], reverse=True)
+        # Sort desc
+        files_found.sort(key=lambda x: x[1], reverse=True)
         
-        # Mostrar los últimos 30
-        for rel_path, full_path, mtime in log_files[:30]:
-            size_kb = os.path.getsize(full_path) / 1024
+        if not files_found:
+            ctk.CTkLabel(self.file_list, text="No hay logs aquí 🦗", text_color=self.colors["text_muted"]).pack(pady=20)
+            return
+
+        # Renderizar lista
+        for full_path, mtime in files_found:
+            name = os.path.basename(full_path)
+            # Pretty Time
+            t_str = datetime.fromtimestamp(mtime).strftime('%H:%M %d/%m')
             
-            # Identificar tipo por carpeta
-            icon = "📄"
-            if "Terminal" in rel_path: icon = "💻"
-            elif "Debug" in rel_path: icon = "🔧"
-            
-            # Container fila
-            row = ctk.CTkFrame(self.log_list, fg_color="transparent")
-            row.pack(fill="x", pady=1)
-            
-            # Checkbox selección
-            cb = ctk.CTkCheckBox(
-                row, 
-                text="", 
-                width=24, 
-                checkbox_width=20, 
-                checkbox_height=20,
-                border_width=2,
-                corner_radius=4,
-                border_color=self.colors.get("text_muted", "gray"),
-                hover_color=self.colors.get("accent", "blue"),
-                fg_color=self.colors.get("accent", "blue")
-            )
-            cb.pack(side="left", padx=(0, 5))
-            self.checkboxes[full_path] = cb
-            
-            # Botón archivo (ocupa el resto)
-            btn = ctk.CTkButton(
-                row,
-                text=f"{icon} {rel_path}\n   {size_kb:.1f} KB",
+            # Botón Fila
+            f_btn = ctk.CTkButton(
+                self.file_list,
+                text=f"{name}\n{t_str}",
                 font=ctk.CTkFont(size=11),
                 fg_color="transparent",
-                hover_color=self.colors["bg_card"],
+                hover_color=self.colors["bg_primary"],
                 text_color=self.colors["text_primary"],
                 anchor="w",
-                height=48,
-                corner_radius=8,
-                command=lambda p=rel_path: self._load_file(p)
+                height=42,
+                corner_radius=6,
+                command=lambda p=full_path: self._load_file_content(p)
             )
-            btn.pack(side="left", fill="x", expand=True)
-        
-        # Auto-cargar el más reciente si no hay uno seleccionado
-        if log_files and not self.current_file:
-            self._load_file(log_files[0][0])
-            
-    def _delete_selected_logs(self):
-        """Elimina los logs seleccionados."""
-        to_delete = []
-        for path, cb in self.checkboxes.items():
-            if cb.get() == 1:
-                to_delete.append(path)
-        
-        if not to_delete:
-            messagebox.showinfo("Información", "Selecciona al menos un log para eliminar.")
-            return
-            
-        count = len(to_delete)
-        confirm = messagebox.askyesno(
-            "Confirmar eliminación", 
-            f"¿Estás seguro de que deseas eliminar {count} archivo(s) de log?\nEsta acción no se puede deshacer."
-        )
-        
-        if confirm:
-            deleted = 0
-            errors = 0
-            for path in to_delete:
-                try:
-                    os.remove(path)
-                    deleted += 1
-                except Exception as e:
-                    print(f"Error borrando {path}: {e}")
-                    errors += 1
-            
-            # Recargar lista
-            self._load_logs()
-            
-            # Limpiar visor si el archivo actual fue borrado
-            if self.current_file in to_delete:
-                self.log_text.delete("1.0", "end")
-                self.file_label.configure(text="Selecciona un log")
-                self.current_file = None
-                
-            # Feedback
-            msg = f"Eliminados {deleted} archivo(s)."
-            if errors > 0:
-                msg += f"\nErrores: {errors}"
-            messagebox.showinfo("Resultado", msg)
+            f_btn.pack(fill="x", pady=1)
 
-    def _load_file(self, filename: str):
-        """Carga el contenido de un log."""
-        filepath = os.path.join(LOGS_PATH, filename)
+        # Autoload first
+        if files_found and not self.current_file:
+            pass
+
+    def _load_file_content(self, filepath):
+        """Carga contenido optimizado (Tail reading)."""
+        self.current_file = filepath
+        self.filename_lbl.configure(text=os.path.basename(filepath))
+        size_kb = os.path.getsize(filepath) / 1024
+        self.meta_lbl.configure(text=f"{size_kb:.1f} KB • {datetime.now().strftime('%H:%M:%S')}")
         
-        # Guardar path absoluto para manejar borrado
-        full_path_check = filepath if os.path.isabs(filepath) else os.path.abspath(filepath)
-        self.current_file = full_path_check
+        # Reset color
+        self.log_text.configure(text_color=self.colors["text_secondary"])
+        self.log_text.delete("1.0", "end")
         
         try:
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-            self._full_log_content = content
-            # Recorte para vista: mantener los últimos 200k chars
-            max_chars = 200_000
-            display = content
-            if len(content) > max_chars:
-                display = "(vista recortada, usa Copiar para texto completo)\n" + content[-max_chars:]
+            content = ""
+            max_bytes = 1 * 1024 * 1024 # 1 MB Trail
             
-            self.file_label.configure(text=filename)
-            self.log_text.delete("1.0", "end")
-            self.log_text.insert("1.0", display)
-            self.log_text.see("end")  # Scroll al final
+            file_size = os.path.getsize(filepath)
+            
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                if file_size > max_bytes:
+                    f.seek(file_size - max_bytes)
+                    content = f.read()
+                    content = "✂️ [ARCHIVO GRANDE - MOSTRANDO ÚLTIMO 1MB] ✂️\n\n" + content
+                else:
+                    content = f.read()
+            
+            self._full_log_content = content
+            
+            # JSON Pretty Print check
+            if filepath.endswith(".jsonl") or "audit" in filepath:
+                self._render_json_content(content)
+            else:
+                self.log_text.insert("1.0", content)
+                
+            self.log_text.see("end")
+            
         except Exception as e:
-            self.log_text.delete("1.0", "end")
-            self.log_text.insert("1.0", f"Error: {e}")
-    
-    def _copy_log(self):
-        """Copia el log al portapapeles."""
-        content = self._full_log_content or self.log_text.get("1.0", "end-1c")
-        if content:
-            self.clipboard_clear()
-            self.clipboard_append(content)
-            self.copy_btn.configure(text="✅ Copiado")
-            self.after(1500, lambda: self.copy_btn.configure(text="📋 Copiar"))
+            self.log_text.insert("1.0", f"❌ Error leyendo archivo: {e}")
+
+    def _render_json_content(self, content):
+        """Intenta renderizar JSONL de forma bonita."""
+        lines = content.splitlines()
+        pretty_text = ""
+        
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            try:
+                # Intentar parsear JSON
+                if line.startswith("{") and line.endswith("}"):
+                    data = json.loads(line)
+                    # Formato tarjeta simple
+                    # Timestamp | Level | Event | Details
+                    ts = data.get("timestamp", data.get("ts", ""))
+                    lvl = data.get("level", "INFO")
+                    evt = data.get("event", "Log")
+                    
+                    # Header
+                    pretty_text += f"┌─ [{ts}] {lvl.upper()}: {evt}\n"
+                    # Body
+                    for k, v in data.items():
+                        if k not in ["timestamp", "ts", "level", "event"]:
+                            pretty_text += f"│  {k}: {v}\n"
+                    pretty_text += "└──────────────────────────────────────────\n"
+                else:
+                    pretty_text += line + "\n"
+            except:
+                pretty_text += line + "\n"
+        
+        self.log_text.insert("1.0", pretty_text)
+        # Coloreado simple (Keywords)
+        # Esto seria lento si es muy largo, lo omitimos por rendimiento o hacemos con tags limitados
+        pass
+
+    def _delete_current_file(self):
+        """Elimina el archivo actual."""
+        if not self.current_file: return
+        
+        if messagebox.askyesno("Eliminar", "¿Borrar este log permanentemente?"):
+            try:
+                os.remove(self.current_file)
+                self.current_file = None
+                self.log_text.delete("1.0", "end")
+                self.filename_lbl.configure(text="Selecciona un archivo")
+                self._reload_current_view()
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+
+    def _reload_current_view(self):
+        self._set_category(self.current_category)
 
     def _search_log(self):
-        """Busca texto en el log actual."""
-        query = self.search_entry.get()
-        if not query:
-            return
-            
-        # Limpiar tags previos
-        self.log_text.tag_remove("search_highlight", "1.0", "end")
-        self.log_text.tag_config("search_highlight", background="#f1c40f", foreground="black")
+        """Buscador simple."""
+        q = self.search_entry.get().lower()
+        if not q: return
         
-        start_pos = "1.0"
-        count = 0
-        first = None
+        text = self.log_text.get("1.0", "end").lower()
         
-        while True:
-            pos = self.log_text.search(query, start_pos, stopindex="end", nocase=True)
-            if not pos:
-                break
+        # Remove old tags
+        self.log_text.tag_remove("found", "1.0", "end")
+        
+        if q in text:
+            count = 0
+            start = "1.0"
+            while True:
+                pos = self.log_text.search(q, start, stopindex="end", nocase=True)
+                if not pos: break
                 
-            end_pos = f"{pos}+{len(query)}c"
-            self.log_text.tag_add("search_highlight", pos, end_pos)
+                # Highlight
+                end = f"{pos}+{len(q)}c"
+                self.log_text.tag_add("found", pos, end)
+                
+                if count == 0: self.log_text.see(pos)
+                
+                count += 1
+                start = end
             
-            if not first:
-                first = pos
-            
-            count += 1
-            start_pos = end_pos
-            
-        if first:
-            self.log_text.see(first)
-            self.search_btn.configure(text=f"{count}")
-        else:
-            self.search_btn.configure(text="0")
+            self.log_text.tag_config("found", background=self.colors["accent"], foreground="black")
 
     def _debounced_search(self, event=None):
-        """Debounce para evitar buscar en cada tecla."""
-        if self._search_job:
-            try:
-                self.after_cancel(self._search_job)
-            except Exception:
-                pass
-        self._search_job = self.after(250, self._search_log)
+        if self._search_job: self.after_cancel(self._search_job)
+        self._search_job = self.after(400, self._search_log)
 
     def update_colors(self, colors: dict):
-        """Actualiza colores dinámicamente."""
         self.colors = colors
         self.configure(fg_color=colors["bg_primary"])
-        self.title.configure(text_color=colors["text_primary"])
-        self.refresh_btn.configure(fg_color=colors["bg_card"], text_color=colors["text_primary"])
-        self.delete_btn.configure(fg_color=colors["error"])
-        self.copy_btn.configure(fg_color=colors["accent"])
-        self.list_frame.configure(fg_color=colors["bg_secondary"])
-        self.viewer_frame.configure(fg_color=colors["bg_card"])
-        self.log_text.configure(fg_color=colors["bg_primary"], text_color=colors["text_primary"])
-        self.file_label.configure(text_color=colors["text_primary"])
-        
-        # Recargar lista de logs con nuevos colores
-        self._load_logs()
+        self.sidebar.configure(fg_color=colors["bg_secondary"])
+        self.content.configure(fg_color="transparent")
+        # Re-render UI components if sensitive... simplified for now.
+        pass
+

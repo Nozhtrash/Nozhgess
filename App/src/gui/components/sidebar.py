@@ -152,10 +152,22 @@ class Sidebar(ctk.CTkFrame):
         btn.pack(fill="x")
 
     def _restart_app(self):
-        """Reinicia la aplicación suavemente."""
-        # Se puede añadir un diálogo de confirmación si se desea
-        python = sys.executable
-        os.execl(python, python, *sys.argv)
+        """Reinicia la aplicación con confirmación y proceso independiente."""
+        import tkinter.messagebox
+        import subprocess
+        
+        # 1. Confirmación
+        if not tkinter.messagebox.askyesno("Confirmar Reinicio", "¿Está seguro que desea reiniciar la aplicación?"):
+            return
+
+        # 2. Reinicio Robusto (Spawn new process & kill current)
+        try:
+            self.master.destroy() # Intentar cerrar GUI primero
+        except: pass
+        
+        # Lanzar nuevo proceso totalmente independiente
+        subprocess.Popen([sys.executable] + sys.argv)
+        sys.exit(0)
 
     
     def _nav(self, vid: str):

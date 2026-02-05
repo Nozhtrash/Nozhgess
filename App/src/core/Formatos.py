@@ -19,7 +19,7 @@ Autor: Sistema Nozhgess
 from __future__ import annotations
 import re
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from typing import Any, Optional, List
 
 
@@ -131,10 +131,21 @@ def dparse(s: str) -> Optional[datetime]:
     Returns:
         datetime object o None si inválido
     """
-    try:
-        return datetime.strptime(str(s).split(" ")[0], "%d/%m/%Y")
-    except Exception:
+    if not s:
         return None
+    if isinstance(s, (datetime, date)):
+        if isinstance(s, datetime): return s
+        # Convert date to datetime (midnight)
+        return datetime(s.year, s.month, s.day)
+        
+    s_clean = str(s).strip().split(" ")[0]
+    formats = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"]
+    for fmt in formats:
+        try:
+            return datetime.strptime(s_clean, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 def same_month(a: datetime, b: datetime) -> bool:
@@ -254,3 +265,93 @@ def limpiar_codigo(c: str) -> str:
 def limpiar_texto(t: str) -> str:
     """Limpia espacios extra de un texto."""
     return re.sub(r"\s+", " ", (t or "").strip())
+
+
+def vac_row(m: Any, fecha: str, rut: str, nombre: str, obs: str = "") -> dict[str, str]:
+    """
+    Genera una fila vacía para el reporte.
+    
+    Args:
+        m: Objeto misión (dict)
+        fecha: Fecha nominal
+        rut: RUT del paciente
+        nombre: Nombre del paciente
+        obs: Observación (opcional)
+        
+    Returns:
+        Dict con estructura inicializada
+    """
+    return {
+        "Fecha": fecha,
+        "Rut": rut,
+        "Nombre": nombre,
+        "Familia": str(m.get("familia", "")),
+        "Especialidad": str(m.get("especialidad", "")),
+        "Observación": obs
+    }
+
+
+# =============================================================================
+#                      FUNCIONES FALTANTES (RESTAURADAS)
+# =============================================================================
+
+def fecha_en_rango(fecha: Any, fecha_ref: Any, ventana_dias: int, revisar_futuros: bool = False) -> bool:
+    """
+    Valida si una fecha está dentro del rango de días hacia atrás.
+    """
+    if not (fecha and fecha_ref):
+        return False
+        
+    dt = dparse(fecha) if not isinstance(fecha, (datetime, date)) else fecha
+    ref = dparse(fecha_ref) if not isinstance(fecha_ref, (datetime, date)) else fecha_ref
+    
+    if not (dt and ref):
+        return False
+        
+    # Normalizar a date
+    if isinstance(dt, datetime): dt = dt.date()
+    if isinstance(ref, datetime): ref = ref.date()
+    
+    dias_diff = (ref - dt).days
+    
+    # Si es futuro (dias_diff < 0)
+    if dias_diff < 0:
+        return revisar_futuros
+        
+    return 0 <= dias_diff <= ventana_dias
+
+
+def dentro_de_anios(fecha: Any, fecha_ref: Any, max_anios: int, revision_completa: bool = False) -> bool:
+    """
+    Valida si la fecha está dentro de un máximo de años hacia atrás.
+    """
+    if revision_completa:
+        return True
+        
+    if not (fecha and fecha_ref):
+        return False
+        
+    dt = dparse(fecha) if not isinstance(fecha, (datetime, date)) else fecha
+    ref = dparse(fecha_ref) if not isinstance(fecha_ref, (datetime, date)) else fecha_ref
+    
+    if not (dt and ref):
+        return False
+        
+    if isinstance(dt, datetime): dt = dt.date()
+    if isinstance(ref, datetime): ref = ref.date()
+    
+    anios_diff = ref.year - dt.year
+    
+    return anios_diff <= max_anios
+
+
+def unir_listas(lista1: List[Any], lista2: List[Any]) -> List[Any]:
+    """Une dos listas eliminando duplicados."""
+    res = list(lista1) if lista1 else []
+    seen = set(res)
+    
+    for item in (lista2 or []):
+        if item not in seen:
+            res.append(item)
+            seen.add(item)
+    return res

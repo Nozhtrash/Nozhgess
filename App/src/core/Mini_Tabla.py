@@ -207,7 +207,7 @@ def _leer_mini_tabla_fallback(sigges, tbody) -> List[Dict[str, Any]]:
                 log_info(f"🔍 Se encontraron {len(all_tables)} tablas en página, pero ninguna matchea los selectores")
             else:
                 log_info(f"🔍 No hay tablas en la página actual")
-        except:
+        except Exception:
             pass
         return []
 
@@ -248,7 +248,7 @@ def _leer_mini_tabla_fallback(sigges, tbody) -> List[Dict[str, Any]]:
                     # Tabla aún cambiando
                     stable_rows = current_rows
                     time.sleep(0.5)
-        except:
+        except Exception:
             break
     
     rows = stable_rows
@@ -312,7 +312,7 @@ def _leer_mini_tabla_fallback(sigges, tbody) -> List[Dict[str, Any]]:
                 # Log raw data for deep debugging
                 if i < 3: # Log first 3 rows only to avoid spam
                      log_debug(f"🧾 Row[{i}] Raw Name: '{problema_raw}'")
-            except:
+            except Exception:
                 problema_raw = ""
             estado = (tds[column_map.get("estado", 4)].text or "").strip()
             motivo = (tds[column_map.get("motivo", 5)].text or "").strip()
@@ -402,7 +402,7 @@ def _auto_detectar_columnas(tbody, rows) -> Optional[Dict[str, int]]:
                 result = _mapear_headers(headers)
                 if result:
                     return result
-        except:
+        except Exception:
             pass
         
         # Estrategia 2: Primera fila puede ser header
@@ -423,7 +423,7 @@ def _auto_detectar_columnas(tbody, rows) -> Optional[Dict[str, int]]:
                 result = _mapear_headers(all_ths)
                 if result:
                     return result
-        except:
+        except Exception:
             pass
         
         log_info(f"⚠️  No se encontraron headers detectables, usando defaults")

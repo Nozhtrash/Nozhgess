@@ -12,7 +12,8 @@ Controla qué información se muestra en la terminal.
 
 # False = Producción (solo resumen de pacientes)
 # True = Desarrollo (timing detallado, logs, etc.)
-DEBUG_MODE = True  # Datos obtenidos: edad=2s, cartola=5s
+# True = Desarrollo (timing detallado, logs, etc.)
+DEBUG_MODE = True  # ACTIVADO POR DEFECTO - SOLICITUD USUARIO
 
 # ═══════════════════════════════════════════════════════════════════════
 # NIVEL DE LOGGING

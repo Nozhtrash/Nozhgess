@@ -57,6 +57,21 @@ class NotificationManager:
         else:
             messagebox.showerror("Error", message)
 
+    def send_system_notification(self, title: str, message: str):
+        """
+        Envía una notificación nativa del sistema operativo (Windows Toast).
+        """
+        try:
+            from plyer import notification
+            notification.notify(
+                title=title,
+                message=message,
+                app_name="Nozhgess",
+                timeout=10
+            )
+        except Exception as e:
+            print(f"Error enviando notificación sistema: {e}")
+
     def clear(self):
         """Limpia la notificación actual."""
         if self._clear_callback:

@@ -61,6 +61,14 @@ class NozhgessApp(ctk.CTk):
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
+            
+        # 0.1 Inicializar Logging Centralizado (CRITICAL FIX)
+        try:
+            from src.utils.logger_manager import setup_loggers
+            setup_loggers(ruta_proyecto)
+        except Exception as e:
+            import sys
+            sys.stderr.write(f"⚠️ Error inicializando logs: {e}\n")
         
         # 1. Config Manager
         self.config = get_config()
@@ -94,7 +102,8 @@ class NozhgessApp(ctk.CTk):
                  icon_img = ImageTk.PhotoImage(file=png_path)
                  self.iconphoto(False, icon_img)
         except Exception as e:
-            print(f"⚠️ No se pudo cargar el icono: {e}")
+            # print(f"⚠️ No se pudo cargar el icono: {e}")
+            pass # Non-critical
         
         # 3. Cargar Tema
         self._apply_theme()
@@ -359,7 +368,8 @@ class NozhgessApp(ctk.CTk):
                 #         continue
                 
                 if killed > 0:
-                    print(f"🧹 Limpieza: {killed} sesión(es) debug cerrada(s)")
+                    # print(f"🧹 Limpieza: {killed} sesión(es) debug cerrada(s)")
+                    pass
                     
             except ImportError:
                 # Fallback sin psutil

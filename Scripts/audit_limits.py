@@ -66,9 +66,8 @@ sys.modules["Z_Utilidades.Motor.Formatos"] = z_utils.Motor.Formatos
 sys.modules["Z_Utilidades.Motor.Mini_Tabla"] = z_utils.Motor.Mini_Tabla
 sys.modules["src.utils.ExecutionControl"] = MagicMock()
 
-# Mock C_Mision.Mision_Actual
-ma = types.ModuleType("C_Mision")
-ma.Mision_Actual = types.ModuleType("Mision_Actual")
+# Mock Mision_Actual
+ma = types.ModuleType("Mision_Actual")
 # Define vars used in imports
 for var in ["NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA", 
             "DIRECCION_DEBUG_EDGE", "EDGE_DRIVER_PATH", "INDICE_COLUMNA_FECHA", 
@@ -78,19 +77,18 @@ for var in ["NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA"
             "FILAS_APS", "FILAS_SIC", "HABILITANTES_MAX", "EXCLUYENTES_MAX", 
             "VENTANA_VIGENCIA_DIAS", "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR", 
             "FOLIO_VIH", "FOLIO_VIH_CODIGOS"]:
-    setattr(ma.Mision_Actual, var, None)
+    setattr(ma, var, None)
 
 # Set defaults
-ma.Mision_Actual.FILAS_IPD = 10
-ma.Mision_Actual.FILAS_OA = 10
-ma.Mision_Actual.FILAS_APS = 10
-ma.Mision_Actual.FILAS_SIC = 10
-ma.Mision_Actual.HABILITANTES_MAX = 10
-ma.Mision_Actual.EXCLUYENTES_MAX = 10
-ma.Mision_Actual.VENTANA_VIGENCIA_DIAS = 180
+ma.FILAS_IPD = 10
+ma.FILAS_OA = 10
+ma.FILAS_APS = 10
+ma.FILAS_SIC = 10
+ma.HABILITANTES_MAX = 10
+ma.EXCLUYENTES_MAX = 10
+ma.VENTANA_VIGENCIA_DIAS = 180
 
-sys.modules["C_Mision"] = ma
-sys.modules["C_Mision.Mision_Actual"] = ma.Mision_Actual
+sys.modules["Mision_Actual"] = ma
 
 # Setup Paths
 current_dir = os.path.dirname(os.path.abspath(__file__))

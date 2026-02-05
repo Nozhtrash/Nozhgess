@@ -123,7 +123,7 @@ WINDOW_DEFAULT_HEIGHT = 850
 # =============================================================================
 
 PATH_LOGS = "Logs"
-PATH_CRASH_REPORTS = "Crash_Reports"
+PATH_CRASH_REPORTS = os.path.join("Logs", "Crash")
 PATH_BACKUPS = "Utilidades/Backups"
 PATH_VBA = "Extras/VBA"
 PATH_DOCS = "Extras/Info"

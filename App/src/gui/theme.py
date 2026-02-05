@@ -222,27 +222,7 @@ GRADIENTS = {
     },
 }
 
-# =============================================================================
-#                          SISTEMA DE ANIMACIONES
-# =============================================================================
 
-ANIMATIONS = {
-    "duration": {
-        "instant": 0,
-        "fast": 100,
-        "normal": 200,
-        "slow": 300,
-        "slower": 500,
-    },
-    "easing": {
-        "linear": "linear",
-        "ease": "ease",
-        "ease_in": "ease-in",
-        "ease_out": "ease-out",
-        "ease_in_out": "ease-in-out",
-        "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
-    }
-}
 
 # =============================================================================
 #                          TIPOGRAFÍA
@@ -463,17 +443,7 @@ def set_ui_scale(scale: float) -> None:
     save_theme(theme)
 
 
-def get_animations() -> str:
-    """Obtiene el modo de animaciones."""
-    theme = load_theme()
-    return theme.get("animations", "normal")
 
-
-def set_animations(mode: str) -> None:
-    """Cambia el modo de animaciones (off/reduced/normal)."""
-    theme = load_theme()
-    theme["animations"] = mode
-    save_theme(theme)
 
 
 def register_theme_callback(callback: Callable) -> None:
@@ -507,14 +477,7 @@ def get_gradient_colors(gradient_name: str) -> tuple:
     return gradient["colors"]
 
 
-def get_animation_duration(speed: str = "normal") -> int:
-    """Obtiene la duración de animación en ms."""
-    theme = load_theme()
-    if theme.get("animations") == "off":
-        return 0
-    if theme.get("animations") == "reduced":
-        return ANIMATIONS["duration"].get(speed, 200) // 2
-    return ANIMATIONS["duration"].get(speed, 200)
+
 
 
 def get_spacing(size: str) -> int:

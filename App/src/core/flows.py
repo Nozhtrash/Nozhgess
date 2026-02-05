@@ -103,7 +103,9 @@ def _click_with_fallback(sigges, selectors: SelectorEngine, key: str, timeout: f
         except Exception:
             return False
     if wait_spinner:
-        _wait_spinner(sigges.driver, timeout=10.0)
+        # Usar un timeout más seguro según la Biblia (hasta 2 min en casos extremos, 30s nominal)
+        spinner_timeout = 30.0 if timeout < 30.0 else timeout
+        _wait_spinner(sigges.driver, timeout=spinner_timeout)
     return True
 
 

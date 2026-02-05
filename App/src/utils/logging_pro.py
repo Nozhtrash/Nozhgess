@@ -9,7 +9,7 @@ from src.utils.Terminal import log_info, log_warn, log_error, log_ok
 
 # Paths
 import os
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # App/src/utils -> App/src -> App -> root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # App/src/utils -> App/src -> App -> Root
 LOG_DIR_STRUCTURED = os.path.join(BASE_DIR, "Logs", "structured")
 os.makedirs(LOG_DIR_STRUCTURED, exist_ok=True)
 
@@ -31,17 +31,19 @@ def rotar_logs(directorio: str, mantener: int = 4) -> None:
 if TYPE_CHECKING:
     from src.core.state import DriverState
 
+import logging
+from src.utils.logger_manager import LOGGER_STRUCTURED
+
 class LoggerPro:
     """
     Sistema de logging estructurado y observable.
     Asocia cada mensaje con el contexto actual del driver.
+    DELEGATES TO LOGGER_STRUCTURED via logger_manager.
     """
     
     def __init__(self, state: Optional[DriverState] = None):
         self.state = state
-        self.log_dir = LOG_DIR_STRUCTURED
-        rotar_logs(self.log_dir, mantener=4)
-        self.session_file = os.path.join(self.log_dir, f"session_{int(time.time())}.jsonl")
+        self.logger = logging.getLogger(LOGGER_STRUCTURED)
 
     def _get_context(self) -> Dict[str, Any]:
         """Extrae el contexto actual del estado."""
@@ -83,7 +85,6 @@ class LoggerPro:
             "extra": kwargs
         }
         try:
-            with open(self.session_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry) + "\n")
+            self.logger.info(json.dumps(entry))
         except Exception:
             pass # No fallar por logging

@@ -1,5 +1,18 @@
-# Script para crear Terminal.py limpio con el formato correcto
-with open(r'c:\Users\usuariohgf\OneDrive\Documentos\Extras\Apps\Proyectos\Nozhgess original\D_Principales\Terminal.py', 'r', encoding='utf-8') as f:
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+legacy_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir))) # Z_Utilidades probably
+# Assume standard structure if run from root or subdirectory
+target_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))), "D_Principales", "Terminal.py")
+# Falback if not found: try known location relative to current file
+if not os.path.exists(target_path):
+     # Try relative to project root assumed from 'Utilidades'
+     target_path = os.path.join(script_dir, "..", "..", "..", "Utilidades", "Principales", "Terminal.py")
+
+if not os.path.exists(target_path):
+    print(f"Warning: Could not find Terminal.py at {target_path}")
+    exit(1)
+
+with open(target_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
 # Encontrar la función resumen_paciente (línea 162) y reemplazarla completamente
@@ -102,7 +115,7 @@ for i in range(start, min(start + 150, len(lines))):
 # Reconstru con la función nueva
 new_lines = lines[:start] + [new_function + '\n'] + lines[end:]
 
-with open(r'c:\Users\usuariohgf\OneDrive\Documentos\Extras\Apps\Proyectos\Nozhgess original\D_Principales\Terminal.py', 'w', encoding='utf-8') as f:
+with open(target_path, 'w', encoding='utf-8') as f:
     f.writelines(new_lines)
 
 print("✅ Terminal.py limpiado con formato correcto")

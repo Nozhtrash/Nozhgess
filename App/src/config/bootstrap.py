@@ -136,7 +136,7 @@ class Bootstrap:
     def create_directories(self) -> None:
         """Crea directorios necesarios si no existen."""
         directories = [
-            os.path.join(self.project_root, "Crash_Reports"),
+            os.path.join(self.project_root, "Logs", "Crash"),
             os.path.join(self.project_root, "Logs"),
             os.path.join(self.project_root, "Utilidades", "Backups"),
             os.path.join(self.project_root, "App", "assets", "sounds"),

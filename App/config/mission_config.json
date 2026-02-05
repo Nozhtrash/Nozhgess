@@ -25,8 +25,8 @@
       "especialidad": "13-13-01",
       "frecuencia": "Mensual",
       "edad_min": 15,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tumores.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tumores.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "frecuencia_cantidad": 1,
       "periodicidad": "Mensual",
@@ -49,403 +49,46 @@
       "codigos_folio": [],
       "active_year_codes": false,
       "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 5
-      },
-      "anios_codigo": [],
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Cáncer de Próstata",
-      "keywords": [
-        "Cáncer de Próstata",
-        "cancer de prostata",
-        "cáncer de próstata"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "3106102"
-      ],
-      "excluyentes": [],
-      "familia": "28",
-      "especialidad": "13-13-01",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Prostata.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
-      "keywords_contra": [],
-      "frecuencia_cantidad": 1,
-      "periodicidad": "Cada Vez",
-      "vigencia_dias": 180,
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 5
-      },
-      "anios_codigo": [],
-      "edad_min": 15,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Asma Mayores",
-      "keywords": [
-        "asma bronquial"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "3901002",
-        "3901004"
-      ],
-      "excluyentes": [],
-      "familia": "39",
-      "especialidad": "13-13-01",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Asma Mayores.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
-      "keywords_contra": [],
-      "periodicidad": "",
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 5
-      },
-      "anios_codigo": [],
-      "edad_max": 15,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "VIH Nómina",
-      "keywords": [
-        "vih",
-        "sida",
-        "vih/sida"
-      ],
-      "objetivos": [
-        "2506019",
-        "3107215",
-        "3107314"
-      ],
-      "habilitantes": [
-        "2508015",
-        "2504092",
-        "2505839",
-        "2505872",
-        "2505876",
-        "2505877"
-      ],
-      "excluyentes": [
-        "2504092"
-      ],
-      "familia": "18",
-      "especialidad": "07-118-2",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Infectología (236) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "periodicidad": "Mensual",
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": true,
-      "codigos_folio": [
-        "2504092"
-      ],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 2,
-        "fecha": 10
-      },
-      "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Artritis Reumatoide",
-      "keywords": [
-        "artritis reumatoidea"
-      ],
-      "objetivos": [
-        "0101113"
-      ],
-      "habilitantes": [],
-      "excluyentes": [],
-      "familia": "52",
-      "especialidad": "07-110-2",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "periodicidad": "Mensual",
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 2,
-        "fecha": 10
-      },
-      "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "edad_min": 15,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Enfermedad Renal Crónica Nomina",
-      "keywords": [
-        "enfermedad renal",
-        "renal",
-        "renal cronica"
-      ],
-      "objetivos": [
-        "2506001"
-      ],
-      "habilitantes": [
-        "2506002"
-      ],
-      "excluyentes": [],
-      "familia": "1",
-      "especialidad": "07-108-2",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Nefrología (165) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "periodicidad": "Cada Vez",
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": true,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 10
-      },
-      "anios_codigo": [
-        "2506001",
-        "2506002"
-      ],
-      "frecuencia_cantidad": 1,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Urología Nómina",
-      "keywords": [
-        "hiperplasia",
-        "Hiperplasia"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "0101112"
-      ],
-      "excluyentes": [],
-      "familia": "35",
-      "especialidad": "07-800-2",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Urología (116) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "frecuencia_cantidad": 1,
-      "periodicidad": "Mensual",
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 10
-      },
-      "anios_codigo": [],
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Artrosis de Cadera",
-      "keywords": [
-        "ARTROSIS DE CADERA Y/O RODILLA LEVE O MODERADA",
-        "rodilla"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "010111"
-      ],
-      "excluyentes": [],
-      "familia": "41",
-      "especialidad": "07-700-2",
-      "frecuencia": "Mensual",
-      "edad_min": 55,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "frecuencia_cantidad": 1,
-      "periodicidad": "Cada Vez",
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 10
-      },
-      "anios_codigo": [],
-      "folio_vih": false,
-      "folio_vih_codigos": []
-    },
-    {
-      "nombre": "Endoprótesis de Cadera",
-      "keywords": [
-        "endoprótesis",
-        "endoprotesis"
-      ],
-      "objetivos": [],
-      "habilitantes": [
-        "0101111"
-      ],
-      "excluyentes": [],
-      "familia": "12",
-      "especialidad": "07-700-2",
-      "frecuencia": "Año",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
-      "frecuencia_cantidad": 2,
-      "periodicidad": "Tratamiento Completo",
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
-      "require_ipd": true,
-      "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
-      "show_futures": true,
-      "requiere_ipd": true,
-      "requiere_aps": true,
-      "filtro_folio_activo": false,
-      "codigos_folio": [],
-      "active_year_codes": false,
-      "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 10
+        "rut": "1",
+        "nombre": "3",
+        "fecha": "5"
       },
       "anios_codigo": [],
       "folio_vih": false,
       "folio_vih_codigos": [],
-      "max_ipd": 1
+      "frecuencias": [
+        {
+          "code": "3904001",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mensual"
+        },
+        {
+          "code": "3904002",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": ""
+        },
+        {
+          "code": "3904003",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": ""
+        },
+        {
+          "code": "3904004",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": ""
+        },
+        {
+          "code": "3904005",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": ""
+        }
+      ],
+      "active_frequencies": 1
     }
   ]
 }

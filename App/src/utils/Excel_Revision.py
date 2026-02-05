@@ -40,6 +40,10 @@ except ImportError:
 # =============================================================================
 #                      PALETA DE COLORES V2 (MEGA PLAN)
 # =============================================================================
+
+# GLOBAL FLAG
+es_carga_masiva = False
+
 COLORS = {
     # Grupo 1 (Headers Base): Azul Oscuro
     "grupo_azul_oscuro": {"fill": "4472C4", "font": "FFFFFF", "bold": True},
@@ -86,8 +90,8 @@ def _get_header_style(column_name: str) -> dict:
     if "contra" in name:
         return COLORS["grupo_morado"]
 
-    # 2. MENSUAL / CODIGO AÑO / PERIODICIDAD -> Café
-    if name in ["mensual", "periodicidad"] or "año" in name or "anio" in name:
+    # 2. FRECUENCIAS (MENSUAL / CODIGO AÑO / PERIODICIDAD) -> Café
+    if name in ["mensual", "periodicidad"] or "año" in name or "anio" in name or name.startswith("freq") or name.startswith("period"):
         return COLORS["grupo_cafe"]
 
     # 3. FECHA / RUT / EDAD / FAMILIA / ESPECIALIDAD -> Azul Intenso (grupo_azul_familia)
@@ -130,6 +134,9 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
     if not STYLES_AVAILABLE:
         return
     
+    # Fix: Define es_carga_masiva default
+    es_carga_masiva = False
+    
     # Borde sutil
     thin_border = Border(
         left=Side(style='thin', color='D0D0D0'),
@@ -138,13 +145,40 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
         bottom=Side(style='thin', color='D0D0D0')
     )
     
-    # Estilo Alerta Edad (3 Colores)
-    age_green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid") # Verde suave
-    age_yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid") # Amarillo suave
-    age_red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid") # Rojo suave
+    # Pre-instanciar estilos para rendimiento (Caching)
+    # Evita crear millones de objetos PatternFill/Font en bucles largos
+    style_cache = {}
     
-    # Detectar si es Carga Masiva por el nombre de la hoja
-    es_carga_masiva = (ws.title == "Carga Masiva")
+    # Crear cache de objetos para cada grupo de color definido
+    for group_name, props in COLORS.items():
+        fill_obj = PatternFill(start_color=props["fill"], end_color=props["fill"], fill_type="solid")
+        font_obj = Font(color=props["font"], bold=props.get("bold", True), size=9) # Default size 9 for body
+        # Cachear tupla (fill, font)
+        style_cache[group_name] = (fill_obj, font_obj)
+        
+    # Cache especial para headers (size 10)
+    header_style_cache = {}
+    for group_name, props in COLORS.items():
+         fill_obj = PatternFill(start_color=props["fill"], end_color=props["fill"], fill_type="solid")
+         font_obj = Font(color=props["font"], bold=props.get("bold", True), size=10)
+         header_style_cache[group_name] = (fill_obj, font_obj)
+         
+    # Cache para Alertas de Edad
+    # Definir Fills para Semáforo (Pastel standard para legibilidad)
+    age_green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    age_yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+    age_red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    
+    age_font_green = Font(color="006100", bold=True, size=9)
+    age_font_yellow = Font(color="9C5700", bold=True, size=9)
+    age_font_red = Font(color="9C0006", bold=True, size=9)
+    
+    # Cache para Futuros (Explicit Black)
+    future_fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")
+    future_font = Font(color="000000", size=9)
+    
+    # Default Font (Explicit Black)
+    default_font = Font(color="000000", size=9)
 
     # Map column names to indices
     header_map = {}
@@ -153,19 +187,65 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
 
     # Estilizar headers (fila 1)
     for cell in ws[1]:
+        # Determinar grupo
         if es_carga_masiva:
-            style = COLORS["grupo_cyan"]
+            group_key = "grupo_cyan"
         else:
-            style = _get_header_style(str(cell.value or ""))
+             # _get_header_style devuelve el dict de propiedades directamente, no la key.
+             # Necesitamos refactorizar levemente o buscar la key inversa.
+             # Mejor optimización: _get_header_style ahora devuelve solo la KEY del grupo.
+             # Pero para no romper compatibilidad, buscaremos el match o calcularemos al vuelo si no hay cache.
+             
+             # Fallback manual por ahora: Recalcular style dict
+             style_props = _get_header_style(str(cell.value or ""))
+             
+             # Crear objetos al vuelo solo para headers (son pocos, ~50 max)
+             # No vale la pena complicar el cache inverso.
+             cell.fill = PatternFill(start_color=style_props["fill"], end_color=style_props["fill"], fill_type="solid")
+             is_bold = style_props.get("bold", True)
+             cell.font = Font(color=style_props["font"], bold=is_bold, size=10)
         
-        cell.fill = PatternFill(start_color=style["fill"], end_color=style["fill"], fill_type="solid")
-        # Usar negrita según configuración del estilo
-        is_bold = style.get("bold", True)
-        cell.font = Font(color=style["font"], bold=is_bold, size=10)
+        # Si fuera carga masiva, usamos el cache directo
+        if es_carga_masiva:
+             # Carga masiva usa grupo_cyan directo
+             hf, ht = header_style_cache["grupo_cyan"]
+             cell.fill = hf
+             cell.font = ht
+
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border = thin_border
     
     # Estilizar celdas de datos - Centrado horizontal y vertical
+    # Aquí es donde importa el rendimiento (10k+ celdas)
+    
+    # Pre-calcular el grupo de estilo para cada COLUMNA (índice)
+    # Lista de tuplas (FillObj, FontObj) por índice de columna (1-based)
+    col_styles_map = {} # {col_idx: (fill, font)}
+    
+    for col_idx, col_name in header_map.items(): # header_map usa cell.column (int)
+         # Determinar el estilo base de esta columna
+         style_props = _get_header_style(col_name) # Devuelve dict
+         
+         # Buscar si este dict coincide con algún grupo cacheado para reutilizar objetos
+         # Heurística: chequear por 'fill' color
+         found_objs = None
+         color_fill = style_props["fill"]
+         
+         # Buscar en style_cache
+         for g_key, (c_fill, c_font) in style_cache.items():
+              if COLORS[g_key]["fill"] == color_fill:
+                  found_objs = (c_fill, c_font)
+                  break
+         
+         if found_objs:
+             col_styles_map[col_idx] = found_objs
+         else:
+             # Si no está en cache standard, crear uno nuevo
+             f = PatternFill(start_color=color_fill, end_color=color_fill, fill_type="solid")
+             t = Font(color=style_props["font"], bold=style_props.get("bold", True), size=9)
+             col_styles_map[col_idx] = (f, t)
+
+
     for i, row in enumerate(ws.iter_rows(min_row=2), start=0):
         # Check metadata for this row index (i matches list index because min_row=2 skips header)
         age_status = None
@@ -179,29 +259,47 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
         for cell in row:
             val = str(cell.value or "")
             col_name = header_map.get(cell.column, "")
+            col_idx = cell.column
+            
+            # Recuperar estilo base (cacheado) de la columna
+            base_fill, base_font = col_styles_map.get(col_idx, (None, default_font))
+            
+            # Aplicar base
+            # FIX: Usuario pidió celdas de datos SIN color (transparente), salvo excepciones.
+            # if base_fill: cell.fill = base_fill  <-- REMOVED
+            # Correcto: Usar font negro por defecto para cuerpo, ignorar el del header
+            # cell.font = base_font  <-- ERROR: base_font tiene color blanco (header)
+            cell.font = default_font # Default is generic black
+            
+            # --- SOBRE-ESCRIBIR CON CONDICIONES DE CELDA ---
             
             # 1. Alerta de Edad (Prioridad Alta)
             if col_name == "edad":
                 if age_status == "green":
                     cell.fill = age_green_fill
-                    cell.font = Font(color="006100", bold=True, size=9) # Verde texto
+                    cell.font = age_font_green
                 elif age_status == "yellow":
                     cell.fill = age_yellow_fill
-                    cell.font = Font(color="9C5700", bold=True, size=9) # Naranja/Cafe texto
+                    cell.font = age_font_yellow
                 elif age_status == "red" or has_age_alert: # Fallback a alerta antigua si es red
                     cell.fill = age_red_fill
-                    cell.font = Font(color="9C0006", bold=True, size=9) # Rojo texto
+                    cell.font = age_font_red
+                else: 
+                     # Si no es alerta y es la columna edad -> VERDE (Cumple)
+                     # Solo si tiene valor
+                     if val:
+                         cell.fill = age_green_fill
+                         cell.font = age_font_green
             
             # 2. Detección de Prestaciones Futuras (! )
             elif val.startswith("! "):
                 # Aplicar color naranja "Advertencia/Futuro"
-                cell.fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid") # Naranja claro
+                cell.fill = future_fill
                 # Quitar marcador para que quede limpio
                 cell.value = val[2:]
-                cell.font = Font(size=9)
+                cell.font = future_font
             
-            else:
-                  cell.font = Font(size=9)
+            # 3. Optimización: Si no hubo override, ya tiene el base_font/fill puestos.
                 
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = thin_border
@@ -222,12 +320,18 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
         # Ancho mínimo 10, máximo 50
         adjusted_width = min(max(max_length + 2, 10), 50)
 
-def _escribir_y_estilizar(writer, resultados_por_mision):
+def _escribir_y_estilizar(writer, resultados_por_mision, mission_list: List[Dict] = None):
     """Escribe los dataframes y llama a estilizar. Retorna columnas encontradas (ordenadas)."""
     columnas_encontradas = []
     columnas_set = set()
     for m_name, items in resultados_por_mision.items():
         if not items: continue # Skip empty
+        
+        # Determine Sheet Name
+        sheet_label = str(m_name)
+        # If m_name is an index (legacy), try to get name from mission_list
+        if str(m_name).isdigit() and mission_list and int(m_name) < len(mission_list):
+            sheet_label = mission_list[int(m_name)].get("nombre", f"Mision_{m_name}")
         
         # Convert dict list to DF
         df = pd.DataFrame(items)
@@ -247,8 +351,8 @@ def _escribir_y_estilizar(writer, resultados_por_mision):
             
         df_clean = pd.DataFrame(clean_items)
         if cols_order:
-            # Reindex to expected order, keeping any extra columns at the end
-            extra_cols = [c for c in df_clean.columns if c not in cols_order]
+            # Reindex to expected order, keeping any extra columns at the end (except internal/unwanted)
+            extra_cols = [c for c in df_clean.columns if c not in cols_order and c != "Nombre"]
             df_clean = df_clean.reindex(columns=cols_order + extra_cols)
         # Eliminar columnas duplicadas (mantener la primera aparición)
         if df_clean.columns.duplicated().any():
@@ -256,7 +360,7 @@ def _escribir_y_estilizar(writer, resultados_por_mision):
         
         # Sheet name cleaning
         # Limitar a 31 chars y quitar caracteres inválidos
-        safe_name = str(m_name).replace(":", "").replace("/", "").replace("\\", "")[:30]
+        safe_name = str(sheet_label).replace(":", "").replace("/", "").replace("\\", "")[:30]
         
         df_clean.to_excel(writer, sheet_name=safe_name, index=False)
         
@@ -268,10 +372,14 @@ def _escribir_y_estilizar(writer, resultados_por_mision):
         ws = writer.sheets[safe_name]
         _aplicar_estilos(ws, metadata_list)
         
-    for col in df_clean.columns:
-        if col not in columnas_set:
-            columnas_set.add(col)
-            columnas_encontradas.append(col)
+    # Return columns found from the last df processed or accumulate them?
+    # Actually df_clean might not be defined if no items. Adding protection.
+    try: 
+        for col in df_clean.columns:
+            if col not in columnas_set:
+                columnas_set.add(col)
+                columnas_encontradas.append(col)
+    except: pass
     return columnas_encontradas
 
 
@@ -299,6 +407,27 @@ def _describe_column(col: str) -> dict:
             "Descripcion": "Código seleccionado automáticamente según la antigüedad del tratamiento.",
             "Fuente": "Cálculo Interno",
             "Nota": "Se calcula: [Año Objetivo] - [Año IPD]. Ejemplo: IPD 2021 vs Obj 2024 = 3 años de antigüedad."
+        }
+    if name.startswith("freq res") or name.startswith("freq_res"):
+        return {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Resultado de la validación de frecuencia específica.",
+            "Fuente": "Cálculo Interno",
+            "Nota": "Muestra: Cantidad Encontrada / Cantidad Requerida (Tipo). Ej: '1/2 Mes'."
+        }
+    if name.startswith("freq per") or name.startswith("freq_per"):
+        return {
+            "Categoria": "Configuración",
+            "Descripcion": "Periodicidad de la regla de frecuencia.",
+            "Fuente": "Misión",
+            "Nota": "Etiqueta informativa (ej: 'Mensual', 'Por Ciclo')."
+        }
+    if name == "freq codxaño":
+        return {
+            "Categoria": "Lógica de Negocio",
+            "Descripcion": "Frecuencia requerida según la antigüedad actual del paciente.",
+            "Fuente": "Configuración (Código por Año)",
+            "Nota": "Configuración específica para el año en curso del paciente."
         }
     if name.startswith("f obj") or "objetivo" in name:
         return {
@@ -726,8 +855,8 @@ def generar_excel_revision(
     try:
         # INTENTO 1: Ruta Original
         with pd.ExcelWriter(ruta_salida, engine="openpyxl") as writer:
-            cols = _escribir_y_estilizar(writer, resultados_por_mision)
-            _crear_hoja_carga_masiva(writer) # <--- NUEVA HOJA AGREGADA
+            cols = _escribir_y_estilizar(writer, resultados_por_mision, MISSIONS)
+            _crear_hoja_carga_masiva(writer) 
             _escribir_diccionario(writer, cols)
             
         log_ok(f" Excel guardado: {filename}")
@@ -748,8 +877,8 @@ def generar_excel_revision(
             log_info(f" Intentando guardar en respaldo: {ruta_backup}")
             
             with pd.ExcelWriter(ruta_backup, engine="openpyxl") as writer:
-                cols = _escribir_y_estilizar(writer, resultados_por_mision)
-                _crear_hoja_carga_masiva(writer) # <--- NUEVA HOJA AGREGADA EN BACKUP TAMBIEN
+                cols = _escribir_y_estilizar(writer, resultados_por_mision, MISSIONS)
+                _crear_hoja_carga_masiva(writer) 
                 _escribir_diccionario(writer, cols)
                 
             log_ok(f" RESCATADO: Excel guardado en respaldo: {ruta_backup}")

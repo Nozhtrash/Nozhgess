@@ -24,6 +24,9 @@ if ruta_app not in sys.path:
 
 if __name__ == "__main__":
     try:
+        from src.utils.logger_manager import setup_loggers
+        setup_loggers(ruta_proyecto)
+        
         from Utilidades.Mezclador.Conexiones import ejecutar_revision
         ejecutar_revision()
     except KeyboardInterrupt:
