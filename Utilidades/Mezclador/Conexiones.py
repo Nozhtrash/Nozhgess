@@ -48,7 +48,13 @@ from colorama import Fore, Style, init as colorama_init
 import pandas as pd
 
 # Local - Configuración
-from C_Mision.Mision_Actual import (
+import sys
+# Dynamic Path Setup for "Mision Actual"
+_prj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ma_path = os.path.join(_prj_root, "Mision Actual")
+if _ma_path not in sys.path: sys.path.insert(0, _ma_path)
+
+from Mision_Actual import (
     NOMBRE_DE_LA_MISION,
     RUTA_ARCHIVO_ENTRADA,
     RUTA_CARPETA_SALIDA,
@@ -73,7 +79,9 @@ from C_Mision.Mision_Actual import (
     EXCLUYENTES_MAX,
     VENTANA_VIGENCIA_DIAS,
     OBSERVACION_FOLIO_FILTRADA,
-    CODIGOS_FOLIO_BUSCAR
+    CODIGOS_FOLIO_BUSCAR,
+    ANIOS_REVISION_MAX,
+    REVISAR_HISTORIA_COMPLETA
 )
 
 # Imports tolerantes a fallos para nuevas variables (evita crash si Mision_Actual.py está desactualizado)
@@ -98,12 +106,30 @@ from Z_Utilidades.Principales.Timing import Timer
 # Local - Motor
 from Z_Utilidades.Motor.Driver import iniciar_driver
 from Z_Utilidades.Motor.Formatos import (
-    _norm, dparse, en_vigencia, has_keyword,
-    join_clean, join_tags, normalizar_codigo,
-    normalizar_rut, same_month, solo_fecha
+    normalizar_codigo, dparse, join_clean, solo_fecha, normalizar_rut, vac_row, en_vigencia
 )
 from Z_Utilidades.Motor.Mini_Tabla import leer_mini_tabla
+# from Z_Utilidades.Motor.Objetivos import listar_fechas_objetivo, get_objetivos_config # Modulo no existe
+
+
+# =============================================================================
+#                         FUNCIONES AUXILIARES (RESTAURADAS)
+# =============================================================================
+
+def _norm(s: Any) -> str:
+    """Helper local para normalizar strings (lower + strip)"""
+    return str(s).strip().lower() if s is not None else ""
+
+# Notification Manager (Try import)
+try:
+    from src.gui.managers.notification_manager import get_notifications
+except ImportError:
+    # Dummy fallback
+    class DummyNotif:
+        def send_system_notification(self, **kwargs): pass
+    def get_notifications(): return DummyNotif()
 from src.utils.ExecutionControl import get_execution_control
+from src.core.Analisis_Misiones import FrequencyValidator, analizar_frecuencias
 
 # Inicializar colorama
 colorama_init(autoreset=True)
@@ -196,18 +222,26 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
     candidatos = []
     
     # 1. Filtrar por Keywords
+    # Limpiar keywords para comparación
+    clean_kws = [str(k).strip().lower() for k in (kws or []) if k]
+    
     for c in casos_data:
-        nombre = c.get("caso", "").lower()
-        if not kws: 
+        nombre_caso = str(c.get("caso", "")).strip().lower()
+        if not clean_kws: 
             candidatos.append(c)
             continue
             
-        for kw in kws:
-            if kw.lower() in nombre:
-                candidatos.append(c)
+        match = False
+        for kw in clean_kws:
+            if kw in nombre_caso:
+                match = True
                 break
-    
+        
+        if match:
+            candidatos.append(c)
+
     if not candidatos:
+        # log_debug(f"      [SmartSelect] Sin match para kws {clean_kws} en {len(casos_data)} casos")
         return None
         
     # 2. Puntaje: (EsActivo * 10^10) + Timestamp
@@ -215,14 +249,14 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
     mejor_puntaje = -1
     
     for c in candidatos:
-        estado = c.get("estado", "").lower()
+        estado = str(c.get("estado", "")).lower()
         # Detectar si está cerrado
-        es_cerrado = "cerrado" in estado or "cierre" in estado
+        es_cerrado = any(x in estado for x in ["cerrado", "cierre", "egreso", "finalizado"])
         es_activo = not es_cerrado
         
         # Fecha para recencia
-        dt = c.get("fecha_dt", datetime.min)
-        ts = dt.timestamp()
+        dt = c.get("fecha_dt") or datetime.min
+        ts = dt.timestamp() if hasattr(dt, "timestamp") else 0
         
         # Calcular puntaje
         base_score = 10000000000 if es_activo else 0 
@@ -232,6 +266,9 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
             mejor_puntaje = score
             mejor_caso = c
             
+    if mejor_caso and should_show_timing():
+        log_debug(f"      [SmartSelect] Seleccionado: {mejor_caso.get('caso')} (Estado: {mejor_caso.get('estado')})")
+        
     return mejor_caso
 
 
@@ -423,7 +460,7 @@ def buscar_folio_vih(sigges, root, folio_vih_codigos: List[str]) -> str:
 
 
 def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str], 
-                        fobj: Optional[datetime]) -> List[Tuple[str, datetime]]:
+                        fobj: Optional[datetime], mostrar_futuras: bool = False) -> List[Tuple[str, datetime, bool]]:
     """
     Busca habilitantes en la lista de prestaciones.
     
@@ -431,9 +468,10 @@ def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str],
         prest: Lista de prestaciones {fecha, codigo, glosa, ref}
         cods: Códigos de habilitantes a buscar
         fobj: Fecha de la nómina (para filtrar)
+        mostrar_futuras: Si True, incluye prestaciones con fecha > fobj
         
     Returns:
-        Lista de tuplas (codigo, fecha) ordenadas por fecha desc
+        Lista de tuplas (codigo, fecha, is_future) ordenadas por fecha desc
     """
     cods_norm = {normalizar_codigo(c) for c in (cods or []) if str(c).strip()}
     out = []
@@ -443,8 +481,14 @@ def listar_habilitantes(prest: List[Dict[str, str]], cods: List[str],
         if not c_norm or c_norm not in cods_norm:
             continue
         f = dparse(p.get("fecha", ""))
-        if f and (not fobj or f <= fobj):
-            out.append((c_norm, f))
+        if not f: continue
+        
+        is_future = False
+        if fobj and f > fobj:
+            if not mostrar_futuras: continue
+            is_future = True
+            
+        out.append((c_norm, f, is_future))
 
     return sorted(out, key=lambda x: x[1], reverse=True)
 
@@ -488,8 +532,8 @@ def get_objetivos_config(m: Dict[str, Any]) -> List[str]:
 
 def cols_mision(m: Dict[str, Any]) -> List[str]:
     """
-    Genera lista de columnas para el Excel de una misi?n.
-    Columnas din?micas seg?n la configuraci?n de la misi?n.
+    Genera lista de columnas para el Excel de una misión.
+    Columnas dinámicas según la configuración de la misión.
     NOTA: Nombre se mantiene solo en terminal, no en Excel.
     """
     req_ipd = m.get("require_ipd", REVISAR_IPD)
@@ -501,7 +545,7 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
 
     cols = ["Fecha", "Rut", "Edad"]
 
-    # Columnas de objetivos (din?micas - solo si hay objetivos definidos)
+    # Columnas de objetivos (dinámicas - solo si hay objetivos definidos)
     objetivos_cfg = get_objetivos_config(m)
     num_objetivos = len(objetivos_cfg) if objetivos_cfg else 0
     for i in range(num_objetivos):
@@ -536,7 +580,7 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
         req_eleccion or 
         bool(m.get("inteligencia_activa", True))
     )
-    show_apto_strict = req_ipd or req_oa or req_aps or req_sic or req_eleccion
+    show_apto_strict = req_ipd or req_oa or req_aps or req_sic or req_eleccion or has_contra
 
     if show_apto_strict:
         cols += ["Apto SE", "Apto RE", "Apto Caso"]
@@ -547,14 +591,85 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
             except ValueError:
                 cols.append("Apto Elección")
 
-    if add_mensual:
-        cols.append("Mensual")
-        
-    # FIX: Código Año conditional on anios_codigo
-    if m.get("anios_codigo"):
-        cols.append("Código Año")
-    # Periodicidad eliminada del Excel según solicitud del usuario
+    # FRECUENCIAS DINÁMICAS (Nuevo Sistema) - Inyectar JUSTO DESPUÉS de columnas base
+    
+    # 1. Códigos por Año (si está activo)
+    # Orden solicitado: CodxAño, Freq CodxAño, Period CodxAño
+    anios_coded = False
+    if m.get("active_year_codes"):
+        # Solo agregar columna fija si se activó la opción
+        # (El valor se rellena dinámicamente en analizar_mision)
+        cols.append("CodxAño")      # Nombre estricto
+        cols.append("Freq CodxAño")   # Nombre estricto
+        cols.append("Period CodxAño") # Nombre estricto (antes PeriodxAño)
+        anios_coded = True
 
+    # 2. Reglas de Frecuencia Configuradas (Freq {CODE}, Period {CODE})
+    # Analizar qué reglas existen para crear las columnas correspondientes
+    detected_codes = set()
+    
+    # A) Desde 'frecuencias' (List Editor)
+    general_freqs = m.get("frecuencias", [])
+    for gf in general_freqs:
+        if isinstance(gf, dict):
+            c = str(gf.get("code", "")).strip()
+            if c: detected_codes.add(c)
+            
+    # B) Desde legacy (objetivos)
+    if not general_freqs and m.get("frecuencia"): 
+        objs = get_objetivos_config(m)
+        for o in objs:
+             detected_codes.add(o)
+
+    # Ordenar códigos para consistencia
+    for c in sorted(list(detected_codes)):
+        cols.append(f"Freq {c}")   # Nombre estricto (coincide con analizar_mision)
+        cols.append(f"Period {c}") # Nombre estricto (coincide con analizar_mision)
+
+    # (Duplicate block removed)
+    
+    # A) Desde 'frecuencias' (List Editor)
+    general_freqs = m.get("frecuencias", [])
+    for gf in general_freqs:
+        if isinstance(gf, dict):
+            c = str(gf.get("code", "")).strip()
+            if c: detected_codes.add(c)
+            
+    # B) Desde legacy (objetivos)
+    # Si NO hay frecuencias nuevas definidas, el sistema legacy usaba objetivos como targets
+    # B) Desde legacy (objetivos)
+    # Si NO hay frecuencias nuevas definidas, el sistema legacy usaba objetivos como targets
+    if not general_freqs and m.get("frecuencia"): # Fallback siempre si hay frecuencia legacy (alineado con runtime)
+        objs = get_objetivos_config(m)
+        for o in objs:
+             detected_codes.add(o)
+
+    # C) Desde 'anios_codigo' (si está activo, cada código posible genera columna??)
+    # NO, el usuario quiere una sola columna "Freq CodxAño", no una por cada año posible.
+    # PERO el validador genera "FREQ_RES_{code}" para el código seleccionado.
+    # Si queremos ver el detalle técnico, agregamos las columnas. 
+    # Si solo queremos la version resumida "Freq CodxAño", ok.
+    # El usuario dijo: "Modifying the Excel report to include dynamic columns for each configured frequency code."
+    # Así que SÍ debemos agregar las columnas dinámicas para todo lo que esté en 'anios_codigo' también?
+    # Mejor agregamos columnas para todo lo que esté configurado explícitamente en 'frecuencias'
+    # y confiamos en que 'Freq CodxAño' cubra la parte de años.
+    
+    # D) Agregamos también los códigos de años al pool de columnas dinámicas?
+    # Si el usuario configura 10 años, tener 20 columnas vacías es feo.
+    # Dejemos solo 'Freq CodxAño' para la lógica de años, y 'FREQ_...' para reglas explicitas.
+    
+    # (Legacy loop removed - moved above for correct ordering)
+    pass
+
+    if add_mensual and "Frecuencia" not in cols:
+        # Legacy fallback if needed, but try to avoid duplicates
+        # cols.append("Frecuencia")
+        # cols.append("Periodicidad")
+        pass
+        
+    # FIX: Código Año already added above
+    pass
+    
     # (Tablas clínicas siguen acá abajo...)
     if req_ipd:
         cols += ["Fecha IPD", "Estado IPD", "Diagnóstico IPD"]
@@ -588,44 +703,6 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
 
     return cols
 
-def vac_row(m: Dict[str, Any], fecha: str, rut: str, nombre: str, 
-            obs: str = "") -> Dict[str, Any]:
-    """Crea una fila vacía para una misión (sin Nombre en Excel)."""
-    r = {c: "" for c in cols_mision(m)}
-    r["Fecha"] = fecha
-    r["Rut"] = rut
-    # Nombre solo en terminal, no en Excel
-    r["Observación"] = obs
-    r["Fallecido"] = "No"
-    r["Caso"] = "Sin caso"
-    r["Estado"] = ""
-    r["Apertura"] = ""
-    r["¿Cerrado?"] = ""
-    if "Apto SE" in r: r["Apto SE"] = ""
-    if "Apto RE" in r: r["Apto RE"] = ""
-    if "Apto Elección" in r: r["Apto Elección"] = ""
-    if "Apto Caso" in r: r["Apto Caso"] = ""
-    if "Código Año" in r: r["Código Año"] = ""
-    # Periodicidad eliminada del Excel
-    if "Caso en Contra" in r: r["Caso en Contra"] = ""
-    if "Estado en Contra" in r: r["Estado en Contra"] = ""
-    if "Apertura en Contra" in r: r["Apertura en Contra"] = ""
-    if "Estado IPD en Contra" in r: r["Estado IPD en Contra"] = ""
-    if "Fecha IPD en Contra" in r: r["Fecha IPD en Contra"] = ""
-    if "Diag IPD en Contra" in r: r["Diag IPD en Contra"] = ""
-    if "Código OA en Contra" in r: r["Código OA en Contra"] = ""
-    if "Fecha OA en Contra" in r: r["Fecha OA en Contra"] = ""
-    if "Folio OA en Contra" in r: r["Folio OA en Contra"] = ""
-    if "Derivado OA en Contra" in r: r["Derivado OA en Contra"] = ""
-    if "Diagnóstico OA en Contra" in r: r["Diagnóstico OA en Contra"] = ""
-    if "Fecha APS en Contra" in r: r["Fecha APS en Contra"] = ""
-    if "Estado APS en Contra" in r: r["Estado APS en Contra"] = ""
-    if "Fecha SIC en Contra" in r: r["Fecha SIC en Contra"] = ""
-    if "Derivado SIC en Contra" in r: r["Derivado SIC en Contra"] = ""
-    if "Mensual" in r: r["Mensual"] = "Sin Día"
-    r["Familia"] = m.get("familia", "")
-    r["Especialidad"] = m.get("especialidad", "")
-    return r
 
 def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                     fobj: Optional[datetime], fecha: str,
@@ -647,9 +724,24 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     req_sic = bool(m.get("require_sic", REVISAR_SIC))
     req_eleccion_ipd = bool(m.get("requiere_ipd"))
     req_eleccion_aps = bool(m.get("requiere_aps"))
+    req_eleccion = bool(req_eleccion_ipd or req_eleccion_aps) # FIX: Definir req_eleccion explícitamente
     tiene_contra = bool(m.get("keywords_contra"))
-    anios_codigo_cfg = _parse_code_list(m.get("anios_codigo", []))
-    selected_year_code = ""
+    
+    # Manejo robusto de anios_codigo (puede ser list[str] legacy o list[dict] nuevo)
+    anios_codigo_raw = m.get("anios_codigo", [])
+    anios_codigo_cfg = []
+    if isinstance(anios_codigo_raw, list):
+        for x in anios_codigo_raw:
+             if isinstance(x, dict):
+                 anios_codigo_cfg.append(x) # Nuevo formato
+             else:
+                 anios_codigo_cfg.append({"code": str(x).strip(), "qty": 1, "type": "Mes", "period_label": "Mensual"}) # Adaptación Legacy
+    else:
+        # Fallback string parsing
+        tmp = _parse_code_list(anios_codigo_raw)
+        anios_codigo_cfg = [{"code": x, "qty": 1, "type": "Mes", "period_label": "Mensual"} for x in tmp]
+
+    selected_year_code = {} # Dict completo
     filas_ipd = int(m.get("max_ipd", FILAS_IPD))
     filas_oa = int(m.get("max_oa", FILAS_OA))
     filas_aps = int(m.get("max_aps", FILAS_APS))
@@ -659,6 +751,15 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     max_objs = int(m.get("max_objetivos", 10))
 
     res = vac_row(m, fecha, rut, nombre, "")
+    
+    # --- INICIALIZACIÓN COMPLETA DE COLUMNAS ---
+    # Esto asegura que todos los campos del Excel existan en el dict,
+    # evitando errores de "KeyError" o "if key in res" que fallan silenciamente.
+    all_cols = cols_mision(m)
+    for col in all_cols:
+        if col not in res:
+            res[col] = ""
+            
     res["Edad"] = str(edad_paciente) if edad_paciente is not None else ""
     apertura_principal_dt = dparse(res.get("Apertura", "")) if res.get("Apertura") else None
     ipd_fecha_dt = None
@@ -690,21 +791,15 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     # Se ha eliminado el bloque prematuro que causaba conflictos.
     # -------------------------------------------------------------------------
     
-    # Índice para expandir
+    # Index
     idx = caso_seleccionado.get("indice", 0)
 
     # Expandir caso
-    import time
-    from colorama import Fore, Style
+    # (Timing interno ya manejado por decoradores o logs de nivel DEBUG)
+    if should_show_timing():
+        log_debug(f"  - Expandiendo caso {idx}...")
     
-    t0 = time.time()
-    if should_show_timing():
-        print(f"{Fore.LIGHTBLACK_EX}  - Expandir caso {idx}...{Style.RESET_ALL}")
     root = sigges.expandir_caso(idx)
-    t1 = time.time()
-    dt = (t1-t0)*1000
-    if should_show_timing():
-        print(f"{Fore.LIGHTBLACK_EX}  - Expandir caso -> {dt:.0f}ms{Style.RESET_ALL}")
     
     if not root:
         return res
@@ -787,7 +882,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                 res["Diagnóstico OA"] = join_clean(d_oa)
                 res["Código OA"] = join_clean(c_oa)
                 res["Folio OA"] = join_clean(fol_oa)
-                log_warn(f"📢 DIAGNOSTICO OA: Fecha='{res['Fecha OA']}' Codigo='{res['Código OA']}'")
+                # log_warn(f"📢 DIAGNOSTICO OA: Fecha='{res['Fecha OA']}' Codigo='{res['Código OA']}'")
             except Exception as e_diag:
                 log_error(f"❌ ERROR DIAGNOSTICO OA: {e_diag}")
 
@@ -858,7 +953,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         t0 = time.time()
         if should_show_timing():
             print(f"{Fore.LIGHTBLACK_EX}  - Leer prestaciones...{Style.RESET_ALL}")
-        tb = sigges._prestaciones_tbody(idx)
+        tb = sigges._prestaciones_tbody(root)
         prestaciones = sigges.leer_prestaciones_desde_tbody(tb) if tb else []
         t1 = time.time()
         dt = (t1-t0)*1000
@@ -878,10 +973,39 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             print(f"{Fore.LIGHTBLACK_EX}  - Cerrar caso -> {dt:.0f}ms{Style.RESET_ALL}")
     
     # =========================================================================
+    # 📆 CÁLCULO DE CÓDIGO POR AÑO (Moved Up for Frequency Analysis)
+    # =========================================================================
+    if m.get("active_year_codes") and anios_codigo_cfg:
+        try:
+            # Lógica: Índice = Año Objetivo - Año IPD (Antigüedad)
+            year_diff = 0
+            # Preferencia de antiguedad: IPD > APS > Apertura Caso
+            start_date = ipd_fecha_dt or aps_fecha_dt or apertura_principal_dt
+            
+            if fobj and start_date:
+                year_diff = fobj.year - start_date.year
+            
+            # Asegurar índice válido
+            idx_code = max(0, min(year_diff, len(anios_codigo_cfg) - 1))
+            
+            selected_year_code = anios_codigo_cfg[idx_code]
+            
+            # Inyectar al resultado (solo el código string para visualización simple)
+            code_str = selected_year_code.get("code", "")
+            if "Código Año" in res:
+                 res["Código Año"] = code_str
+                 
+            log_debug(f"📅 Código Año Calc: Diff={year_diff} (Obj:{fobj.year if fobj else '?'} - Start:{start_date.year if start_date else '?'}) -> Idx={idx_code} Code={code_str}")
+        except Exception as e_code:
+            log_warn(f"Error calculando Código Año: {e_code}")
+            pass
+
+    # =========================================================================
     # 🧠 APTO RE (IPD con Sí, APS confirmado o OA en tratamiento)
     # =========================================================================
     oa_trat = any((d or "").lower().find("caso en tratamiento") >= 0 for d in oa_derivados_list)
-    aps_confirmado = any("confirm" in (e or "").lower() for e in aps_estados_list)
+    # APS Positivo: Confirmado, Sospecha o Tratamiento
+    aps_confirmado = any(kw in (e or "").lower() for e in aps_estados_list for kw in ["confirm", "sospecha", "tratamiento"])
     tokens_re = []
     if ipd_tiene_si:
         tokens_re.append("IPD +")
@@ -895,7 +1019,8 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         res["Apto RE"] = "NO"
 
     # 🧠 APTO ELECCIÓN (requiere_ipd / requiere_aps)
-    if "Apto Elección" in res:
+    # FORZAR chequeo si se requiere elección, aunque vac_row no lo haya creado
+    if req_eleccion or "Apto Elección" in res:
         ipd_pos = ipd_tiene_si
         aps_pos = aps_confirmado
         if req_eleccion_ipd:
@@ -908,29 +1033,21 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             aps_txt = "NO REQ APS"
         res["Apto Elección"] = f"{ipd_txt} | {aps_txt}"
 
-    # Recalcular Código Año basado en diferencia Fechas (IPD vs Objetivo)
-    if "Código Año" in res and m.get("active_year_codes") and anios_codigo_cfg:
-        try:
-            # Lógica: Índice = Año Objetivo - Año IPD (Antigüedad)
-            # Ejemplo: Obj=2024, IPD=2021 -> Diff=3 (Año 4 de tratamiento -> Índice 3)
-            year_diff = 0
-            if fobj and ipd_fecha_dt:
-                year_diff = fobj.year - ipd_fecha_dt.year
-            
-            # Asegurar índice válido (no negativo, no mayor al disponible)
-            idx_code = max(0, min(year_diff, len(anios_codigo_cfg) - 1))
-            
-            selected_year_code = anios_codigo_cfg[idx_code]
-            res["Código Año"] = selected_year_code
-            log_debug(f"📅 Código Año: Diff={year_diff} (Obj:{fobj.year if fobj else '?'} - IPD:{ipd_fecha_dt.year if ipd_fecha_dt else '?'}) -> Idx={idx_code} Code={selected_year_code}")
-        except Exception as e_code:
-            log_warn(f"Error calculando Código Año: {e_code}")
-            pass
+    # Recalcular Código Año (ELIMINADO - MOVIDO ARRIBA)
+    # Ya se calculó antes para ser usado en Frecuencias
+    pass
 
     # ===== CASO EN CONTRA / APTO CASO =====
-    if "Apto Caso" in res and tiene_contra:
-        res["Apto Caso"] = "No"
-        contra_case = seleccionar_caso_inteligente(casos_data, m.get("keywords_contra", []))
+    if tiene_contra:
+        # Por defecto, si hay contra-keywords pero no se encuentra caso, es "No"
+        if "Apto Caso" in res:
+            res["Apto Caso"] = "No"
+            
+        contra_kws = m.get("keywords_contra", [])
+        if should_show_timing():
+            log_debug(f"  - Buscando Caso en Contra (Kws: {contra_kws})...")
+            
+        contra_case = seleccionar_caso_inteligente(casos_data, contra_kws)
         if contra_case:
             res["Caso en Contra"] = contra_case.get("caso", "")
             res["Estado en Contra"] = contra_case.get("estado", "")
@@ -988,7 +1105,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                         res["Estado APS en Contra"] = join_clean(e_aps_c)
                         
                         contra_aps_dt = dparse(f_aps_c[0]) if f_aps_c and f_aps_c[0] else None
-                        contra_aps_pos = any("confirm" in (s or "").lower() for s in e_aps_c or [])
+                        contra_aps_pos = any(kw in (s or "").lower() for s in (e_aps_c or []) for kw in ["confirm", "sospecha", "tratamiento"])
                     except Exception as e_aps_c:
                         log_warn(f"Error APS Contra: {e_aps_c}")
 
@@ -1055,43 +1172,124 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         else:
             res[col] = ""
 
-    # Mensual / Frecuencia
-    if "Mensual" in res:
-        target_codes = []
-        if objetivos_cfg:
-            target_codes = objetivos_cfg
-        elif selected_year_code:
-            target_codes = [selected_year_code]
-        freq_txt = (m.get("frecuencia") or "mes").strip().lower()
-        freq_count_req = 1
-        try:
-            freq_count_req = int(m.get("frecuencia_cantidad") or 1)
-        except Exception:
-            freq_count_req = 1
-        label_map = {"dia": "Día", "día": "Día", "mes": "Mes", "año": "Año", "anio": "Año", "vida": "Vida"}
-        label = label_map.get(freq_txt.split()[0], "Mes")
-        count = 0
-        if target_codes and fobj:
-            codes_norm = {normalizar_codigo(c) for c in target_codes}
+    # Mensual / Frecuencia (NUEVA LÓGICA V2)
+    try:
+        # 1. Preparar lista de reglas
+        freq_rules = []
+        
+        # A) Reglas Generales (FrequencyListEditor)
+        # Asumimos que m["frecuencias"] es la lista de dicts nueva.
+        # Si no existe, usamos fallback legacy de m["frecuencia"], m["frecuencia_cantidad"], etc.
+        general_freqs = m.get("frecuencias", [])
+        if not general_freqs and m.get("frecuencia"):
+             # Fallback Legacy
+             period_lbl = m.get("periodicidad", "") or m.get("frecuencia", "").capitalize()
+             qty = 1
+             try: qty = int(m.get("frecuencia_cantidad", 1))
+             except: pass
+             
+             # Intentar adivinar tipo
+             ftype = "Mes"
+             txt = m.get("frecuencia", "").lower()
+             if "año" in txt or "anio" in txt: ftype = "Año"
+             elif "vida" in txt or "cada" in txt: ftype = "Vida"
+             
+             # Usar objetivos como códigos
+             codigos = get_objetivos_config(m)
+             # Crear una regla por código (o agrupada? El legacy usaba "target_codes" en grupo)
+             # Analizar_Misiones legacy lógica agrupaba.
+             # Pero FrequencyValidator es por regla.
+             for c in codigos:
+                 freq_rules.append({
+                     "code": c,
+                     "qty": qty,
+                     "type": ftype,
+                     "period_label": period_lbl
+                 })
+
+        elif general_freqs:
+             # Formato nuevo: List[Dict]
+             freq_rules.extend(general_freqs)
+
+        # B) Regla por Año (Si aplica)
+        if selected_year_code:
+            # selected_year_code ya es un dict {"code":..., "qty":..., "type":...}
+            freq_rules.append(selected_year_code)
+            
+        # 2. Ejecutar Análisis
+        if freq_rules and prestaciones and fobj:
+            # Llamar al motor centralizado
+            # FIX: No usamos analizar_frecuencias (wrapper) porque espera 'mision' dict.
+            # Usamos FrequencyValidator directo iterando nuestras reglas ya preparadas.
+            
+            # OPTIMIZACIÓN: Pre-procesar todas las prestaciones 1 sola vez
+            # Convertir fechas string a date objects y asegurar codigo_limpio
+            # Esto evita re-parsiar la fecha N veces (N = num_reglas)
+            prestaciones_opt = []
             for p in prestaciones:
-                c_norm = normalizar_codigo(p.get("codigo", ""))
-                if c_norm not in codes_norm:
-                    continue
-                dt_p = dparse(p.get("fecha", ""))
-                if not dt_p:
-                    continue
-                if label == "Día" and dt_p.date() == fobj.date():
-                    count += 1
-                elif label == "Mes" and same_month(dt_p, fobj):
-                    count += 1
-                elif label == "Año" and dt_p.year == fobj.year:
-                    count += 1
-                elif label == "Vida":
-                    count += 1
-        res["Mensual"] = f"{count}/{freq_count_req} {label}" if target_codes and fobj else "Sin Día"
+                p_opt = p.copy() # Shallow copy
+                
+                # Code
+                if "codigo_limpio" not in p_opt:
+                     p_opt["codigo_limpio"] = normalizar_codigo(p.get("codigo", ""))
+                     
+                # Date
+                f_raw = p.get("fecha")
+                if f_raw and isinstance(f_raw, str):
+                     d_parsed = dparse(f_raw) # Usa dparse de Formatos.py
+                     if d_parsed:
+                         p_opt["fecha"] = d_parsed.date() # FrequencyValidator usa .year/.month
+                     else:
+                         p_opt["fecha"] = None
+                elif isinstance(f_raw, datetime):
+                     p_opt["fecha"] = f_raw.date()
+                
+                prestaciones_opt.append(p_opt)
+            
+            resultados_freq = {}
+            for rule in freq_rules:
+                # rule es un dict {code, qty, type...}
+                c = rule.get("code")
+                if not c: continue
+                
+                # Usar lista optimizada
+                try:
+                    res_val = FrequencyValidator.validar(prestaciones_opt, rule, fobj)
+                    resultados_freq[f"FREQ_{c}"] = res_val
+                except Exception as e_rule:
+                    log_warn(f"⚠️ Error validando regla freq '{c}': {e_rule}")
+                    # Agregar resultado de error para visualización
+                    resultados_freq[f"FREQ_{c}"] = {
+                        "result_str": "Error",
+                        "periodicity": rule.get("period_label", "Error"),
+                        "ok": False
+                    }
+            
+            # 3. Inyectar resultados en 'res'
+            # keys: FREQ_RES_{code}, FREQ_PER_{code}
+            for k, v in resultados_freq.items():
+                code_key = k.replace("FREQ_", "") # e.g. 301001
+                
+                # Mapear a columnas del Excel (Corrección de Nombres)
+                # El Excel espera "Freq {code}" y "Period {code}"
+                label_freq = f"Freq {code_key}"
+                label_per = f"Period {code_key}"
+                
+                res[label_freq] = v["result_str"]
+                res[label_per] = v["periodicity"]
+                
+                # Legacy Column Support (Frecuencia)
+                if m.get("active_year_codes") and selected_year_code and selected_year_code.get("code") == code_key:
+                     res["Freq CodxAño"] = v["result_str"]
+                     res["Period CodxAño"] = v["periodicity"] # Nombre nuevo alineado
+
+    except Exception as e_freq:
+        log_warn(f"Error analizando frecuencias V2: {e_freq}")
+        res["Frecuencia"] = "Error Freq"
     
-    # Restored Periodicidad column
-    res["Periodicidad"] = m.get("frecuencia", "").capitalize()
+    # Periodicidad Legacy Fallback: Solo si no se seteó y CodeYear ESTÁ ACTIVO
+    if m.get("active_year_codes") and "Period CodxAño" not in res:
+        res["Period CodxAño"] = m.get("periodicidad", "") or m.get("frecuencia", "").capitalize()
 
     # ===== HABILITANTES =====
     habs_cfg = _parse_code_list(m.get("habilitantes", []))
@@ -1199,14 +1397,14 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         # El usuario dijo "La columna Observacion por ahora la quiero vacía... solo si fallecio".
         # PERO en conexiones ya pusimos observaciones si había tracking.
         # En la lógica nueva ¿Apto? es la clave. Observación queda para cosas graves.
-        # Verificamos si ya tiene algo (ej "Sin caso" de arriba)
+        # Verificamos si ya tiene algo (ej "Sin Caso" de arriba)
         
         current = res.get("Observación", "")
-        if current and current != "Sin caso":
+        if current and current != "Sin Caso":
              res["Observación"] = current + " | " + " | ".join(obs_parts)
         else:
              res["Observación"] = " | ".join(obs_parts)
-    # Si no falleció y no hubo errores previos, Observación queda vacía (o "Sin caso" si falló al inicio)
+    # Si no falleció y no hubo errores previos, Observación queda vacía (o "Sin Caso" si falló al inicio)
 
     return res
 
@@ -1252,7 +1450,11 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
         req_ipd = any(bool(m.get("require_ipd", REVISAR_IPD)) for m in MISSIONS) if MISSIONS else REVISAR_IPD
         req_oa = any(bool(m.get("require_oa", REVISAR_OA)) for m in MISSIONS) if MISSIONS else REVISAR_OA
         req_aps = any(bool(m.get("require_aps", REVISAR_APS)) for m in MISSIONS) if MISSIONS else REVISAR_APS
+        req_aps = any(bool(m.get("require_aps", REVISAR_APS)) for m in MISSIONS) if MISSIONS else REVISAR_APS
         req_sic = any(bool(m.get("require_sic", REVISAR_SIC)) for m in MISSIONS) if MISSIONS else REVISAR_SIC
+        
+        # FIX: Inicializar variable para evitar NameError si falla el cálculo
+        selected_year_code = None
 
         while intento < MAX_REINTENTOS_POR_PACIENTE and not resuelto:
             intento += 1
@@ -1266,9 +1468,9 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 
                 # 🔄 ESTRATEGIA DE REINTENTOS PROGRESIVA (6 intentos con tiempos incrementales)
                 if intento == 1:
-                    # Reintento 1: Normal, espera 5 segundos
-                    log_warn(f"🔄 Reintento 1/{MAX_REINTENTOS_POR_PACIENTE} para {rut}")
-                    time.sleep(5)  # Espera 5 segundos
+                    # Reintento 1: Optimizado (Sin espera artificial)
+                    # log_warn(f"🔄 Intento 1... (Rápido)") 
+                    # time.sleep(0.5) # Pequeña pausa técnica solamente
                     sigges.asegurar_submenu_ingreso_consulta_abierto(force=True)
                     sigges.ir(XPATHS["BUSQUEDA_URL"])
                     
@@ -1360,7 +1562,7 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 # Verificación rápida
                 if not mini:
                     # NO verificar estado - es lento y innecesario
-                    res_paci = [vac_row(m, fecha, rut, nombre, "Sin caso mini") for m in MISSIONS]
+                    res_paci = [vac_row(m, fecha, rut, nombre, "Sin Caso mini") for m in MISSIONS]
                     resuelto = True
                     continue
                 
@@ -1553,8 +1755,8 @@ def _set_globals_for_mission(m: Dict[str, Any]) -> None:
     idxs = m.get("indices", {}) or {}
     INDICE_COLUMNA_FECHA = int(idxs.get("fecha", INDICE_COLUMNA_FECHA))
     INDICE_COLUMNA_RUT = int(idxs.get("rut", INDICE_COLUMNA_RUT))
-    INDICE_COLUMNA_NOMBRE = idxs.get("nombre", INDICE_COLUMNA_NOMBRE)
-    INDICE_COLUMNA_NOMBRE = int(INDICE_COLUMNA_NOMBRE) if INDICE_COLUMNA_NOMBRE is not None else None
+    val_nombre = idxs.get("nombre", INDICE_COLUMNA_NOMBRE)
+    INDICE_COLUMNA_NOMBRE = int(val_nombre) if val_nombre is not None else None
 
     REVISAR_IPD = bool(m.get("require_ipd", REVISAR_IPD))
     REVISAR_OA = bool(m.get("require_oa", REVISAR_OA))
@@ -1566,6 +1768,19 @@ def _set_globals_for_mission(m: Dict[str, Any]) -> None:
     FILAS_APS = int(m.get("max_aps", FILAS_APS))
     FILAS_SIC = int(m.get("max_sic", FILAS_SIC))
 
+    # --- NUEVO: Inyección completa de contexto ---
+    global NOMBRE_DE_LA_MISION, RUTA_ARCHIVO_ENTRADA, RUTA_CARPETA_SALIDA
+    global FOLIO_VIH, FOLIO_VIH_CODIGOS, REVISAR_HABILITANTES, REVISAR_EXCLUYENTES
+    
+    NOMBRE_DE_LA_MISION = m.get("nombre", "Sin Nombre")
+    RUTA_ARCHIVO_ENTRADA = m.get("ruta_entrada", "")
+    RUTA_CARPETA_SALIDA = m.get("ruta_salida", "")
+    
+    FOLIO_VIH = bool(m.get("folio_vih", False))
+    FOLIO_VIH_CODIGOS = m.get("folio_vih_codigos", [])
+    REVISAR_HABILITANTES = bool(m.get("habilitantes", []))
+    REVISAR_EXCLUYENTES = bool(m.get("excluyentes", []))
+
 
 def ejecutar_revision() -> bool:
     """
@@ -1575,10 +1790,19 @@ def ejecutar_revision() -> bool:
     global ACTIVE_MISSIONS
     tiempo_inicio_global = datetime.now()
 
+    if not MISSIONS:
+        log_error("❌ No hay misiones configuradas en Mision_Actual.py / mission_config.json")
+        return False
+
+    print("DEBUG: Entrando a ejecutar_revision")
     try:
         # Iniciar driver una sola vez para toda la cola
+        print(f"DEBUG: Intentando conectar a Edge en {DIRECCION_DEBUG_EDGE}")
         sigges = iniciar_driver(DIRECCION_DEBUG_EDGE, EDGE_DRIVER_PATH)
-    except Exception:
+    except Exception as e:
+        log_error(f"❌ Error FATAL al iniciar driver: {e}")
+        import traceback
+        log_error(traceback.format_exc())
         return False
 
     try:
@@ -1592,6 +1816,7 @@ def ejecutar_revision() -> bool:
             ruta_in = m.get("ruta_entrada", RUTA_ARCHIVO_ENTRADA)
             ruta_out = m.get("ruta_salida", RUTA_CARPETA_SALIDA)
             nombre_m = m.get("nombre", f"Mision_{m_idx}")
+            print(f"DEBUG: Procesando mision {nombre_m}, ruta_entrada={ruta_in}")
 
             if not os.path.exists(ruta_in):
                 log_error(f"Archivo no existe para la misión {nombre_m}: {ruta_in}")
@@ -1602,6 +1827,7 @@ def ejecutar_revision() -> bool:
                 df = pd.read_excel(ruta_in)
                 log_ok(f"Excel cargado: {len(df)} filas")
             except Exception as e:
+                print(f"DEBUG: Error leyendo excel: {e}")
                 log_error(f"Error cargando Excel de {nombre_m}: {pretty_error(e)}")
                 continue
 
@@ -1652,11 +1878,14 @@ def ejecutar_revision() -> bool:
                     control.clear_snapshot_request()
                     try:
                         snap_name = f"{nombre_m}_SNAP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                        generar_excel_revision(
+                        res_path = generar_excel_revision(
                             copy.deepcopy(resultados_por_mision), [m],
                             snap_name, ruta_out
                         )
-                        log_ok(f"Snapshot guardado: {snap_name}")
+                        if res_path:
+                            log_ok(f"Snapshot guardado: {snap_name}")
+                        else:
+                            log_warn(f"No se pudo guardar snapshot: {snap_name}")
                     except Exception as e:
                         log_warn(f"No se pudo guardar snapshot: {pretty_error(e)}")
 
@@ -1670,6 +1899,19 @@ def ejecutar_revision() -> bool:
                 stats["exitosos"], stats["fallidos"], stats["saltados"],
                 tiempo_inicio_global, archivo_salida or "Error"
             )
+            
+            # 🔔 NOTIFICACIÓN DE SISTEMA 🔔
+            try:
+                msg_notif = f"✅ Revisión completada con éxito.\n📊 Exitosos: {stats['exitosos']} | Fallidos: {stats['fallidos']}"
+                if stats['fallidos'] > 0:
+                     msg_notif = f"⚠️ Revisión finalizada con observaciones.\n❌ Fallidos: {stats['fallidos']} | Exitosos: {stats['exitosos']}"
+                
+                get_notifications().send_system_notification(
+                    title=f"Nozhgess: {nombre_m}",
+                    message=msg_notif
+                )
+            except Exception as e:
+                log_warn(f"No se pudo enviar notificación: {e}")
 
         return True
 

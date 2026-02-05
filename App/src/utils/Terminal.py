@@ -25,6 +25,7 @@ import sys
 import time
 from datetime import datetime
 from typing import Dict, List, Any
+from src.utils.logger_manager import LOGGER_GENERAL, LOGGER_DEBUG, LOGGER_SYSTEM
 
 # Colores opcionales (desactivados por defecto)
 USE_COLORS = os.getenv("NOZHGESS_COLOR", "0") == "1"
@@ -54,69 +55,14 @@ except ImportError:
 #                         CONFIGURACIÓN DE LOGGING
 # =============================================================================
 
-# Crear carpeta logs si no existe
-# Usamos ruta relativa para encontrar la raíz del proyecto
+# Legacy configuration has been centralized in logger_manager.py
+# This module now delegates logic to the centralized logger.
+
+# Restore BASE_DIR for DEBUG imports
 ruta_utils = os.path.dirname(os.path.abspath(__file__))
 ruta_src = os.path.dirname(ruta_utils)
 ruta_app = os.path.dirname(ruta_src)
 BASE_DIR = os.path.dirname(ruta_app) # True Root
-LOG_DIR_GENERAL = os.path.join(BASE_DIR, "Logs", "General")
-LOG_DIR_STRUCTURED = os.path.join(BASE_DIR, "Logs", "structured")
-LOG_DIR_TERMINAL = os.path.join(BASE_DIR, "Logs", "Terminal")
-LOG_DIR_DEBUG = os.path.join(BASE_DIR, "Logs", "Debug")
-
-for d in [LOG_DIR_GENERAL, LOG_DIR_STRUCTURED, LOG_DIR_TERMINAL, LOG_DIR_DEBUG]:
-    try:
-        os.makedirs(d, exist_ok=True)
-    except Exception:
-        pass
-
-# Carpeta por defecto para logs principales
-LOG_DIR = LOG_DIR_GENERAL
-
-# Función de Rotación de Logs: Mantener solo los N logs más recientes
-def rotar_logs(directorio: str, mantener: int = 4) -> None:
-    """
-    Elimina los logs más antiguos, manteniendo solo los 'mantener' más recientes.
-    Evita que la carpeta de logs se llene de basura.
-    """
-    try:
-        # Listar archivos .log en el directorio
-        archivos = [
-            os.path.join(directorio, f) 
-            for f in os.listdir(directorio) 
-            if f.endswith('.log')
-        ]
-        
-        # Si hay más archivos de los permitidos
-        if len(archivos) > mantener:
-            # Ordenar por fecha de modificación (el más viejo primero)
-            archivos.sort(key=os.path.getmtime)
-            
-            # Calcular cuántos borrar
-            borrar_count = len(archivos) - mantener
-            
-            # Borrar los más viejos
-            for i in range(borrar_count):
-                os.remove(archivos[i])
-                # Evitar problemas de codificación en consolas cp1252
-                try:
-                    print(f"[LOG ROTATE] Log antiguo eliminado: {os.path.basename(archivos[i])}")
-                except Exception:
-                    pass
-                
-    except Exception as e:
-        try:
-            print(f"[LOG ROTATE] Error rotando logs: {e}")
-        except Exception:
-            pass
-
-# Ejecutar rotación en todas las carpetas relevantes antes de crear el nuevo
-for _dir in [LOG_DIR_GENERAL, LOG_DIR_STRUCTURED, LOG_DIR_TERMINAL, LOG_DIR_DEBUG]:
-    rotar_logs(_dir, mantener=4)
-
-# Archivo de log con timestamp
-LOG_FILE = os.path.join(LOG_DIR, f"nozhgess_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
 
 # =============================================================================
 #                         MODO DEBUG (TOGGLE)
@@ -140,27 +86,29 @@ except ImportError:
 #                         CONFIGURACIÓN DE LOGGING
 # =============================================================================
 
-# Configurar logger
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S',
-    encoding='utf-8-sig',
-    force=True
-)
+# Logger is configured by logger_manager setup_loggers() at startup.
+# We no longer call basicConfig here.
 
+
+from src.utils.logger_manager import LOGGER_GENERAL, LOGGER_DEBUG, LOGGER_SYSTEM
 
 def _log_to_file(level: str, msg: str) -> None:
-    """Escribe mensaje al archivo de log."""
+    """Delegates to persistent logger."""
+    if level == "DEBUG":
+        logging.getLogger(LOGGER_DEBUG).info(msg)
+        return
+
+    logger = logging.getLogger(LOGGER_GENERAL)
     if level == "INFO":
-        logging.info(msg)
+        logger.info(msg)
     elif level == "WARN":
-        logging.warning(msg)
+        logger.warning(msg)
     elif level == "ERROR":
-        logging.error(msg)
+        logger.error(msg)
+        # Route explicit errors to System/Crash log too
+        logging.getLogger(LOGGER_SYSTEM).error(msg)
     elif level == "OK":
-        logging.info(f"[OK] {msg}")
+        logger.info(f"[OK] {msg}")
 
 
 def safe_print(msg: str) -> None:
@@ -177,11 +125,14 @@ def safe_print(msg: str) -> None:
 
 def log_info(msg: str) -> None:
     """Log de información general."""
+    # Añadimos timestamp para mayor inteligencia/contexto
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    
     # SIEMPRE imprimir para que el runner capture y filtre
     if USE_COLORS:
-        safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} {msg}")
+        safe_print(f"{Fore.BLUE}[INFO]{Style.RESET_ALL} [{timestamp}] {msg}")
     else:
-        safe_print(f"[INFO] {msg}")
+        safe_print(f"[INFO] [{timestamp}] {msg}")
     _log_to_file("INFO", msg)
 
 
@@ -240,11 +191,12 @@ def log_debug(msg: str) -> None:
     full_msg = f"[{timestamp}]{stats} {msg}"
     
     # ⚡ NEW: Si DEBUG_MODE es True, imprimir en terminal (Debug Console)
-    # AHORA: Siempre imprimir [DEBUG] para que el runner lo capture y lo mande a la pestaña Debug
-    safe_print(f"{Fore.LIGHTBLACK_EX}[DEBUG] {full_msg}{Style.RESET_ALL}")
+    # Evitar doble tag [DEBUG] si ya viene en msg o si lo ponemos aquí
+    log_line = f"{Fore.LIGHTBLACK_EX}[DEBUG] {full_msg}{Style.RESET_ALL}"
+    safe_print(log_line)
 
     # Escribir siempre al log
-    _log_to_file("INFO", f"[DEBUG] {full_msg}")
+    _log_to_file("DEBUG", f"[DEBUG] {full_msg}")
 
 
 def log_step(paso: str, rut: str = None, extra: str = None) -> None:
@@ -508,27 +460,30 @@ def resumen_paciente(i: int, total: int, nombre: str, rut: str, fecha: str,
              _log_to_file("INFO", clean)
 
     try:
-        # Separación visual PREVIA al bloque del paciente
-        log_summary_line()
-        log_summary_line()
+        # Separación visual PREVIA al bloque del paciente (Con espacio para evitar collapsing)
+        log_summary_line(" ")
+        log_summary_line(" ")
+        log_summary_line(" ")
         
         log_summary_line(linea_info)
-        log_summary_line()
+        log_summary_line(" ") # Espacio tras info
         
         # Imprimir cada misión
         for linea_m in lineas_misiones:
             log_summary_line(linea_m)
             # Siempre espacio
-            log_summary_line()
-        
+            log_summary_line(" ")
+
         # Si hay error especial
         if linea_resultado_especial:
             log_summary_line(linea_resultado_especial)
-            log_summary_line()
+            log_summary_line(" ")
         
-        # Separación extra
-        log_summary_line() 
-        log_summary_line() 
+        # Separación extra FINAL
+        log_summary_line(" ") 
+        log_summary_line(" ")
+        log_summary_line("==========================================================================================")
+        log_summary_line(" ") 
  
         
     except Exception:

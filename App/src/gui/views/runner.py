@@ -73,10 +73,7 @@ class RunnerView(ctk.CTkFrame):
         self.terminal_log_file = os.path.join(self.terminal_log_dir, f"terminal_{timestamp}.log")
         self.debug_log_file = os.path.join(self.debug_log_dir, f"debug_{timestamp}.log")
         
-        # File handles (se abrirán cuando empiece la ejecución)
-        self.terminal_log_handle = None
-        self.debug_log_handle = None
-        
+        # Título
         # Título
         self.title = ctk.CTkLabel(
             self,
@@ -217,7 +214,7 @@ class RunnerView(ctk.CTkFrame):
         )
         self.search_entry.pack(side="left", padx=(0, 5))
         self.search_entry.bind("<Return>", lambda e: self._do_search())
-        self.search_entry.bind("<KeyRelease>", lambda e: self._schedule_search())
+        # Eliminado bind("<KeyRelease>") para evitar crashes y lag innecesario
         
         self.search_btn = ctk.CTkButton(
             search_frame,
@@ -461,31 +458,48 @@ class RunnerView(ctk.CTkFrame):
                     to_debug = True
 
                 if to_terminal:
-                    if self.terminal_log_handle:
-                        try:
-                            self.terminal_log_handle.write(clean_msg + "\n")
-                            self._flush_counter_term += 1
-                            if self._flush_counter_term >= self._flush_every:
-                                self.terminal_log_handle.flush()
-                                self._flush_counter_term = 0
-                        except:
-                            pass
+                    # Write to Centralized General Logger (File handled by logger_manager)
+                    try:
+                        import logging
+                        from src.utils.logger_manager import LOGGER_GENERAL
+                        logging.getLogger(LOGGER_GENERAL).info(clean_msg)
+                    except:
+                        pass
+                    
+                    # Send to UI
                     self.ui_queue.put(("terminal", clean_msg + "\n"))
 
                 if to_debug:
-                    if self.debug_log_handle:
-                        try:
-                            self.debug_log_handle.write(clean_msg + "\n")
-                            self._flush_counter_dbg += 1
-                            if self._flush_counter_dbg >= self._flush_every:
-                                self.debug_log_handle.flush()
-                                self._flush_counter_dbg = 0
-                        except:
-                            pass
+                    # Write to Centralized Debug/Secure Logger or just Info?
+                    # The user wants "Debug" logs. 
+                    # logger_manager has General, Secure, Structured.
+                    # We can use General for debug too, or add a Debug logger to manager?
+                    # Plan said: "Refactor runner.py to write to LOGGER_GENERAL and LOGGER_DEBUG"
+                    # But LOGGER_DEBUG doesn't exist in logger_manager.py yet! 
+                    # We should probably put it in General or create a specific one.
+                    # Let's use General for now as they often overlap, or Secure?
+                    # Actually, let's stick to General for everything into 'nozhgess_current.log' for now, 
+                    # OR simply log to general.
+                    # Wait, legacy runner made separate files. 
+                    # Let's log 'to_debug' messages to General but maybe with a prefix? 
+                    # Or better: Add a Debug logger to manager?
+                    # User asked for "5 logs max". 
+                    # If we add a new logger, we add files.
+                    # Let's write debug/terminal ALL to General.
+                    try:
+                        import logging
+                        from src.utils.logger_manager import LOGGER_GENERAL
+                        # Distinguish in log file? 
+                        # The clean_msg usually has tags.
+                        logging.getLogger(LOGGER_GENERAL).info(clean_msg)
+                    except:
+                        pass
+
                     self.ui_queue.put(("debug", clean_msg + "\n"))
-                # Si no se enrutó, enviar a Debug para no perder mensajes
+                
+                # Fallback
                 if not to_terminal and not to_debug:
-                    self.ui_queue.put(("debug", clean_msg + "\n"))
+                     self.ui_queue.put(("debug", clean_msg + "\n"))
 
         self._log_worker_thread = threading.Thread(target=_worker, daemon=True)
         self._log_worker_thread.start()
@@ -502,9 +516,17 @@ class RunnerView(ctk.CTkFrame):
                     self.term_console.append(text)
                 elif target == "debug":
                     self.debug_console.append(text)
+                elif target == "reset_state":
+                     self._transition_to(RunState.STOPPED)
                 processed += 1
         except queue.Empty:
             pass
+        
+        # Check for special signals
+        if processed > 0:
+             # Reprocess to check for signals if any mixed in (though signals likely separate)
+             pass 
+
         delay_ms = 50 if processed > 0 else 200
         self.after(delay_ms, self._drain_ui_queue)
     def _safe_start_run(self):
@@ -531,11 +553,8 @@ class RunnerView(ctk.CTkFrame):
         self._transition_to(RunState.RUNNING)
         
         # Abrir archivos de log dedicados (si se usan)
-        try:
-            self.terminal_log_handle = open(self.terminal_log_file, "w", encoding="utf-8-sig")
-            self.debug_log_handle = open(self.debug_log_file, "w", encoding="utf-8-sig")
-        except Exception as e:
-            self._log(f"❌ No se pudo abrir archivos de log: {e}", level="ERROR")
+        # REFACTOR 2026: Delegado a logger_manager
+        pass
         
         # Limpiar consolas visuales
         self.term_console.clear()
@@ -570,6 +589,8 @@ class RunnerView(ctk.CTkFrame):
                 sock.close()
                 if result != 0:
                     self._log("❌ Edge debug NO está ejecutándose en puerto 9222", level="ERROR")
+                    self._log("👉 Ejecute 'Iniciador Web' desde el Dashboard o Script.", level="ERROR")
+                    self.ui_queue.put(("reset_state", None))  # Señal para resetear UI
                     return
                 self._log("✅ Edge Debug Online.", level="DEBUG")
             except Exception as e:
@@ -615,9 +636,16 @@ class RunnerView(ctk.CTkFrame):
 
             # 2. Attach GUI Log Handler (AHORA, post-reload)
             import logging
-            logger = logging.getLogger()
+            from src.utils.logger_manager import LOGGER_GENERAL, LOGGER_SECURE, LOGGER_STRUCTURED
+            
             gui_handler = self.GuiLogHandler(self.log_queue)
-            logger.addHandler(gui_handler)
+            
+            # Attach to specific loggers because they have propagate=False
+            for logger_name in [LOGGER_GENERAL, LOGGER_SECURE, LOGGER_STRUCTURED]:
+                logging.getLogger(logger_name).addHandler(gui_handler)
+                
+            # Also attach to root for any other uncaught logs
+            logging.getLogger().addHandler(gui_handler)
 
             # 3. Redirect stdout/stderr (Visual Debug Stream)
             sys.stdout = StreamRedirector(self._log)
@@ -640,6 +668,9 @@ class RunnerView(ctk.CTkFrame):
             # Remove handler
             if gui_handler:
                 import logging
+                from src.utils.logger_manager import LOGGER_GENERAL, LOGGER_SECURE, LOGGER_STRUCTURED
+                for logger_name in [LOGGER_GENERAL, LOGGER_SECURE, LOGGER_STRUCTURED]:
+                    logging.getLogger(logger_name).removeHandler(gui_handler)
                 logging.getLogger().removeHandler(gui_handler)
             
             self.after(0, self._on_run_complete)
@@ -675,19 +706,8 @@ class RunnerView(ctk.CTkFrame):
             pass
         
         # Cerrar archivos de log
-        if self.terminal_log_handle:
-            try:
-                self.terminal_log_handle.close()
-                self.terminal_log_handle = None
-            except:
-                pass
-        
-        if self.debug_log_handle:
-            try:
-                self.debug_log_handle.close()
-                self.debug_log_handle = None
-            except:
-                pass
+        # REFACTOR 2026: Handled by logger_manager
+        pass
     
     def _pause_run(self):
         """Pausa o reanuda la ejecución."""
@@ -781,50 +801,7 @@ class RunnerView(ctk.CTkFrame):
             pass
         return None
 
-    def _do_search(self):
-        """Busca el texto en la consola ACTIVA."""
-        query = self.search_entry.get()
-        if not query:
-            return
-        self._search_matches = []
-        self._search_idx = -1
-            
-        console = self._get_active_console()
-        if not console:
-            return
-            
-        # Limpiar tags previos
-        console.tag_remove("search_highlight", "1.0", "end")
-        
-        # Configurar tag (Amarillo neon)
-        console.tag_config("search_highlight", background="#f1c40f", foreground="black")
-        
-        # Buscar
-        start_pos = "1.0"
-        count_matches = 0
-        
-        while True:
-            pos = console.search(query, start_pos, stopindex="end", nocase=True)
-            if not pos:
-                break
-            
-            # Calcular fin del match
-            end_pos = f"{pos}+{len(query)}c"
-            console.tag_add("search_highlight", pos, end_pos)
-            
-            if not self._search_matches:
-                self._search_idx = 0
-            count_matches += 1
-            start_pos = end_pos
-            
-        # Scroll al primero
-        if self._search_matches:
-            console.see(self._search_matches[0])
-            self.search_btn.configure(text=f"{count_matches}")
-        else:
-            self.search_btn.configure(text="0")
-        self._update_match_label(count_matches)
-        log_ui("search", query=query, matches=count_matches)
+    # (Deleted duplicate method)
 
     def _schedule_search(self):
         """Debounce al teclear para no recalcular en cada pulsación."""
@@ -841,23 +818,14 @@ class RunnerView(ctk.CTkFrame):
         else:
             self.search_status.configure(text="0/0")
 
-    def _goto_match(self, delta):
-        console = self._get_active_console()
-        if not console or not getattr(self, "_search_matches", []):
-            return
-        total = len(self._search_matches)
-        self._search_idx = (self._search_idx + delta) % total
-        pos = self._search_matches[self._search_idx]
-        console.see(pos)
-        self._update_match_label(total)
-        log_ui("search_nav", idx=self._search_idx, total=total)
+    # (Deleted duplicate logic, moved to end)
 
     def _clear_search(self):
         """Limpia la búsqueda."""
         self.search_entry.delete(0, "end")
         self.search_btn.configure(text="Buscar")
-        self._search_matches = []
-        self._search_idx = -1
+        self.search_matches = []
+        self.current_match_idx = -1
         self._update_match_label(0)
         
         # Limpiar en TODAS las consolas por si acaso cambió de tab
@@ -941,99 +909,115 @@ class RunnerView(ctk.CTkFrame):
     
     # ===== SISTEMA DE BÚSQUEDA =====
     
-    def _schedule_search(self):
-        """Programa la búsqueda con un pequeño delay para evitar búsquedas mientras se escribe."""
-        if self._search_timer:
-            self.after_cancel(self._search_timer)
-        self._search_timer = self.after(300, self._do_search)
+
     
     def _do_search(self):
-        """Realiza la búsqueda en la consola activa."""
+        """Realiza la búsqueda en la consola activa con optimizaciones."""
         query = self.search_entry.get().strip()
-        if not query:
+        
+        # Obtener el widget de texto actual
+        console = self._get_active_console()
+        if not console:
+            return
+
+        # Limpiar marcas anteriores (Rápido)
+        console.text_area.tag_remove("search_highlight", "1.0", "end")
+        console.text_area.tag_remove("search_current", "1.0", "end")
+        
+        if not query or len(query) < 2:
             self.search_matches = []
             self.current_match_idx = -1
             self.search_status.configure(text="0/0")
+            self.search_btn.configure(text="Buscar")
             return
         
-        # Obtener el widget de texto actual
-        current_tab = self.log_tabs.get()
-        if current_tab == "Terminal":
-            console = self.term_console
-        elif current_tab == "Debug":
-            console = self.debug_console
-        else:
-            console = self.general_console
-        
-        # Limpiar marcas anteriores
-        console.text.tag_remove("search_highlight", "1.0", "end")
-        
-        # Buscar todas las coincidencias
+        # Configurar tags si no existen (Solo una vez)
+        try:
+             console.text_area.tag_config("search_highlight", background="#f1c40f", foreground="black") # Amarillo
+             console.text_area.tag_config("search_current", background="#e67e22", foreground="white", borderwidth=1, relief="raised") # Naranja fuerte
+        except: pass
+
+        # Buscar todas las coincidencias (Heurística: buscar máximo 1000 para no congelar)
         self.search_matches = []
         start_pos = "1.0"
-        while True:
-            pos = console.text.search(query, start_pos, stopindex="end", nocase=True)
+        limit = 1000
+        count = 0
+        
+        while count < limit:
+            pos = console.text_area.search(query, start_pos, stopindex="end", nocase=True)
             if not pos:
                 break
             end_pos = f"{pos}+{len(query)}c"
             self.search_matches.append(pos)
-            console.text.tag_add("search_highlight", pos, end_pos)
+            
+            # Aplicar tag de highlight general
+            console.text_area.tag_add("search_highlight", pos, end_pos)
+            
             start_pos = end_pos
-        
-        # Configurar tag de resaltado
-        console.text.tag_config("search_highlight", background="#FFD700", foreground="black")
-        
-        # Ir al primer resultado
-        if self.search_matches:
-            self.current_match_idx = 0
-            self._highlight_current_match()
-            self.search_status.configure(text=f"1/{len(self.search_matches)}")
-        else:
+            count += 1
+            
+        if not self.search_matches:
+            self.search_btn.configure(text="0")
             self.current_match_idx = -1
-            self.search_status.configure(text="0/0")
-    
-    def _goto_match(self, direction):
-        """Navega al siguiente o anterior resultado de búsqueda."""
+            self._update_match_label(0)
+        else:
+            self.search_btn.configure(text=f"{len(self.search_matches)}")
+            # Ir al primero
+            self.current_match_idx = 0
+            self._goto_match(0)
+            
+    def _goto_match(self, delta):
         if not self.search_matches:
             return
-        
-        self.current_match_idx += direction
-        
-        # Wrap around
-        if self.current_match_idx >= len(self.search_matches):
-            self.current_match_idx = 0
-        elif self.current_match_idx < 0:
-            self.current_match_idx = len(self.search_matches) - 1
-        
-        self._highlight_current_match()
-        self.search_status.configure(text=f"{self.current_match_idx + 1}/{len(self.search_matches)}")
-    
-    def _highlight_current_match(self):
-        """Resalta el resultado actual y hace scroll hacia él."""
-        if self.current_match_idx < 0 or self.current_match_idx >= len(self.search_matches):
+            
+        console = self._get_active_console()
+        if not console:
             return
+
+        query = self.search_entry.get().strip()
+        total = len(self.search_matches)
         
-        # Obtener consola activa
-        current_tab = self.log_tabs.get()
-        if current_tab == "Terminal":
-            console = self.term_console
-        elif current_tab == "Debug":
-            console = self.debug_console
-        else:
-            console = self.general_console
+        # Quitar marca de "actual" previa
+        console.text_area.tag_remove("search_current", "1.0", "end")
         
-        # Limpiar resaltado anterior del match actual
-        console.text.tag_remove("current_match", "1.0", "end")
+        if delta != 0:
+             self.current_match_idx = (self.current_match_idx + delta) % total
         
-        # Resaltar match actual con color diferente
+        if self.current_match_idx < 0: self.current_match_idx = total - 1
+        if self.current_match_idx >= total: self.current_match_idx = 0
+
         pos = self.search_matches[self.current_match_idx]
-        query = self.search_entry.get()
-        end_pos = f"{pos}+{len(query)}c"
-        console.text.tag_add("current_match", pos, end_pos)
-        console.text.tag_config("current_match", background="#FF6B35", foreground="white")
         
-        # Scroll hacia el match
-        console.text.see(pos)
+        # Marcar como actual (Naranja fuerte)
+        end_pos = f"{pos}+{len(query)}c"
+        console.text_area.tag_add("search_current", pos, end_pos)
+        console.text_area.tag_raise("search_current")
+        
+        # Asegurar visibilidad
+        console.text_area.see(pos)
+        
+        self._update_match_label(total)
+        
+    def _update_match_label(self, total):
+        if total > 0:
+            self.search_status.configure(text=f"{self.current_match_idx + 1}/{total}")
+        else:
+            self.search_status.configure(text="0/0")
+
+    def _get_active_console(self):
+        """Devuelve el widget LogConsole de la pestaña activa."""
+        try:
+            tab_name = self.log_tabs.get()
+            # Match strict names defined in __init__
+            if "Terminal Principal" in tab_name:
+                return self.term_console
+            elif "Terminal Debug" in tab_name:
+                return self.debug_console
+            elif "Terminal General" in tab_name:
+                return self.general_console
+        except Exception:
+            pass
+        return None
 
 
 class StreamRedirector:
