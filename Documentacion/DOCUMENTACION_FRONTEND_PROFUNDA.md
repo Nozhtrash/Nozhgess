@@ -1,87 +1,61 @@
-# 🖥️ DOCUMENTACIÓN FRONTEND PROFUNDA: LA CARA DIGITAL
-
-> **Propósito:** Manual de arquitectura de interfaz (GUI) y Sistema de Diseño.
-> **Alcance:** `App/src/gui`, `theme.py` y manejo de Hilos.
-> **Estética:** Premium Dark Mode (Hardcoded).
+# 🖥️ DEEP DIVE FRONTEND: ARQUITECTURA GUI v3.5.0
+> **Audiencia:** Diseñadores UI, Desarrolladores Python y Mantenedores de Interfáz.
+> **Propósito:** Guía microscópica sobre el funcionamiento, diseño y optimización de la interfaz de Nozhgess.
 
 ---
 
-# 1. EL MOTOR DE TEMA (`theme.py`)
+# 1. ARQUITECTURA "SPA" (SINGLE PAGE APPLICATION) EN TKINTER
 
-Nozhgess no usa colores al azar. Usa un sistema de diseño estricto definido en `App/src/gui/theme.py`.
+Aunque Nozhgess es una aplicación de escritorio, su arquitectura interna imita a una SPA moderna.
 
-## 1.1. ADN de Colores (Hex Codes Reales)
-Si vas a agregar un botón, USA ESTOS CÓDIGOS. No inventes colores.
+### 1.1. El Shell de la Aplicación (`app.py`)
+Es el contenedor raíz. Su única función es orquestar el cambio de vistas.
+- **`self.container`:** Un `CTkFrame` que ocupa el 100% de la ventana.
+- **`self.show_frame(name)`:** El método nuclear. Utiliza `.grid_forget()` para ocultar la vista actual y `.grid()` para mostrar la nueva. Esto evita fugas de memoria por creación constante de widgets.
 
-| Variable | Código Hex | Uso |
+### 1.2. Vistas Especializadas
+- **`RunnerView`:** La más compleja. Gestiona el ciclo de vida del robot.
+- **`ConfigView`:** Un mini-editor JSON integrado con validación de sintaxis en tiempo real.
+
+---
+
+# 2. EL PUENTE DE HILOS (THREADING BRIDGE)
+
+Este es el aspecto técnico más crítico. Tkinter **NO** es thread-safe. Si el robot intenta cambiar un texto directamente, la app lanzará un `RuntimeError` o se colapsará.
+
+### 2.1. El Patrón Productor-Consumidor
+- **El Productor (Worker Thread):** El hilo del robot (`threading.Thread`) que no conoce nada de la UI. Envía mensajes a través de la `log_queue`.
+- **La Cola (`queue.Queue`):** El "Tubo" de comunicación. Almacena mensajes de forma segura entre hilos.
+- **El Consumidor (Main Thread):** La función `_drain_ui_queue`.
+  - Se gatilla cada 100ms mediante `self.after(100, ...)` (recursividad controlada).
+  - Si la cola tiene datos, los procesa y actualiza la pantalla.
+
+---
+
+# 3. OPTIMIZACIÓN DEL BUSCADOR DE LOGS (THE SEARCH ENGINE)
+
+### 3.1. Gestión de Memoria y Buffering
+La consola de logs (`LogConsole`) puede recibir miles de líneas. Para evitar lag:
+- **Limitación de Buffer:** Si el texto supera las 5.000 líneas, el sistema borra automáticamente las primeras 500. Esto mantiene el consumo de RAM bajo control.
+
+### 3.2. Lógica de Resaltado Dual
+El buscador utiliza tags internos de Tkinter para lograr un efecto premium:
+- **`match_all`:** (Background Amarillo, Texto Negro). Marca todas las coincidencias.
+- **`match_current`:** (Background Naranja, Texto Blanco). Marca la posición activa.
+- **Navegación:** Al presionar Enter, el sistema calcula el índice de la siguiente coincidencia y mueve el scroll `see(index)` de forma suave.
+
+---
+
+# 4. SOLUCIÓN DE PROBLEMAS GRÁFICOS (DETALLADO)
+
+| Síntoma | Causa Técnica | Solución Forense |
 | :--- | :--- | :--- |
-| **`bg_primary`** | `#0c0d11` | Fondo principal (Casi negro, toque azulado). |
-| **`bg_card`** | `#181d27` | Paneles y tarjetas. Ligeramente más claro. |
-| **`accent`** | `#7c4dff` | **Deep Purple**. El color de la marca. Usar en botones primarios. |
-| **`success`** | `#4ade80` | Verde neón suave. Para mensajes de "Éxito". |
-| **`error`** | `#f87171` | Rojo pastel. Para errores fatales. |
-| **`text_primary`** | `#f4f6fb` | Blanco hueso. Texto principal. |
-| **`text_muted`** | `#6f7690` | Gris azulado. Texto secundario o logs viejos. |
-
-## 1.2. Tipografía e Iconografía
-*   **Fuente:** `Segoe UI`. (Windows Native).
-*   **Razón:** Es la única que renderiza Emojis de color (🔥, ✅) correctamente en CustomTkinter sin convertirlos en wireframes blanco y negro.
-*   **Tamaños:** `base`=12, `lg`=14, `xl`=16.
+| **"La ventana se queda en blanco al iniciar"** | El puerto 9222 está bloqueado o el script PS1 falló. | Verifique que Edge se abrió con el puerto 9222. Reinicie el Iniciador. |
+| **"Los logs se ven cortados"** | El ancho del `RunnerView` es muy pequeño para el wrap de texto. | Expanda la ventana. El sistema soporta `word_wrap=True` dinámico. |
+| **"Los botones no responden durante la ejecución"** | El hilo de la UI está bloqueado por una llamada sincrónica pesada. | Verifique que no haya llamados a `sleep()` en el hilo principal. |
+| **"Error: Main loop is not running"** | Se intentó cerrar la app mientras el hilo del robot seguía vivo. | El sistema destruye el hilo al cerrar, pero si persiste, use el botón "Detener Misión". |
 
 ---
 
-# 2. ARQUITECTURA DE VISTAS (SPA - Single Page Application)
-
-La aplicación usa un contenedor principal (`app.py`) que intercambia "Vistas" (Frames) en el área central.
-
-## 2.1. El `RunnerView` (`views/runner.py`)
-Es el corazón de la operación.
-*   **Layout:** Grid de 2 columnas (Panel Control Izq / Consola Der).
-*   **Componente Clave:** `LogConsole`. No es un Textbox normal.
-    *   Tiene **Autoscroll Inteligente**: Si subes con la rueda, se pausa. Si bajas al fondo, se reactiva.
-    *   Tiene **Buffer Limitado**: Borra las líneas viejas si pasa de 5000 para no comer RAM.
-
----
-
-# 3. EL PUENTE DE HILOS (THREADING BRIDGE)
-
-Cómo logra la GUI no congelarse mientras el robot navega.
-
-## 3.1. El Problema "Not Responding"
-Selenium bloquea. Si llamas a `driver.get()` en el hilo principal de la GUI, la ventana se congela en blanco ("No responde") hasta que la web cargue.
-
-## 3.2. La Solución: Cola de Mensajes (Queue)
-Implementación en `runner.py`:
-
-1.  **Orquestador (`RunnerView._start_execution`):**
-    *   Crea un `threading.Thread` (Hilo Robot).
-    *   Este hilo ejecuta `Conexiones.ejecutar_revision`.
-
-2.  **El Tubo (`queue.Queue`):**
-    *   El Hilo Robot NO TOCA LA GUI.
-    *   Llama a `log_queue.put(("Hola", "INFO"))`.
-
-3.  **El Consumidor (`RunnerView._drain_ui_queue`):**
-    *   Una función en el Hilo Principal corre cada 100ms (`after(100, ...)`).
-    *   Vacía la cola y actualiza los Textbox.
-
-**Regla de Oro:** JAMÁS modificar `self.label_texto` desde dentro de `Driver.py`. Usar siempre el sistema de logs.
-
----
-
-# 4. SOLUCIÓN DE PROBLEMAS GRÁFICOS
-
-### Caso A: "Los emojis se ven como cuadros vacíos o B/N"
-*   **Causa:** Se cambió la fuente en `theme.py` a algo que no es `Segoe UI` (ej: `Arial` o `Roboto`).
-*   **Solución:** Restaurar `TYPOGRAPHY["font_family"]["primary"] = "Segoe UI"`.
-
-### Caso B: "La consola parpadea mucho"
-*   **Causa:** Exceso de velocidad en el `_drain_ui_queue`.
-*   **Solución:** Aumentar el tiempo de `after(50, ...)` a `after(100, ...)`.
-
-### Caso C: "Error: main thread is not in main loop"
-*   **Causa:** Alguien intentó abrir un `messagebox` desde el hilo del robot.
-*   **Solución:** Usar `log_error` para avisar, no popups bloqueantes.
-
----
-**Diseño System verificado para Alta Densidad de Información.**
+**© 2026 Nozhgess UI LABS**
+*"Donde la densidad de información se vuelve elegancia operativa."*

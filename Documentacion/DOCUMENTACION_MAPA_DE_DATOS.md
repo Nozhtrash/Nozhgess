@@ -1,119 +1,80 @@
-# 🗺️ MAPA DE DATOS Y SELECTORES: LA CARTOGRAFÍA DE NOZHGESS
-
-> **Propósito:** Guía de calibración y mapeo de datos.
-> **Fuente de Verdad:** `App/src/core/locators.py` y `mission_config.json`.
-> **Uso:** Referencia obligatoria para reparar "Drift" (Cambios en la web).
+# 🗺️ MAPA DE DATOS Y SCRAPING: CARTOGRAFÍA v3.5.0
+> **Audiencia:** Mantenedores de Selectores, Desarrolladores Backend y Auditores de Datos.
+> **Propósito:** Mapeo microscópico entre la estructura HTML de SIGGES, la lógica de extracción en Python y el reporte final.
 
 ---
 
-# 1. EL DICCIONARIO DE SELECTORES (`locators.py`)
+# 1. EL MOTOR DE NAVEGACIÓN Y BÚSQUEDA
 
-Nozhgess usa un sistema de claves constantes para referirse a elementos cambiantes.
+El robot no solo busca; interpreta la pantalla para asegurar que el RUT es el correcto.
 
-## 1.1. Tabla de Claves Maestras
-Si SIGGES cambia, actaulice el XPath asociado a estas claves.
-
-| Clave Interna | Descripción | XPath Actual (Ref) |
-| :--- | :--- | :--- |
-| **`LOGIN_BTN_INGRESAR`** | Botón Login | `/html/body/div/div/div[2]/div[1]/form/div[3]/button` |
-| **`INPUT_RUT`** | Campo de texto RUT | `//*[@id='rutInput']` |
-| **`BTN_BUSCAR`** | Lupa de búsqueda | `#root > ... > button` |
-| **`MINI_TABLA_TBODY`** | Tabla resumen casos | `.../div[2]/div/div/table/tbody` |
-| **`TABLA_PROVISORIA_TBODY`** | Tabla fechas caso | `.../div[3]/div/table/tbody` |
-| **`CHK_HITOS_GES`** | Checkbox desplegar | `.../input[type=checkbox]` |
+### 1.1. Búsqueda Inteligente (`INPUT_RUT` / `BTN_LUPA`)
+1.  **Limpieza:** El robot borra cualquier texto previo en el campo.
+2.  **Inyección:** Escribe el RUT con guión y DV.
+3.  **Disparo:** Presiona la lupa y espera hasta 20 segundos (`ESPERA_BUSQUEDA`).
+4.  **Validación:** Si aparece el mensaje "No se encontraron registros", el robot marca al paciente como "Paciente No Encontrado" y salta al siguiente.
 
 ---
 
-# 2. MAPA DE EXTRACCIÓN DE DATOS (SCRAPING)
+# 2. ESCANEO DE LA MINI-TABLA (GATEKEEPER)
 
-Qué columna HTML alimenta qué variable del reporte.
+Esta tabla es el primer filtro. Aquí se decide a qué caso entrar.
 
-## 2.1. Tabla Información del Paciente
-*   **Edad:** Se extrae de `EDAD_PACIENTE`.
-    *   *Formato Raw:* "70 Años, 1 Mes, 2 días".
-    *   *Procesamiento:* Se corta el string hasta la coma. Queda "70 Años".
-
-## 2.2. Tabla IPD (Informes de Proceso Diagnóstico)
-Busca la confirmación médica.
-*   **Fuente:** `IPD_TBODY_FALLBACK`
-*   **Iteración:** Escanea todas las filas (TR).
-*   **Mapeo de Columnas:**
-    *   `td[3]` -> **Fecha IPD**.
-    *   `td[7]` -> **Confirmación** (Texto clave: "Si").
-    *   `td[8]` -> **Diagnóstico**.
-
-## 2.3. Tabla OA (Órdenes de Atención)
-Busca exámenes realizados.
-*   **Fuente:** `OA_TBODY_FALLBACK`
-*   **Mapeo de Columnas:**
-    *   `td[1]` -> **Folio** (Usado para cruzar con Prestaciones).
-    *   `td[3]` -> **Fecha OA**.
-    *   `td[10]` -> **Código Prestación** (Se compara con `habilitantes` del JSON).
-    *   `td[13]` -> **Nombre Examen**.
-
-## 2.4. Tabla Cierre GES
-Detecta por qué se cerró un caso.
-*   **Fuente:** `CIERRE_GES_TBODY`
-*   **Mapeo de Columnas:**
-    *   `td[3]` -> **Fecha Cierre**.
-    *   `td[8]` -> **Subcausal** (Texto largo explicativo).
+### 2.1. Algoritmo de Selección (`TABLA_CASOS`)
+- **Iteración:** Escanea todas las filas (`<tr>`).
+- **Data Points:**
+    - `td[2]` -> Nombre del Problema de Salud.
+    - `td[5]` -> Estado del Caso (Busca: "Vigente").
+    - `td[1]` -> Enlace de acceso.
+- **Lógica de "Caso en Contra":** Si una fila coincide con las `keywords_contra` (ej. "Diabetes Tipo 1" cuando se busca "Tipo 2"), el motor marca un flag de **Divergencia Detectada** y entra para auditar.
 
 ---
 
-# 3. OUTPUTS DINÁMICOS Y EXCEL
+# 3. EXTRACCIÓN DE SUB-TABLAS (DEEP SCRAPING)
 
-El Excel final no es estático. Nozhgess decide qué columnas mostrar basándose en `mission_config.json`.
+Una vez dentro de la cartola, el motor opera sobre 4 dimensiones de datos:
 
-## 3.1. Reglas de Visibilidad (v3.3.0)
-*   **"Código Año"**: Solo aparece si `anios_codigo` está configurado.
-*   **"Apto SE/RE/Caso"**: Solo aparecen si la misión tiene activas funciones clínicas (`require_ipd`, `require_oa`, etc.).
-*   **"Folio VIH"**: Estrictamente **OPT-IN**. Solo aparece si `"folio_vih": true`.
-*   **"Observación Folio"**: Solo aparece si `req_oa` (lectura de órdenes) está activo para esa misión.
+### 3.1. IPD (Informes Diagnósticos)
+- **Selectores:** `//table[@id='ipd-table']//tr`
+- **Mapeo Forense:**
+    - `td[3]` -> **Fecha de Emisión**. (Se usa para el hito del diagnóstico).
+    - `td[8]` -> **Diagnóstico Confirmado (String)**. Buscamos coincidencias con la patología.
 
-## 3.2. Carga Masiva
-Se genera una hoja adicional con encabezados CYAN:
-*   `Fecha`, `Rut`, `DV`, `Prestaciones`, `Tipo`, `PS-Fam`, `Especialidad`.
-*   Esta estructura es fija para compatibilidad con sistemas externos.
+### 3.2. OA (Órdenes de Atención)
+- **Selectores:** `//table[@id='oa-table']//tr`
+- **Mapeo Forense:**
+    - `td[3]` -> **Fecha de la Orden**.
+    - `td[10]` -> **Código Prestación (FONASA)**. Es la clave primaria para las alertas Rojas (Habilitantes).
+    - `td[14]` -> **Estado**. Si dice "Anulada", se ignora.
 
----
-
-# 3. LÓGICA DE NEGOCIO Y EXCEL (`mission_config.json`)
-
-El archivo JSON define cómo se interpreta lo extraído.
-
-## 3.1. Habilitantes (Alertas Rojas)
-*   **Definición:** `config["habilitantes"]`. Lista de códigos (ej: `["5002101"]`).
-*   **Lógica:** Si `OA_CODIGO` (td[10]) == `5002101` ->
-    1.  Crear Columna en Excel con nombre del examen.
-    2.  Pintar celda ROJA.
-    3.  Escribir FECHA del examen.
-
-## 3.2. Excluyentes (Falsos Positivos)
-*   **Definición:** `config["excluyentes"]`.
-*   **Lógica:** Si encuentra este código, el paciente se descarta o se marca en AZUL CLARO. Intencionado para diferenciar patologías similares (ej: Diabetes 1 vs 2).
-
-## 3.3. Índices de Entrada
-Si el Excel de entrada (la Misión) cambia, el robot no sabrá cuál celda es el RUT.
-*   `"rut": 1` -> Columna B.
-*   `"nombre": 3` -> Columna D.
-*   **Fix:** Si Sistemas cambia el reporte, editar estos números en el JSON.
+### 3.3. SIC (Interconsultas)
+- **Mapeo:** Rastrea derivaciones. Si existe una SIC vigente, el sistema marca el **Apto SE** (Seguimiento Especialista).
 
 ---
 
-# 4. GUÍA DE REPARACIÓN DE SELECTORES
+# 4. PROTOCOLO "CSS DRIFT" (REPARACIÓN PASO A PASO)
 
-**Síntoma:** "El Excel dice 'Sin Info' en Fecha IPD, pero en la web SÍ sale fecha".
-**Causa:** SIGGES agregó una columna nueva a la izquierda, desplazando todo.
+Si el reporte dice "Sin Información" pero el dato está en SIGGES, la web cambió. Siga este protocolo:
 
-**Protocolo de Reparación:**
-1.  Abrir SIGGES en Chrome/Edge.
-2.  Ir a la tabla IPD.
-3.  Click derecho en la Fecha -> "Inspeccionar".
-4.  Contar los `<td>` anteriores. ¿Son 3 o 4?
-5.  Si ahora es el 4º, ir a `App/src/core/locators.py`.
-6.  Buscar `IPD_FECHA`.
-7.  Cambiar `.../td[3]` por `.../td[4]`.
-8.  Guardar. **No requiere recompilar.**
+1.  **Captura del DOM:** En Edge, presione `F12` y vaya a la pestaña "Elements".
+2.  **Localización:** Busque el dato (ej. una fecha).
+3.  **Conteo de Columnas:**
+    - El primer `<td>` es `[1]`.
+    - Cuente cuántos hay hasta llegar a su dato.
+4.  **Actualización:** Vaya a `locators.py`. 
+    - Busque la constante (ej. `OA_FECHA`).
+    - Cambie el número final del XPath (ej. de `td[3]` a `td[4]`).
+5.  **Verificación:** Ejecute un solo paciente para validar el cambio.
 
 ---
-**Mapa actualizado a la estructura HTML vigente a Febrero 2026.**
+
+# 5. GENERACIÓN DEL EXCEL (DATA PAINTING)
+
+- **Hoja Principal:** Resume la situación clínica. Colores: Rojo (Examen reciente encontrado), Verde (Proceso OK), Púrpura (Caso en Contra).
+- **Hoja Carga Masiva (CYAN):** Formato estricto para subida a sistemas externos.
+    - `Especialidad` y `Familia` se inyectan dinámicamente desde el `mission_config.json`.
+
+---
+
+**© 2026 Nozhgess Data Logistics**
+*"La verdad clínica reside en la precisión del selector."*

@@ -1,91 +1,91 @@
-# 🛠️ DOCUMENTACIÓN BACKEND PROFUNDA: EL SISTEMA NERVIOSO
-
-> **Propósito:** Manual de reparación avanzada para ingenieros.
-> **Alcance:** Lógica de `Driver.py`, `core.py` y `Iniciador Web.ps1`.
-> **Nivel Técnico:** Hardcore (Requiere saber Python/Selenium).
+# 🛠️ DEEP DIVE BACKEND: EL SISTEMA NERVIOSO v3.5.0
+> **Audiencia:** Desarrolladores de Sistemas, Expertos en Automatización y Soporte Nivel 3.
+> **Propósito:** Documentación forense para la reparación, expansión y auditoría del motor "Nuclear".
 
 ---
 
-# 1. ARQUITECTURA DE INYECCIÓN (EL "HOOK")
+# 1. ANATOMÍA DEL "HOOK" (SESSION PARASITISM)
 
-A diferencia de los bots tradicionales que abren su propio navegador, Nozhgess **parasita** una instancia de Edge existente. Esto evita bloqueos de seguridad y permite usar las cookies de sesión del usuario.
+Nozhgess no es un bot que abre un navegador limpio; es un **parásito de sesión**. Se conecta a una instancia de Edge ya abierta y autenticada.
 
-## 1.1. El Protocolo de Debugging (CDP)
-El archivo `Iniciador/Iniciador Web.ps1` lanza Edge con flags muy específicos:
-```powershell
-Start-Process msedge.exe "https://www.sigges.cl --remote-debugging-port=9222 --user-data-dir=C:\Selenium\EdgeProfile"
+### 1.1. El Protocolo: Chrome DevTools Protocol (CDP)
+El motor utiliza el puerto `9222` para enviar comandos JSON directamente al motor Chromium de Edge.
+- **Control Remoto:** Esto permite que el robot "vea" lo que el usuario ve, heredando cookies, tokens de seguridad y certificados NTML/Windows.
+
+### 1.2. El Puente PowerShell (`Iniciador Web.ps1`)
+Este script es el "Gatillo". Sin él, Nozhgess es un cuerpo sin ojos.
+- **Flags Críticos:**
+  - `--remote-debugging-port=9222`: Abre el socket de escucha.
+  - `--user-data-dir="C:\Selenium\EdgeProfile"`: Aísla la sesión para evitar corromper el historial personal del usuario.
+  - `--start-maximized`: Asegura que los elementos HTML no se oculten por responsividad (Media Queries).
+
+---
+
+# 2. ORQUESTACIÓN DE `Conexiones.py`
+
+Este archivo es el **Cerebro Operativo**. No solo navega, sino que toma decisiones en milisegundos.
+
+### 2.1. El Pipeline de Extracción
+Cada paciente sigue un ciclo de lectura de sub-tablas:
+
+1.  **IPD (Informes Diagnósticos):**
+    - Busca la confirmación del diagnóstico.
+    - *Lógica:* Si la columna "Confirmado" es "SÍ", captura la fecha para el **Apto RE**.
+2.  **OA (Órdenes de Atención):**
+    - Rastrea todos los exámenes y procedimientos.
+    - *Lógica:* Compara el código de la web contra la lista `habilitantes` del JSON.
+3.  **APS (Atención Primaria):**
+    - Verifica si hay atenciones en consultorios.
+4.  **SIC (Interconsultas):**
+    - Detecta si el paciente fue derivado a un especialista (Vital para el **Apto SE**).
+
+### 2.2. Manejo de la "Verdad Clínica"
+- **Normalización de Nombres:** Limpia espacios dobles y caracteres invisibles que SIGGES a veces inserta.
+- **Detección de Casos Activos:** `seleccionar_caso_inteligente` utiliza un algoritmo de puntaje (EsActivo * 10^10 + Timestamp) para asegurar que siempre trabajamos sobre el caso que el hospital tiene abierto hoy.
+
+---
+
+# 3. GESTIÓN DE FALLOS Y FAIL-SAFE
+
+### 3.1. Detección Fatal (`es_conexion_fatal`)
+Capture de excepciones binarias. Si el sistema detecta:
+- `Connection refused`: El usuario cerró Edge.
+- `No such window`: Se cerró la pestaña de SIGGES.
+- `Session not created`: El Driver (`msedgedriver.exe`) es incompatible con la versión de Edge.
+
+### 3.2. Lógica de Reintentos (Anti-Lag)
+- **Wait For Spinner:** El motor monitorea el elemento `div.loading-spinner`. Si aparece, el robot "presiona el freno" automáticamente.
+- **Reintento de Click:** Si un click falla por un overlay (ej. un tooltip que se cruzó), el sistema intenta un **Click de JavaScript de Fuerza Bruta** (`arguments[0].click()`).
+
+---
+
+# 4. MAPA DE DEPENDENCIAS Y CRITICAL IMPORTS
+
+Si planea refactorizar, respete este árbol de dependencias para evitar errores de importación circular:
+
+```text
+Nozhgess.pyw (Root)
+└── App.src.gui.app (Container)
+    └── App.src.gui.views.runner (Threading Controller)
+        └── Utilidades.Mezclador.Conexiones (Business Logic)
+            ├── App.src.core.Driver (Selenium Engine)
+            ├── App.src.core.Analisis_Misiones (Validation Engine)
+            └── App.src.core.Formatos (Data Sanitization)
 ```
-*   `--remote-debugging-port=9222`: Abre el puerto JSON de Chrome DevTools.
-*   `--user-data-dir=...`: Crea un perfil efímero para no corromper el perfil personal del usuario.
-
-## 1.2. El Handshake en Python (`Driver.py`)
-Cuando el usuario da click a "Ejecutar", `Driver.py` hace esto:
-```python
-opts = webdriver.EdgeOptions()
-opts.debugger_address = "localhost:9222"  # Se conecta al puerto abierto por el PS1
-driver = webdriver.Edge(..., options=opts)
-```
-**Punto Crítico:** Si el PS1 no corrió, o si otro proceso ocupó el puerto 9222, esto lanza `WebDriverException: chrome not reachable`.
 
 ---
 
-# 2. EL NÚCLEO LÓGICO (`src/core/modules/core.py`)
+# 5. TROUBLESHOOTING DE BAJO NIVEL (N3)
 
-Aquí yace la inteligencia cinética del robot. No es solo "buscar y clickear".
+### 🚨 "Stale Element Reference Exception"
+- **Diagnóstico:** El robot tiene la dirección de un botón, pero la página se refrescó y esa dirección ya no sirve.
+- **Solución:** El motor `core.py` implementa `_invalidar_cache_estado()`. Verifique que se llame antes de cada interacción importante en `Conexiones.py`.
 
-## 2.1. La Primitiva `_click` (El Click Nuclear)
-Esta función es la garantía de estabilidad. Implementa una estrategia de "Tierra Quemada" para asegurar la acción.
-
-**Algoritmo Exacto:**
-1.  **Invalidar Caché:** `self._invalidar_cache_estado()`. Evita usar referencias ID viejas (StaleElement).
-2.  **TIER SSS+ Sleep:** `time.sleep(1.0)`. **Dato Real:** Esta línea fue solicitada explícitamente para frenar al robot en máquinas lentas. No se negocia.
-3.  **Wait Smart:** `self.waits.wait_for_spinner("default")`. Monitoriza `dialog.loading`.
-4.  **Búsqueda Resiliente:** Usa `SelectorEngine` con fallbacks (XPath -> ID -> CSS).
-5.  **Scroll Táctico:** Ejecuta JS `arguments[0].scrollIntoView({block:'center'});`. Vital para elementos ocultos por headers pegajosos.
-6.  **Disparo:**
-    *   Intenta `.click()` nativo.
-    *   Si falla, usa JS `arguments[0].click()`. (Bypassea overlays transparentes).
-7.  **Post-Wait:** Vuelve a chequear spinners.
-
-## 2.2. La Lógica de Conexión Fatal (`es_conexion_fatal`)
-El robot monitorea cada excepción contra una lista negra de strings.
-Si el error contiene:
-*   `"no such window"`
-*   `"target window already closed"`
-*   `"connection refused"`
-*   `"session not created"`
-...El sistema declara **MUERTE CEREBRAL**, cierra el hilo y pide reinicio manual. No intenta reconectar automáticamente para evitar bucles infinitos "zombies".
+### 🚨 El Excel se genera pero las fechas salen como números
+- **Diagnóstico:** Formato de celda de Excel inválido.
+- **Solución:** `Excel_Revision.py` debe aplicar la propiedad `.number_format = 'dd/mm/yyyy'` explícitamente a las columnas clínicas.
 
 ---
 
-# 3. RUTAS CRÍTICAS Y CONFIGURACIÓN
-
-## 3.1. `mission_config.json` (El Cerebro)
-Este archivo en `App/config/` dicta el comportamiento.
-*   **`MAX_REINTENTOS_POR_PACIENTE`: 5**. Si falla 5 veces (ej: timeout buscando RUT), salta al siguiente.
-*   **`indices`:** `{"rut": 1, "nombre": 3, "fecha": 5}`. **Crucial:** Si el Excel de entrada cambia de formato (ej: agregan una columna A nueva), todo se rompe. Aquí se ajusta.
-*   **`habilitantes`:** Lista de códigos (ej: `["5002101"]`). Si `Conexiones.py` encuentra este código en la tabla PO de SIGGES, marca la columna en ROJO en el Excel de salida.
-
-## 3.2. `locators.py` (La Biblia de Direcciones)
-Centraliza todos los XPaths.
-*   Estructura jerárquica: `LOCATORS["login"]["LOGIN_BTN_INGRESAR"]`.
-*   Soporta listas de fallback. El driver probará el primero, si falla, el segundo.
-
----
-
-# 4. SOLUCIÓN DE PROBLEMAS DE BACKEND (DEEP REPAIR)
-
-## Caso 1: "El robot scrollea pero no clickea"
-*   **Patología:** Overlay invisible (ej: un aviso de "Sistema en Mantención" transparente).
-*   **Cura:** El fallback de JS en `_click` debería manejarlo. Si no, verificar si hay un `iframe` nuevo.
-
-## Caso 2: "TimeoutException en _wait_smart"
-*   **Patología:** El Spinner de carga (`dialog.loading`) se quedó pegado aunque la página cargó.
-*   **Cura:** Ajustar `ESPERAS["default"]["wait"]` en `App/src/utils/Esperas.py`. (Actualmente 20s). O añadir lógica para ignorar spinner si la URL cambió.
-
-## Caso 3: "ImportError: No module named 'src'"
-*   **Patología:** Ejecución incorrecta.
-*   **Cura:** Python no encuentra la raíz. Ejecutar siempre desde `Nozhgess.pyw` que configura el `sys.path` antes de importar nada.
-
----
-**Este documento desnuda la lógica interna para una mantención precisa.**
+**© 2026 Nozhgess Engineering Team**
+*"La robustez es el único estándar aceptable."*

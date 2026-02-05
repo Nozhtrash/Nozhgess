@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-02-05
+### 🛡️ Forensic Logic & Robustness
+- **"Caso en Contra" Full Fix:** Resolved a critical bug where the "En Contra" block was ignored due to missing column initialization.
+- **Auto-Initialization:** The results dictionary now pre-fills all columns from the mission config, preventing silent failures and guaranteeing Excel consistency.
+- **Smart Selection Upgrade:** Improved keywords matching and "Active Case" prioritization in `seleccionar_caso_inteligente`.
+
+### 🔍 Search & Performance
+- **Optimized Log Search:** Replaced real-time searching with an explicit trigger (Enter/Button) to eliminate application lag and crashes.
+- **Dual Highlighting:** Implemented a new tagging system in the console (Yellow for all matches, Orange for the current focus).
+- **Match Navigation:** Added a limit of 1000 highlights to ensure UI responsiveness.
+
+### 📚 Documentation (The "Great Expansion")
+- **Manual Overhaul:** Rewrote all specialized manuals to reflect v3.4.0 capabilities.
+- **New Guides:** Added `GUIA_CONFIGURACION_MISIONES.md` (JSON reference) and `ESTANDAR_DE_CODIGO.md` (Maintenance philosophy).
+
 ## [3.3.0] - 2026-02-04
 ### 🛡️ Audit & Compliance (Critical)
 - **Strict Limit Enforcement:** Fixed a core logic flaw where global defaults overrode mission limits. `Analisis_Misiones.py` now strictly obeys `max_habilitantes`, `max_objetivos`, etc., from `mission_config.json`.

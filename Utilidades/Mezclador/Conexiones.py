@@ -516,23 +516,31 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
         "Familia", "Especialidad", "Fallecido",
         "Caso", "Estado", "Apertura", "¿Cerrado?"
     ]
+
+    # --- REORDENAMIENTO SOLICITADO: Habilitantes y Excluyentes PRIMERO ---
     
+    # Habilitantes (controlado por toggle global)
+    habs_cfg = _parse_code_list(m.get("habilitantes", []))
+    if REVISAR_HABILITANTES and habs_cfg:
+        cols += ["C Hab", "F Hab", "Hab Vi"]
+
+    # Excluyentes (controlado por toggle global)
+    # Al lado de habilitantes como solicitado
+    excl_cfg = _parse_code_list(m.get("excluyentes", []))
+    if REVISAR_EXCLUYENTES and excl_cfg:
+        cols += ["C Excluyente", "F Excluyente"]
+
     # "Apto" columns only if some clinical review/intelligence is involved
     show_apto = (
         req_ipd or req_oa or req_aps or req_sic or 
         req_eleccion or 
-        bool(m.get("inteligencia_activa", True)) # Default True, requires user opt-out if desired
+        bool(m.get("inteligencia_activa", True))
     )
-    # User requested audit: "Apto Caso" appearing even if functions not active.
-    # Assuming "functions" means clinical checks. 
-    # If NO clinical checks, Apto is useless.
-    # We'll use a slightly stricter check: if no read/check is enabled, no Apto.
     show_apto_strict = req_ipd or req_oa or req_aps or req_sic or req_eleccion
 
     if show_apto_strict:
         cols += ["Apto SE", "Apto RE", "Apto Caso"]
         if req_eleccion:
-            # Insert carefully
             try:
                 idx_se = cols.index("Apto SE")
                 cols.insert(idx_se, "Apto Elección")
@@ -547,17 +555,7 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
         cols.append("Código Año")
     # Periodicidad eliminada del Excel según solicitud del usuario
 
-    # Habilitantes (controlado por toggle global)
-    habs_cfg = _parse_code_list(m.get("habilitantes", []))
-    if REVISAR_HABILITANTES and habs_cfg:
-        cols += ["C Hab", "F Hab", "Hab Vi"]
-
-    # Excluyentes (controlado por toggle global)
-    excl_cfg = _parse_code_list(m.get("excluyentes", []))
-    if REVISAR_EXCLUYENTES and excl_cfg:
-        cols += ["C Excluyente", "F Excluyente"]
-
-    # Tablas clínicas
+    # (Tablas clínicas siguen acá abajo...)
     if req_ipd:
         cols += ["Fecha IPD", "Estado IPD", "Diagnóstico IPD"]
     if req_oa:
@@ -575,7 +573,6 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
         cols.append("Observación Folio")
         
         # Folio VIH: solo si está activado Y revisamos OA
-        # Usamos False por defecto para que sea estrictamente opt-in por misión
         if m.get("folio_vih", False):
             cols.append("Folio VIH")
 
