@@ -1,8 +1,9 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Cáncer Cervicouterino Nuevo",
+      "nombre": "Cáncer Cervicouterino",
       "keywords": [
+        "Cáncer Cervicouterino",
         "Cáncer Cervicouterino Segmento"
       ],
       "objetivos": [],
@@ -10,33 +11,27 @@
         "0801001"
       ],
       "excluyentes": [
-        "0801101"
+        ""
       ],
       "familia": "3",
-      "especialidad": "13-04-02\n",
+      "especialidad": "13-04-02",
       "frecuencia": "Mensual",
-      "edad_min": 25,
-      "edad_max": 65,
-      "NOMBRE_DE_LA_MISION": "Tamizajes",
-      "RUTA_ARCHIVO_ENTRADA": "C:/Users/usuariohgf/OneDrive/Documentos/Tamizajes Enero 2026 (Hasta 14-01).xlsx",
-      "RUTA_CARPETA_SALIDA": "C:/Users/usuariohgf/OneDrive/Documentos",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tamizajes.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revision Tamizajes",
-      "keywords_contra": [
-        "Invasor"
-      ],
-      "frecuencia_cantidad": 1,
+      "edad_min": null,
+      "edad_max": null,
       "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
       "vigencia_dias": 180,
       "max_objetivos": 1,
       "max_habilitantes": 1,
       "max_excluyentes": 1,
+      "max_ipd": 1,
       "max_oa": 1,
+      "max_aps": 1,
       "max_sic": 1,
       "require_ipd": true,
       "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
+      "require_aps": false,
+      "require_sic": false,
       "show_futures": true,
       "requiere_ipd": true,
       "requiere_aps": true,
@@ -44,15 +39,13 @@
       "codigos_folio": [],
       "active_year_codes": false,
       "indices": {
-        "rut": 0,
+        "rut": 1,
         "nombre": 2,
-        "fecha": 6
+        "fecha": 10
       },
       "anios_codigo": [],
       "folio_vih": false,
       "folio_vih_codigos": [],
-      "max_ipd": 1,
-      "max_aps": 1,
       "frecuencias": [
         {
           "code": "LEGACY",
@@ -61,7 +54,10 @@
           "periodicity": "Mensual"
         }
       ],
-      "active_frequencies": 0
+      "keywords_contra": [],
+      "active_frequencies": 0,
+      "ruta_entrada": "",
+      "ruta_salida": ""
     }
   ]
 }

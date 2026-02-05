@@ -1,20 +1,21 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Artritis Reumatoide",
+      "nombre": "Asma Menores",
       "keywords": [
-        "artritis reumatoidea"
+        "asma bronquial"
       ],
-      "objetivos": [
-        "0101113"
+      "objetivos": [],
+      "habilitantes": [
+        "3901002",
+        "3901004"
       ],
-      "habilitantes": [],
       "excluyentes": [],
-      "familia": "52",
-      "especialidad": "07-110-2",
+      "familia": "39",
+      "especialidad": "13-13-01",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Asma Menores.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "periodicidad": "Mensual",
       "require_ipd": true,
@@ -29,12 +30,11 @@
       "active_year_codes": false,
       "indices": {
         "rut": "1",
-        "nombre": "2",
-        "fecha": "10"
+        "nombre": "3",
+        "fecha": "5"
       },
       "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "edad_min": 15,
+      "edad_max": 15,
       "vigencia_dias": 180,
       "max_objetivos": 1,
       "max_habilitantes": 1,
@@ -53,6 +53,7 @@
           "periodicity": "Mensual"
         }
       ],
+      "frecuencia_cantidad": 1,
       "active_frequencies": 0
     }
   ]

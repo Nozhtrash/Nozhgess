@@ -1,0 +1,65 @@
+{
+  "MISSIONS": [
+    {
+      "nombre": "Trastorno Bipolar",
+      "keywords": [
+        "bipolar",
+        "bipolaridad",
+        "trastorno bipolar"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "3103104",
+        "3103004"
+      ],
+      "excluyentes": [
+        ""
+      ],
+      "familia": "75",
+      "especialidad": "13-13-01",
+      "frecuencia": "Mensual",
+      "edad_min": 15,
+      "edad_max": null,
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": false,
+      "require_sic": false,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": 1,
+        "nombre": 2,
+        "fecha": 10
+      },
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "frecuencias": [
+        {
+          "code": "LEGACY",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mensual"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 0,
+      "ruta_entrada": "",
+      "ruta_salida": ""
+    }
+  ]
+}

@@ -33,6 +33,7 @@ Sub TransferirFAPDesdeMatíasACargaMasivaA()
     listaPrestaciones.Add "1703014N", "2274"
     listaPrestaciones.Add "1703017", "2271"
     listaPrestaciones.Add "1703025", "2262"
+    listaPrestaciones.Add "1703056", "2347"
     listaPrestaciones.Add "1703107", "1740"
     listaPrestaciones.Add "1703117", "2272"
     listaPrestaciones.Add "1703163N", "2247"

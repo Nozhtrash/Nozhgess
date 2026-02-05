@@ -1,22 +1,26 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Artritis Reumatoide",
+      "nombre": "Enfermedad Renal Crónica Nomina",
       "keywords": [
-        "artritis reumatoidea"
+        "enfermedad renal",
+        "renal",
+        "renal cronica"
       ],
       "objetivos": [
-        "0101113"
+        "2506001"
       ],
-      "habilitantes": [],
+      "habilitantes": [
+        "2506002"
+      ],
       "excluyentes": [],
-      "familia": "52",
-      "especialidad": "07-110-2",
+      "familia": "1",
+      "especialidad": "07-108-2",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Nefrología (165) - Enero.xlsx",
       "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
       "keywords_contra": [],
-      "periodicidad": "Mensual",
+      "periodicidad": "Cada Vez",
       "require_ipd": true,
       "require_oa": true,
       "require_aps": true,
@@ -26,16 +30,27 @@
       "requiere_aps": true,
       "filtro_folio_activo": false,
       "codigos_folio": [],
-      "active_year_codes": false,
+      "active_year_codes": true,
       "indices": {
         "rut": "1",
-        "nombre": "2",
+        "nombre": "3",
         "fecha": "10"
       },
-      "anios_codigo": [],
+      "anios_codigo": [
+        {
+          "code": "2506001",
+          "freq_type": "Año",
+          "freq_qty": 1,
+          "periodicity": "Anual"
+        },
+        {
+          "code": "2506002",
+          "freq_type": "Año",
+          "freq_qty": 1,
+          "periodicity": "Anual"
+        }
+      ],
       "frecuencia_cantidad": 1,
-      "edad_min": 15,
-      "vigencia_dias": 180,
       "max_objetivos": 1,
       "max_habilitantes": 1,
       "max_excluyentes": 1,
@@ -50,9 +65,10 @@
           "code": "LEGACY",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
+          "periodicity": "Cada Vez"
         }
       ],
+      "vigencia_dias": 180,
       "active_frequencies": 0
     }
   ]

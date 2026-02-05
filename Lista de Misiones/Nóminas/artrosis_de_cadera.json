@@ -1,22 +1,33 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Artritis Reumatoide",
+      "nombre": "Artrosis de Cadera",
       "keywords": [
-        "artritis reumatoidea"
+        "ARTROSIS DE CADERA Y/O RODILLA LEVE O MODERADA",
+        "rodilla"
       ],
-      "objetivos": [
-        "0101113"
+      "objetivos": [],
+      "habilitantes": [
+        "010111"
       ],
-      "habilitantes": [],
       "excluyentes": [],
-      "familia": "52",
-      "especialidad": "07-110-2",
+      "familia": "41",
+      "especialidad": "07-700-2",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
+      "edad_min": 55,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
       "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
       "keywords_contra": [],
-      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "periodicidad": "Cada Vez",
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
       "require_ipd": true,
       "require_oa": true,
       "require_aps": true,
@@ -29,20 +40,10 @@
       "active_year_codes": false,
       "indices": {
         "rut": "1",
-        "nombre": "2",
+        "nombre": "3",
         "fecha": "10"
       },
       "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "edad_min": 15,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
       "folio_vih": false,
       "folio_vih_codigos": [],
       "frecuencias": [
@@ -50,7 +51,7 @@
           "code": "LEGACY",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
+          "periodicity": "Cada Vez"
         }
       ],
       "active_frequencies": 0

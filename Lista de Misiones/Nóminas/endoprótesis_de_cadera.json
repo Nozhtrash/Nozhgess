@@ -1,22 +1,31 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Artritis Reumatoide",
+      "nombre": "Endoprótesis de Cadera",
       "keywords": [
-        "artritis reumatoidea"
+        "endoprótesis",
+        "endoprotesis"
       ],
-      "objetivos": [
-        "0101113"
+      "objetivos": [],
+      "habilitantes": [
+        "0101111"
       ],
-      "habilitantes": [],
       "excluyentes": [],
-      "familia": "52",
-      "especialidad": "07-110-2",
-      "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
+      "familia": "12",
+      "especialidad": "07-700-2",
+      "frecuencia": "Año",
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
       "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
       "keywords_contra": [],
-      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 2,
+      "periodicidad": "Tratamiento Completo",
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
       "require_ipd": true,
       "require_oa": true,
       "require_aps": true,
@@ -29,28 +38,19 @@
       "active_year_codes": false,
       "indices": {
         "rut": "1",
-        "nombre": "2",
+        "nombre": "3",
         "fecha": "10"
       },
       "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "edad_min": 15,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
       "folio_vih": false,
       "folio_vih_codigos": [],
+      "max_ipd": 1,
       "frecuencias": [
         {
           "code": "LEGACY",
-          "freq_type": "Mes",
-          "freq_qty": 1,
-          "periodicity": "Mensual"
+          "freq_type": "Año",
+          "freq_qty": 2,
+          "periodicity": "Tratamiento Completo"
         }
       ],
       "active_frequencies": 0

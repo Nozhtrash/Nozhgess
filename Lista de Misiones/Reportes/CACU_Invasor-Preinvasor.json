@@ -47,7 +47,18 @@
       "max_aps": 1,
       "max_sic": 1,
       "folio_vih": false,
-      "folio_vih_codigos": []
+      "folio_vih_codigos": [],
+      "edad_min": 0,
+      "edad_max": 0,
+      "frecuencias": [
+        {
+          "code": "LEGACY",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mensual"
+        }
+      ],
+      "active_frequencies": 0
     }
   ]
 }

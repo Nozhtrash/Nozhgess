@@ -32,9 +32,9 @@
       "codigos_folio": [],
       "active_year_codes": false,
       "indices": {
-        "rut": 1,
-        "nombre": 3,
-        "fecha": 5
+        "rut": "1",
+        "nombre": "3",
+        "fecha": "5"
       },
       "anios_codigo": [],
       "edad_min": 15,
@@ -46,7 +46,16 @@
       "max_aps": 1,
       "max_sic": 1,
       "folio_vih": false,
-      "folio_vih_codigos": []
+      "folio_vih_codigos": [],
+      "frecuencias": [
+        {
+          "code": "LEGACY",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Cada Vez"
+        }
+      ],
+      "active_frequencies": 0
     }
   ]
 }

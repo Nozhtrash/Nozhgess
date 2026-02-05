@@ -17,7 +17,7 @@
       "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Asma Infantil.xlsx",
       "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
-      "periodicidad": "",
+      "periodicidad": "Mensual",
       "require_ipd": true,
       "require_oa": true,
       "require_aps": true,
@@ -44,7 +44,18 @@
       "max_aps": 1,
       "max_sic": 1,
       "folio_vih": false,
-      "folio_vih_codigos": []
+      "folio_vih_codigos": [],
+      "frecuencia_cantidad": 1,
+      "edad_min": 0,
+      "frecuencias": [
+        {
+          "code": "LEGACY",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mensual"
+        }
+      ],
+      "active_frequencies": 0
     }
   ]
 }
