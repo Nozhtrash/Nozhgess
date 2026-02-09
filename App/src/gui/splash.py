@@ -184,14 +184,15 @@ class SplashScreen(ctk.CTkToplevel):
         """
         if tasks is None:
             tasks = [
-                ("Cargando tema...", lambda: time.sleep(0.2)),
+                ("Cargando tema...", lambda: None),
                 # Audio deshabilitado: skip step
                 ("Audio deshabilitado", lambda: None),
-                ("Preparando interfaz...", lambda: time.sleep(0.3)),
-                ("Cargando componentes...", lambda: time.sleep(0.2)),
-                ("Verificando configuración...", lambda: time.sleep(0.2)),
-                ("¡Listo!", lambda: time.sleep(0.1)),
+                ("Preparando interfaz...", lambda: None),
+                ("Cargando componentes...", lambda: None),
+                ("Verificando configuración...", lambda: None),
+                ("¡Listo!", lambda: None),
             ]
+
         
         def _run():
             self.animate_logo()

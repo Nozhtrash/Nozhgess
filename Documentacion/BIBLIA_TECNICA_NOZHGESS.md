@@ -1,134 +1,104 @@
-# 📜 BIBLIA TÉCNICA NOZHGESS v3.5.0
-> **Versión:** 3.5.0 (Edición "Forensic II - Hyper-Detailed")
-> **Última Actualización:** 05/Feb/2026
-> **Filosofía:** "Si no está documentado, no es robusto. Cada línea de código debe tener un porqué evidenciable."
+# 📜 BIBLIA TÉCNICA NOZHGESS v3.5.1
+> **Versión:** 3.5.1 (Edición "Forensic III - Integrated Architecture")
+> **Última Actualización:** 08/Feb/2026
+> **Filosofía:** "Desacoplamiento total, integración centralizada. Auditoría en cada byte."
 
 ---
 
 # 📑 ÍNDICE TÉCNICO MAESTRO
 
-1.  [**Filosofía y Principios de Diseño**](#1-filosofía-y-principios-de-diseño)
-2.  [**Arquitectura de Sistemas (MVC-S Deep Dive)**](#2-arquitectura-de-sistemas-mvc-s-deep-dive)
-3.  [**El Motor Nuclear (Analysis Engine v3.5)**](#3-el-motor-nuclear-analysis-engine-v3-5)
-    *   3.1. Flujo de Decisión Clínica (Mermaid)
-    *   3.2. Lógica de "Caso en Contra" y Recursión Controlada
-    *   3.3. Validador de Frecuencias V2 (Algoritmos)
-4.  [**Concurrencia y Gestión de Hilos (Threading)**](#4-concurrencia-y-gestión-de-hilos-threading)
-    *   4.1. El Puente de Mensajería (Queue-Based IPC)
-    *   4.2. Prevención de Congelamiento (GUI Responsiveness)
-5.  [**Manual de Reparación de Emergencia (Nivel 3)**](#5-manual-de-reparación-de-emergencia-nivel-3)
+1.  [**Arquitectura de Sistemas (Integrated MVC-S)**](#1-arquitectura-de-sistemas-integrated-mvc-s)
+2.  [**El Orquestador Nuclear (`integrator.py`)**](#2-el-orquestador-nuclear-integratorpy)
+3.  [**Motor Especializado v3.5.1**](#3-motor-especializado-v351)
+    *   3.1. Session Parasitism (Deep Dive)
+    *   3.2. Lógica de "Caso en Contra" Recursiva
+4.  [**Optimización y Rendimiento**](#4-optimización-y-rendimiento)
+5.  [**Manual de Reparación Forense**](#5-manual-de-reparación-forense)
 
 ---
 
-# 1. FILOSOFÍA Y PRINCIPIOS DE DISEÑO
+# 1. ARQUITECTURA DE SISTEMAS (INTEGRATED MVC-S)
 
-Nozhgess no es un simple script; es un autómata clínico de alta precisión. Su diseño se basa en tres pilares:
-
-- **Robustez sobre Velocidad:** Preferimos tardar 10 minutos más que entregar un dato falso.
-- **Evidencia Tangible:** Cada celda del Excel debe poder rastrearse hasta una línea del log forense.
-- **Normalización Estricta:** El sistema autolimpia datos basura (espacios, caracteres extraños en RUTs, formatos de fecha inválidos).
-
----
-
-# 2. ARQUITECTURA DE SISTEMAS (MVC-S DEEP DIVE)
-
-El desacoplamiento es total. Si la web SIGGES cambia, solo debería tocarse el **Modelo** o el **Servicio**, nunca la **Vista**.
+Hemos evolucionado de un modelo monolítico a uno integrado por servicios. El **Integrador** actúa como el puente entre el frontend moderno y la lógica de scraping heredada (legacy).
 
 ```mermaid
-graph LR
-    subgraph "FRONTEND (VISTA)"
+graph TD
+    subgraph "NIVEL 1: VISTA (UI)"
         GUI[CustomTkinter App]
-        Runner[RunnerView]
+        Console[RunnerView / Terminal]
     end
     
-    subgraph "ORQUESTACIÓN (CONTROLADOR)"
-        Queue[log_queue]
-        WorkerThread[Worker Thread]
+    subgraph "NIVEL 2: ORQUESTACIÓN (CONTROLADOR)"
+        Integrator[integrator.py]
+        Queue[log_queue / IPC]
     end
     
-    subgraph "MOTOR (SERVICIO)"
-        Conexiones[Conexiones.py]
-        Driver[Driver.py]
+    subgraph "NIVEL 3: SERVICIOS Y LÓGICA"
+        Processor[Advanced Processor]
+        Monitor[Realtime Monitor]
+        Scraper[Driver.py / Conexiones.py]
     end
     
-    subgraph "DATOS (MODELO)"
+    subgraph "NIVEL 4: DATOS"
         JSON[mission_config.json]
+        Excel[Excel Engine / openpyxl]
     end
 
-    GUI --> Runner
-    Runner -->|Gatilla| WorkerThread
-    WorkerThread -->|Consume| JSON
-    WorkerThread -->|Instancia| Driver
-    WorkerThread -->|Ejecuta| Conexiones
-    Conexiones -->|Envía Logs| Queue
-    Queue -->|Actualiza| Runner
+    GUI --> Integrator
+    Integrator --> Processor
+    Integrator --> Scraper
+    Scraper --> Queue
+    Queue --> Console
+    Processor --> Monitor
 ```
 
 ---
 
-# 3. EL MOTOR NUCLEAR (ANALYSIS ENGINE v3.5)
+# 2. EL ORQUESTADOR NUCLEAR (`integrator.py`)
 
-## 3.1. Flujo de Decisión Clínica
-El motor sigue un árbol de decisión estricto para cada paciente:
-
-```mermaid
-flowchart TD
-    Start([Inicio Proceso Paciente]) --> Search[Búsqueda RUT en SIGGES]
-    Search --> Found{¿Encontrado?}
-    Found -- No --> LogError[Log: Paciente No Encontrado] --> End([Fin])
-    Found -- Sí --> GetCases[Escanear Mini-Tabla de Casos]
-    
-    GetCases --> ContraCheck{¿Tiene Caso en Contra?}
-    ContraCheck -- Sí --> ProcessContra[Procesar Caso Divergente]
-    ContraCheck -- No --> MainCase[Procesar Caso Principal]
-    
-    ProcessContra --> Merge[Unificar Datos Clínicos]
-    MainCase --> Merge
-    
-    Merge --> Analysis[Aplicar Reglas de Misión JSON]
-    Analysis --> Excel[Pintar Fila en Excel]
-    Excel --> End
-```
-
-## 3.2. Lógica de "Caso en Contra"
-Incorporado para detectar pacientes mal ingresados (ej. tipo 1 en nómina de tipo 2).
-- **Aislamiento:** El motor extrae los datos del caso divergente en un "sandbox" temporal.
-- **Priorización:** Si el caso en contra es el que tiene la data clínica vigente, el sistema lo indica en el Excel marcando "Apto Caso" con la causa encontrada.
-
-## 3.3. Validador de Frecuencias V2
-Ubicado en `Analisis_Misiones.py`.
-- **Cálculo de Meses:** Utiliza un diferencial Delta entre la Apertura del caso y el último examen registrado.
-- **Inyección por Edad:** Si el paciente cumple X años, el motor cambia automáticamente el código de búsqueda basándose en `anios_codigo`.
+El `EnhancedNozhgessProcessor` es el componente más crítico de la v3.5.1:
+- **Session Management:** Genera IDs de sesión únicos para cada corrida, permitiendo trazabilidad total de errores.
+- **Memory Optimization:** Implementa `performance_optimizer.process_excel_in_chunks` para manejar archivos de 50.000+ filas sin agotar la RAM.
+- **Real-time Metrics:** Publica métricas de validación (RUTs válidos, duplicados eliminados) mediante callbacks hacia la UI.
 
 ---
 
-# 4. CONCURRENCIA Y GESTIÓN DE HILOS (THREADING)
+# 3. MOTOR ESPECIALIZADO v3.5.1
 
-## 4.1. El Puente de Mensajería (Queue-Based IPC)
-Para evitar que la interfaz muera durante el scraping:
-- **`log_queue`**: Una cola thread-safe que recibe diccionarios `{"msg": "...", "lvl": "..."}`.
-- **`_drain_ui_queue`**: Función en el hilo principal que corre cada 100ms. Si hay mensajes en la cola, los renderiza en la consola.
+## 3.1. Session Parasitism
+Nozhgess no "abre" un navegador; se "adhiere" a uno existente.
+- **Protocolo:** Utiliza `Chrome DevTools Protocol (CDP)`.
+- **Ventaja:** Elude el 100% de los desafíos de autenticación multifactor (MFA) de SIGGES al heredar los tokens activos del proceso `msedge.exe`.
 
-## 4.2. Prevención de Congelamiento
-El motor Selenium (`Driver.py`) nunca hace llamadas bloqueantes en el hilo principal. Si hay excesiva demora en la red, el sistema dispara un `TimeoutException` que es capturado por el controlador para mantener la UI viva.
+## 3.2. Lógica de "Caso en Contra" Recursiva
+Cuando se detecta una patología divergente:
+1. El motor pausa la misión principal.
+2. Instancia un "Sandbox" de datos.
+3. El `DataParsingMixin` extrae los hitos del caso divergente (IPD, OA, SIC).
+4. El sistema compara fechas y prioriza la data más reciente para el dictamen final.
 
 ---
 
-# 5. MANUAL DE REPARACIÓN DE EMERGENCIA (NIVEL 3)
+# 4. OPTIMIZACIÓN Y RENDIMIENTO
 
-### 🚨 El robot se detiene sin mensaje de error
-1.  **Causa:** El hilo trabajador murió por una excepción no capturada (ej. nulo al parsear fecha).
-2.  **Reparación:** Ver `Logs/latest.log`. Si el error es `AttributeError: 'NoneType'`, revise `Formatos.py` y asegúrese de que las fechas tengan un fallback `datetime.min`.
+- **Threading Bridge:** Evita el bloqueo del hilo principal (GUI) mediante un puente asíncrono.
+- **RetryManager:** Implementa backoff exponencial para reintentos de red, reduciendo la probabilidad de baneo por parte del firewall de SIGGES.
+- **Age Validation V2:** Validación de rangos de edad (`edad_min`/`edad_max`) inyectada dinámicamente durante el procesamiento de filas.
 
-### 🚨 La consola de logs no se mueve (Autoscroll fallido)
-1.  **Causa:** El usuario movió la rueda del mouse hacia arriba. El sistema pausa el autoscroll para permitir lectura.
-2.  **Reparación:** Baje el scroll manualmente hasta el final y el autoscroll se reactivará automáticamente.
+---
 
-### 🚨 El Excel sale con columnas "fantasmas" (Viejas)
-1.  **Causa:** No se cerró el Excel previo o la caché de `Conexiones.py` no se limpió.
-2.  **Reparación:** Cierre todos los procesos `Excel.exe` en el Administrador de Tareas.
+# 5. MANUAL DE REPARACIÓN FORENSE
+
+### 🚨 El integrador dice "Sistema legacy no disponible"
+1.  **Causa:** El script no encuentra las carpetas `Z_Utilidades` o `App/src`.
+2.  **Solución:** Verificar que el script se ejecute desde la raíz del proyecto. El `sys.path.insert` debe apuntar correctamente al `app_root`.
+
+### 🚨 Error de memoria al procesar misiones masivas
+1.  **Causa:** Acumulación de DataFrames en el `consolidated_dfs`.
+2.  **Solución:** Habilitar `MISION_POR_ARCHIVO` en `Mision_Actual.py` para liberar memoria después de cada misión.
 
 ---
 
 **© 2026 Nozhgess Engineering Team**
 *"La precisión clínica es nuestra única garantía."*
+

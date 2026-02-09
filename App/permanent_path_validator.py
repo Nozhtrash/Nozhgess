@@ -9,11 +9,13 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
+from src.utils import logger_manager as logmgr
 
 class PermanentPathValidator:
     def __init__(self):
         self.config_path = Path(__file__).parent / "config" / "mission_config.json"
-        self.log_path = Path(__file__).parent / "logs" / "path_validation.log"
+        root_dir = Path(__file__).resolve().parent.parent
+        self.log_path = Path(logmgr.build_log_path("System", "TValidacion", "log", root_dir=str(root_dir), keep=5))
         self.ensure_log_directory()
     
     def ensure_log_directory(self):

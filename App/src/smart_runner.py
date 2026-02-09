@@ -38,8 +38,18 @@ except ImportError as e:
     EXISTING_SYSTEM_AVAILABLE = False
 
 import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Logging centralizado: usa logger_manager si está disponible; evita reconfigurar si ya hay handlers.
 logger = logging.getLogger("SmartRunner")
+if not logging.getLogger().handlers:
+    try:
+        from src.utils import logger_manager as logmgr
+        logmgr.setup_loggers(ruta_proyecto)
+        logging.getLogger().setLevel(logging.INFO)
+    except Exception:
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+else:
+    logging.getLogger().setLevel(logging.INFO)
 
 class SmartFileRunner:
     """Runner con detección inteligente de archivos"""

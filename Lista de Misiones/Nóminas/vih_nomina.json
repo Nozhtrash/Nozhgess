@@ -1,0 +1,85 @@
+{
+  "MISSIONS": [
+    {
+      "nombre": "VIH Nomina",
+      "keywords": [
+        "vih",
+        "sida",
+        "vih/sida",
+        "sida ."
+      ],
+      "objetivos": [
+        "3107215",
+        "3107314",
+        "2506019"
+      ],
+      "habilitantes": [
+        "2508015",
+        "2505839",
+        "2505872",
+        "2505876",
+        "2505877"
+      ],
+      "excluyentes": [
+        "2504092"
+      ],
+      "familia": "18",
+      "especialidad": "07-118-2",
+      "frecuencia": "Mensual",
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": true,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": true,
+      "folio_vih_codigos": [
+        "2504092"
+      ],
+      "frecuencias": [
+        {
+          "code": "3107215",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        },
+        {
+          "code": "3107314",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        },
+        {
+          "code": "2506019",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Infectología (236) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
+    }
+  ]
+}

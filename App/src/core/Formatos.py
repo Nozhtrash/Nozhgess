@@ -48,7 +48,7 @@ def _norm(s: str) -> str:
     s = s.lower().strip()
     s = re.sub(r"[^a-z0-9\sáéíóúüñ]", " ", s)
     s = re.sub(r"[\s]+", " ", s)
-    return ""
+    return s
 
 
 def has_keyword(texto: str, kws: List[str]) -> bool:
@@ -80,14 +80,16 @@ def solo_fecha(x: Any) -> str:
     - datetime objects
     - Strings: dd/mm/YYYY, YYYY-mm-dd, YYYY/mm/dd
     
+    - Strings: dd/mm/YYYY, YYYY-mm-dd, YYYY/mm/dd, Excel serial
+    
     Args:
-        x: Fecha a formatear
+        x: Valor a normalizar a fecha.
         
     Returns:
-        Fecha en formato dd/mm/YYYY, o string vacío si inválido
+        String de fecha en formato dd-mm-YYYY o cadena vacía si inválido.
     """
     if isinstance(x, datetime):
-        return x.strftime("%d/%m/%Y")
+        return x.strftime("%d-%m-%Y")
 
     s = str(x or "").strip()
     if not s:
@@ -99,53 +101,26 @@ def solo_fecha(x: Any) -> str:
             if days > 20000:  # umbral para evitar tratar IDs como fecha
                 base = datetime(1899, 12, 30)
                 dt = base + timedelta(days=days)
-                return dt.strftime("%d/%m/%Y")
+                return dt.strftime("%d-%m-%Y")
         except Exception:
             pass
 
-    # Quitar hora si existe
-    s = s.split(" ")[0].replace("-", "/")
+    # Quitar hora si existe y normalizar a guiones
+    s = s.split(" ")[0].replace("/", "-")
 
-    # Formato YYYY/MM/DD
-    m = re.match(r"^(\d{4})/(\d{1,2})/(\d{1,2})$", s)
+    # Formato YYYY-MM-DD
+    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", s)
     if m:
         y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
-        return f"{d:02d}/{mo:02d}/{y}"
+        return f"{d:02d}-{mo:02d}-{y}"
 
-    # Formato DD/MM/YYYY
-    m2 = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", s)
+    # Formato DD-MM-YYYY
+    m2 = re.match(r"^(\d{1,2})-(\d{1,2})-(\d{4})$", s)
     if m2:
         d, mo, y = int(m2.group(1)), int(m2.group(2)), m2.group(3)
-        return f"{d:02d}/{mo:02d}/{y}"
+        return f"{d:02d}-{mo:02d}-{y}"
 
     return s
-
-
-def dparse(s: str) -> Optional[datetime]:
-    """
-    Parsea fecha en formato dd/mm/YYYY a datetime.
-    
-    Args:
-        s: String de fecha
-        
-    Returns:
-        datetime object o None si inválido
-    """
-    if not s:
-        return None
-    if isinstance(s, (datetime, date)):
-        if isinstance(s, datetime): return s
-        # Convert date to datetime (midnight)
-        return datetime(s.year, s.month, s.day)
-        
-    s_clean = str(s).strip().split(" ")[0]
-    formats = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"]
-    for fmt in formats:
-        try:
-            return datetime.strptime(s_clean, fmt)
-        except ValueError:
-            continue
-    return None
 
 
 def same_month(a: datetime, b: datetime) -> bool:
@@ -169,6 +144,44 @@ def en_vigencia(fecha_obj: Optional[datetime], dt: Optional[datetime],
     if not (fecha_obj and dt):
         return False
     return 0 <= (fecha_obj - dt).days <= ventana_dias
+
+
+def dparse(x: Any) -> Optional[datetime]:
+    """
+    Parsea una fecha a objeto datetime.
+    Soporta: String (DD-MM-YYYY, YYYY-MM-DD), datetime, Excel serial.
+    Returns: datetime object or None
+    """
+    if x is None:
+        return None
+    if isinstance(x, datetime):
+        return x
+    if isinstance(x, date):
+        return datetime(x.year, x.month, x.day)
+    
+    s = str(x).strip()
+    if not s:
+        return None
+        
+    # Excel serial check
+    if re.match(r"^\d+(\.\d+)?$", s):
+        try:
+            days = float(s)
+            if days > 20000:
+                return datetime(1899, 12, 30) + timedelta(days=days)
+        except:
+            pass
+
+    # Clean and parse
+    s = s.split(" ")[0].replace("/", "-")
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+            
+    return None
+
 
 
 # =============================================================================
@@ -287,6 +300,8 @@ def vac_row(m: Any, fecha: str, rut: str, nombre: str, obs: str = "") -> dict[st
         "Nombre": nombre,
         "Familia": str(m.get("familia", "")),
         "Especialidad": str(m.get("especialidad", "")),
+        "Estado": "Sin Caso",
+        "Tipo": "Auge",
         "Observación": obs
     }
 

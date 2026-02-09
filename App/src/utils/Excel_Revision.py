@@ -48,7 +48,7 @@ COLORS = {
     # Grupo 1 (Headers Base): Azul Oscuro
     "grupo_azul_oscuro": {"fill": "4472C4", "font": "FFFFFF", "bold": True},
     
-    # Grupo 2 (Familia/Esp/Fecha/Rut/Edad): Azul Intenso
+    # Grupo 2 (Familia/Esp/Fecha/Rut/Edad/Estado/Tipo): Azul Intenso
     "grupo_azul_familia": {"fill": "002060", "font": "FFFFFF", "bold": True},
     
     # Grupo 3 (Caso/Estado/SIC): Verde con Texto Blanco Negrita
@@ -94,13 +94,13 @@ def _get_header_style(column_name: str) -> dict:
     if name in ["mensual", "periodicidad"] or "año" in name or "anio" in name or name.startswith("freq") or name.startswith("period"):
         return COLORS["grupo_cafe"]
 
-    # 3. FECHA / RUT / EDAD / FAMILIA / ESPECIALIDAD -> Azul Intenso (grupo_azul_familia)
-    if name in ["fecha", "rut", "edad", "familia", "especialidad"]:
+    # 3. FECHA / RUT / EDAD / FAMILIA / ESPECIALIDAD / ESTADO / TIPO -> Azul Intenso (grupo_azul_familia)
+    if name in ["fecha", "rut", "edad", "familia", "especialidad", "estado", "tipo"]:
         return COLORS["grupo_azul_familia"]
 
     # 4. GRUPO VERDE (Texto blanco negrita)
-    # Fallecido, Caso, Estado, Apertura, Cerrado, SIC
-    if name in ["fallecido", "caso", "estado", "apertura", "¿cerrado?"] or "sic" in name:
+    # Fallecido, Caso, Apertura, Cerrado, SIC
+    if name in ["fallecido", "caso", "apertura", "¿cerrado?"] or "sic" in name:
         return COLORS["grupo_verde_bold"]
 
     # 5. APTOS (Texto blanco negrita) -> Rosado Oscuro
@@ -116,7 +116,7 @@ def _get_header_style(column_name: str) -> dict:
     # 7. HABILITANTES / EXCLUYENTES
     if "hab" in name and "excl" not in name:
          return COLORS["grupo_rojo"]
-    if "excl" in name or "oa" in name or name.startswith("f obj") or "objetivo" in name:
+    if "excl" in name or "oa" in name or name.startswith("f obj") or "objetivo" in name or "fecha obj" in name:
          return COLORS["grupo_azul_oa"]
 
     # 8. APS (Si no es contra)
@@ -125,6 +125,21 @@ def _get_header_style(column_name: str) -> dict:
     
     # Default: usar grupo azul oscuro
     return COLORS["grupo_azul_oscuro"]
+
+def _apply_header_filter(ws) -> None:
+    """Aplica filtro solo al rango utilizado (encabezados visibles)."""
+    try:
+        if not get_column_letter:
+            return
+        max_row = ws.max_row or 1
+        max_col = ws.max_column or 1
+        if max_row < 1 or max_col < 1:
+            return
+        last_col = get_column_letter(max_col)
+        # Rango utilizado: encabezados + data (sin abarcar fila completa vacía)
+        ws.auto_filter.ref = f"A1:{last_col}{max_row}"
+    except Exception:
+        pass
 
 
 def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
@@ -179,6 +194,9 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
     
     # Default Font (Explicit Black)
     default_font = Font(color="000000", size=9)
+    # Alineaciones reutilizables (mejor rendimiento)
+    align_header = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    align_center = Alignment(horizontal='center', vertical='center')
 
     # Map column names to indices
     header_map = {}
@@ -212,7 +230,7 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
              cell.fill = hf
              cell.font = ht
 
-        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.alignment = align_header
         cell.border = thin_border
     
     # Estilizar celdas de datos - Centrado horizontal y vertical
@@ -257,7 +275,7 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
             has_age_alert = rows_metadata[i].get("_age_alert", False)
             
         for cell in row:
-            val = str(cell.value or "")
+            val = cell.value
             col_name = header_map.get(cell.column, "")
             col_idx = cell.column
             
@@ -287,12 +305,12 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
                 else: 
                      # Si no es alerta y es la columna edad -> VERDE (Cumple)
                      # Solo si tiene valor
-                     if val:
+                     if val is not None and val != "":
                          cell.fill = age_green_fill
                          cell.font = age_font_green
             
             # 2. Detección de Prestaciones Futuras (! )
-            elif val.startswith("! "):
+            elif isinstance(val, str) and val.startswith("! "):
                 # Aplicar color naranja "Advertencia/Futuro"
                 cell.fill = future_fill
                 # Quitar marcador para que quede limpio
@@ -301,24 +319,20 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
             
             # 3. Optimización: Si no hubo override, ya tiene el base_font/fill puestos.
                 
-            cell.alignment = Alignment(horizontal='center', vertical='center')
+            # 3. Folios VIH Usados (Sombreado Verde)
+            elif "folio oa" in col_name and rows_metadata and i < len(rows_metadata):
+                folios_usados = rows_metadata[i].get("_folios_usados", [])
+                # Limpiar valor para comparaciÃ³n
+                val_clean = str(val).strip().lower().replace("oa", "").strip()
+                if val_clean and val_clean in [str(f).strip().lower().replace("oa", "").strip() for f in folios_usados]:
+                    cell.fill = age_green_fill
+                    cell.font = age_font_green
+            
+            cell.alignment = align_center
             cell.border = thin_border
     
-    # Ajustar anchos de columna
-    for column_cells in ws.columns:
-        max_length = 0
-        column_letter = get_column_letter(column_cells[0].column)
-        
-        for cell in column_cells:
-            try:
-                cell_length = len(str(cell.value or ""))
-                if cell_length > max_length:
-                    max_length = cell_length
-            except:
-                pass
-        
-        # Ancho mínimo 10, máximo 50
-        adjusted_width = min(max(max_length + 2, 10), 50)
+    # Filtro en encabezados (rango utilizado)
+    _apply_header_filter(ws)
 
 def _escribir_y_estilizar(writer, resultados_por_mision, mission_list: List[Dict] = None):
     """Escribe los dataframes y llama a estilizar. Retorna columnas encontradas (ordenadas)."""
@@ -333,15 +347,16 @@ def _escribir_y_estilizar(writer, resultados_por_mision, mission_list: List[Dict
         if str(m_name).isdigit() and mission_list and int(m_name) < len(mission_list):
             sheet_label = mission_list[int(m_name)].get("nombre", f"Mision_{m_name}")
         
-        # Convert dict list to DF
-        df = pd.DataFrame(items)
-        
         # Extract metadata (age alert + columns order)
         metadata_list = []
         clean_items = []
         cols_order = None
         for it in items:
-            meta = {"_age_alert": it.get("_age_alert", False)}
+            meta = {
+                "_age_alert": it.get("_age_alert", False),
+                "_age_validation_status": it.get("_age_validation_status", None),
+                "_folios_usados": it.get("_folios_usados", [])
+            }
             if cols_order is None and "_cols_order" in it:
                 cols_order = it["_cols_order"]
             # Create clean copy removing internal keys
@@ -379,7 +394,7 @@ def _escribir_y_estilizar(writer, resultados_por_mision, mission_list: List[Dict
             if col not in columnas_set:
                 columnas_set.add(col)
                 columnas_encontradas.append(col)
-    except: pass
+    except Exception: pass
     return columnas_encontradas
 
 
@@ -499,7 +514,13 @@ def _describe_column(col: str) -> dict:
             "Categoria": "Datos del Caso GES",
             "Descripcion": "Estado administrativo del caso (ej. Vigente, Cerrado).",
             "Fuente": "SIGGES (Mini-tabla)",
-            "Nota": ""
+            "Nota": "Si no hay caso, se marca como 'Sin Caso'."
+        },
+        "tipo": {
+            "Categoria": "Configuración",
+            "Descripcion": "Tipo de cobertura/flujo (valor fijo por defecto).",
+            "Fuente": "Sistema",
+            "Nota": "Por defecto: 'Auge'."
         },
         "apertura": {
             "Categoria": "Datos del Caso GES",
@@ -680,6 +701,163 @@ def _describe_column(col: str) -> dict:
         "Nota": ""
     }
 
+DICT_FIELDS = [
+    "Categoría",
+    "Columna Excel",
+    "Descripción (Qué es)",
+    "Función / Para qué sirve",
+    "Cómo se obtiene",
+    "Cuándo se calcula",
+    "Dónde se usa",
+    "Por qué es importante",
+    "Tipo/Formato",
+    "Fuente de datos",
+    "Validaciones/Reglas",
+    "Ejemplo",
+    "Notas",
+]
+
+
+def _expand_column_info(col: str) -> dict:
+    base = _describe_column(col)
+    name = (col or "").lower().strip()
+    categoria = base.get("Categoria", "Otros Datos")
+    descripcion = base.get("Descripcion", "")
+    fuente = base.get("Fuente", "")
+    nota = base.get("Nota", "")
+
+    cuando_map = {
+        "Identificación Paciente": "Al cargar la nómina y consultar datos del paciente.",
+        "Datos del Caso GES": "Al leer la mini-tabla del caso en SIGGES.",
+        "Datos Clínicos (IPD)": "Durante la extracción de IPD.",
+        "Datos Clínicos (OA)": "Durante la extracción de OA.",
+        "Datos Clínicos (APS)": "Durante la extracción de APS.",
+        "Datos Clínicos (SIC)": "Durante la extracción de SIC.",
+        "Gestión y Seguimiento": "Durante la revisión de objetivos y seguimiento.",
+        "Criterios de Inclusión": "Durante la validación de habilitantes.",
+        "Criterios de Exclusión": "Durante la validación de excluyentes.",
+        "Caso en Contra (Incompatibilidad)": "Durante el análisis de casos en contra.",
+        "Auditoría Interna": "Cuando ocurre un evento relevante en el proceso.",
+        "Lógica de Negocio": "Durante la evaluación de reglas de la misión.",
+        "Configuración": "Al cargar la misión.",
+    }
+    donde_map = {
+        "Identificación Paciente": "En búsquedas, cruces y reportes.",
+        "Datos del Caso GES": "En validaciones y decisiones de gestión.",
+        "Datos Clínicos (IPD)": "En cálculos clínicos y reglas de apto.",
+        "Datos Clínicos (OA)": "En trazabilidad y reglas clínicas.",
+        "Datos Clínicos (APS)": "En reglas de confirmación APS.",
+        "Datos Clínicos (SIC)": "En trazabilidad de interconsultas.",
+        "Gestión y Seguimiento": "En reportes y auditorías de cumplimiento.",
+        "Criterios de Inclusión": "En reglas de elegibilidad.",
+        "Criterios de Exclusión": "En reglas de descarte.",
+        "Caso en Contra (Incompatibilidad)": "En validación final y descartes.",
+        "Auditoría Interna": "En revisión manual y depuración.",
+        "Lógica de Negocio": "En resultados de aptitud y resumen.",
+        "Configuración": "En segmentación y contexto del reporte.",
+    }
+    por_que_map = {
+        "Identificación Paciente": "Es clave para identificar al paciente y consultar su historial.",
+        "Datos del Caso GES": "Define el contexto administrativo y clínico principal.",
+        "Datos Clínicos (IPD)": "Permite evaluar diagnóstico y antigüedad.",
+        "Datos Clínicos (OA)": "Aporta trazabilidad de atención.",
+        "Datos Clínicos (APS)": "Define confirmaciones en atención primaria.",
+        "Datos Clínicos (SIC)": "Aporta evidencia de derivación.",
+        "Gestión y Seguimiento": "Mide cumplimiento de objetivos sanitarios.",
+        "Criterios de Inclusión": "Determina si el caso puede ser considerado.",
+        "Criterios de Exclusión": "Evita seleccionar casos inválidos.",
+        "Caso en Contra (Incompatibilidad)": "Detecta diagnósticos conflictivos.",
+        "Auditoría Interna": "Explica errores o hallazgos críticos.",
+        "Lógica de Negocio": "Resume decisiones calculadas por el sistema.",
+        "Configuración": "Aporta contexto de la misión.",
+    }
+
+    def _infer_como() -> str:
+        if "SIGGES" in fuente:
+            return "Se consulta en SIGGES según la pestaña/fuente indicada."
+        if "Misión" in fuente:
+            return "Se lee desde la configuración de la misión."
+        if "Sistema" in fuente or "Cálculo" in fuente or "Algoritmo" in fuente:
+            return "Se calcula internamente durante la revisión."
+        return "Se obtiene durante el procesamiento."
+
+    def _infer_tipo() -> str:
+        if "fecha" in name:
+            return "Fecha"
+        if name == "edad":
+            return "Numérico (años)"
+        if "rut" in name:
+            return "Texto (RUT)"
+        if "apto" in name or "fallecido" in name or "¿cerrado?" in name:
+            return "Sí/No"
+        if "folio" in name or "código" in name or "codigo" in name:
+            return "Texto/Numérico"
+        if "mensual" in name or "freq" in name or "periodicidad" in name:
+            return "Texto (regla)"
+        return "Texto"
+
+    funcion = descripcion or "Dato utilizado en el proceso de revisión."
+    if nota:
+        funcion = f"{funcion} {nota}"
+    como = _infer_como()
+    cuando = cuando_map.get(categoria, "Durante la revisión de la misión.")
+    donde = donde_map.get(categoria, "En la hoja de resultados.")
+    por_que = por_que_map.get(categoria, "Aporta contexto a la decisión.")
+    tipo = _infer_tipo()
+    validaciones = nota or "Depende de la misión."
+
+    ejemplo = ""
+    if "fecha" in name:
+        ejemplo = "2024-01-15"
+    elif name == "rut":
+        ejemplo = "12345678-9"
+    elif name == "edad":
+        ejemplo = "55"
+    elif "apto" in name:
+        ejemplo = "Sí"
+    elif "mensual" in name or "freq" in name:
+        ejemplo = "1/2 Mes"
+    elif "folio" in name:
+        ejemplo = "OA-2024-001234"
+    elif "código" in name or "codigo" in name:
+        ejemplo = "A12345"
+    elif name == "tipo":
+        ejemplo = "Auge"
+    elif name == "estado":
+        ejemplo = "Vigente / Sin Caso"
+
+    # Overrides más específicos
+    if name == "tipo":
+        tipo = "Texto fijo"
+        validaciones = "Valor por defecto: Auge."
+    if name == "estado":
+        validaciones = "Si no hay caso, se marca 'Sin Caso'."
+    if name == "observación":
+        por_que = "Explica errores, hallazgos o datos faltantes."
+    if "apto" in name:
+        por_que = "Resume la decisión de aptitud y permite priorizar casos."
+    if "freq" in name or "mensual" in name or "periodicidad" in name:
+        por_que = "Permite verificar cumplimiento de frecuencia/periodicidad."
+    if name.startswith("c hab") or name.startswith("f hab"):
+        por_que = "Define si el paciente cumple habilitantes requeridos."
+    if name.startswith("c excl") or name.startswith("f excl"):
+        por_que = "Si hay excluyentes, el caso se descarta."
+
+    return {
+        "Categoría": categoria,
+        "Descripción (Qué es)": descripcion,
+        "Función / Para qué sirve": funcion,
+        "Cómo se obtiene": como,
+        "Cuándo se calcula": cuando,
+        "Dónde se usa": donde,
+        "Por qué es importante": por_que,
+        "Tipo/Formato": tipo,
+        "Fuente de datos": fuente,
+        "Validaciones/Reglas": validaciones,
+        "Ejemplo": ejemplo,
+        "Notas": nota,
+    }
+
 
 def _escribir_diccionario(writer, columnas: List[str]) -> None:
     """
@@ -714,18 +892,16 @@ def _escribir_diccionario(writer, columnas: List[str]) -> None:
         if col in seen: continue
         seen.add(col)
         
-        info = _describe_column(col)
+        info = _expand_column_info(col)
         # Asignar prioridad de orden
-        prio = cat_priority.get(info["Categoria"], 50)
+        prio = cat_priority.get(info["Categoría"], 50)
         
-        data.append({
-            "_sort": prio,
-            "Categoría": info["Categoria"],
-            "Columna Excel": col,
-            "Descripción Detallada": info["Descripcion"],
-            "Fuente de Datos": info["Fuente"],
-            "Nota Técnica": info["Nota"]
-        })
+        row = {"_sort": prio, "Categoría": info["Categoría"], "Columna Excel": col}
+        for field in DICT_FIELDS:
+            if field in ("Categoría", "Columna Excel"):
+                continue
+            row[field] = info.get(field, "")
+        data.append(row)
 
     # Ordenar data
     data.sort(key=lambda x: (x["_sort"], x["Categoría"], x["Columna Excel"]))
@@ -734,7 +910,7 @@ def _escribir_diccionario(writer, columnas: List[str]) -> None:
     clean_data = [{k: v for k, v in d.items() if k != "_sort"} for d in data]
 
     # 2. Crear DataFrame
-    df = pd.DataFrame(clean_data)
+    df = pd.DataFrame(clean_data, columns=DICT_FIELDS)
     
     # 3. Escribir a Excel
     sheet_name = "Diccionario"
@@ -779,19 +955,29 @@ def _escribir_diccionario(writer, columnas: List[str]) -> None:
                     cell.font = text_font
                     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-        # Dimensiones
-        # Categoría
-        ws.column_dimensions["A"].width = 25
-        # Columna
-        ws.column_dimensions["B"].width = 25
-        # Descripción
-        ws.column_dimensions["C"].width = 60
-        # Fuente
-        ws.column_dimensions["D"].width = 20
-        # Nota
-        ws.column_dimensions["E"].width = 40
+        # Dimensiones (diccionario extendido)
+        widths = {
+            "A": 22,  # Categoría
+            "B": 22,  # Columna Excel
+            "C": 40,  # Descripción
+            "D": 40,  # Función
+            "E": 36,  # Cómo se obtiene
+            "F": 28,  # Cuándo
+            "G": 28,  # Dónde
+            "H": 32,  # Por qué
+            "I": 18,  # Tipo
+            "J": 22,  # Fuente
+            "K": 32,  # Validaciones
+            "L": 20,  # Ejemplo
+            "M": 32,  # Notas
+        }
+        for col, width in widths.items():
+            ws.column_dimensions[col].width = width
         
         # Altura de filas automática (aproximada, openpyxl no hace autofit height real bien, pero wrap_text ayuda)
+
+    # Filtro en encabezados
+    _apply_header_filter(ws)
 
 
 # =============================================================================
@@ -832,6 +1018,10 @@ def _crear_hoja_carga_masiva(writer) -> None:
         for col_idx, _ in enumerate(headers, 1):
             col_letter = get_column_letter(col_idx)
             ws.column_dimensions[col_letter].width = 20
+
+    # Filtro en encabezados
+    ws = writer.sheets[sheet_name]
+    _apply_header_filter(ws)
 
 
 def generar_excel_revision(
@@ -887,4 +1077,3 @@ def generar_excel_revision(
         except Exception as e2:
             log_error(f" CRÍTICO: Falló también el respaldo: {e2}")
             return None
-

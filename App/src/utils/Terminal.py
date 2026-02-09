@@ -51,6 +51,10 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
+# Cache ligero para evitar llamar psutil en cada línea de debug
+_STATS_CACHE = ""
+_STATS_TS = 0.0
+
 # =============================================================================
 #                         CONFIGURACIÓN DE LOGGING
 # =============================================================================
@@ -170,13 +174,19 @@ def log_error(msg: str) -> None:
 
 def get_system_stats() -> str:
     """Retorna string con uso de CPU y RAM (si psutil está disponible)."""
+    global _STATS_CACHE, _STATS_TS
     if not PSUTIL_AVAILABLE:
         return ""
+    now = time.time()
+    if _STATS_CACHE and now - _STATS_TS < 2.0:
+        return _STATS_CACHE
     try:
         cpu = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory().percent
-        return f" [CPU: {cpu}% | RAM: {mem}%]"
-    except:
+        _STATS_CACHE = f" [CPU: {cpu}% | RAM: {mem}%]"
+        _STATS_TS = now
+        return _STATS_CACHE
+    except Exception:
         return ""
 
 def log_debug(msg: str) -> None:
@@ -184,6 +194,9 @@ def log_debug(msg: str) -> None:
     Log de debug DETALLADO - Solo en DEBUG_MODE.
     Incluye milisegundos y stats del sistema.
     """
+    from src.utils.DEBUG import should_log_debug
+    if not should_log_debug():
+        return
     # Timestamp de alta precisión para debug
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stats = get_system_stats()

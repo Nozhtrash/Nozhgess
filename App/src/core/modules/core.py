@@ -90,12 +90,13 @@ class CoreMixin:
         """
         Busca un elemento usando el SelectorEngine resiliente.
         """
-        # TIER SSS+: Sleep global obligatorio (1.0s) pedido por usuario
-        time.sleep(1.0)
-        
         cfg = ESPERAS.get(clave_espera, {})
         timeout = cfg.get("wait", 10)
-        
+
+        # Sleep condicional: solo en modo forense (entorno) para no penalizar siempre
+        if os.getenv("NOZHGESS_FORENSIC_SLEEP", "0") == "1":
+            time.sleep(1.0)
+
         return self.selectors.find_with_fallbacks(locators, condition, timeout)
 
     @retry(max_attempts=3, circuit_breaker=selenium_circuit)
@@ -106,9 +107,10 @@ class CoreMixin:
         # Invalidate cache BEFORE action to ensure consistency
         self._invalidar_cache_estado()
         
-        # TIER SSS+: Sleep global obligatorio (1.0s) pedido por usuario
-        time.sleep(1.0)
-        
+        # Sleep condicional para modo forense (evitar penalizar producción)
+        if os.getenv("NOZHGESS_FORENSIC_SLEEP", "0") == "1":
+            time.sleep(1.0)
+
         # Use wait engine
         self.waits.wait_for_spinner(clave_espera)
         

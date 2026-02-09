@@ -13,31 +13,22 @@
         "3106004"
       ],
       "habilitantes": [
-        "0505002",
-        "0507504",
+        "1902068",
         "1703040",
         "1704017",
         "1802009",
-        "1902068",
         "2507036",
         "2902001",
         "2902002",
         "2902003",
         "2902004",
-        "2902005",
-        "2902006",
-        "2902007",
-        "2902008",
-        "3002007",
-        "3002207",
-        "3106002"
+        "3002207"
       ],
       "excluyentes": [],
       "familia": "16",
       "especialidad": "07-800-2",
       "frecuencia": "Mensual",
       "edad_min": 15,
-      "edad_max": null,
       "periodicidad": "Mensual",
       "frecuencia_cantidad": 1,
       "vigencia_dias": 180,
@@ -50,8 +41,8 @@
       "max_sic": 1,
       "require_ipd": true,
       "require_oa": true,
-      "require_aps": false,
-      "require_sic": false,
+      "require_aps": true,
+      "require_sic": true,
       "show_futures": true,
       "requiere_ipd": true,
       "requiere_aps": true,
@@ -59,25 +50,25 @@
       "codigos_folio": [],
       "active_year_codes": false,
       "indices": {
-        "rut": 1,
-        "nombre": 2,
-        "fecha": 10
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
       },
       "anios_codigo": [],
       "folio_vih": false,
       "folio_vih_codigos": [],
       "frecuencias": [
         {
-          "code": "LEGACY",
+          "code": "3106004",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
+          "periodicity": "Mes"
         }
       ],
       "keywords_contra": [],
-      "active_frequencies": 0,
-      "ruta_entrada": "",
-      "ruta_salida": ""
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Urología (116) - Enero.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
     }
   ]
 }

@@ -218,20 +218,7 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
         "critical": False,
         "category": "search"
     },
-    "nav_a_busqueda_fast": {
-        "wait": 0.05,  # TIER SSS+ FINAL: Verificación instantánea (50ms)
-        "sleep": 0.0,
-        "desc": "Verificación rápida si ya está en BUSQUEDA",
-        "critical": False,
-        "category": "navigation"
-    },
-    "busqueda_nav": {
-        "wait": 0.2,  # TIER SSS+: Click directo sin verificación previa
-        "sleep": 0.0,
-        "desc": "Navegación directa a BUSQUEDA",
-        "critical": True,
-        "category": "navigation"
-    },
+    # (Duplicados ultra agresivos eliminados; usar nav_a_busqueda_fast y busqueda_nav definidos arriba)
     "search_type_rut": {
         "wait": 1.0,
         "sleep": 0.5, # RESTAURADO: Estabilidad post-typing
@@ -320,13 +307,7 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
         "critical": False,
         "category": "mini_table"
     },
-    "mini_read_age": {
-        "wait": 2.0,
-        "sleep": 0.0,
-        "desc": "Leer edad del paciente de la mini-tabla",
-        "critical": False,
-        "category": "mini_table"
-    },
+    # (Duplicado lento eliminado; se mantiene mini_read_age optimizada)
     
     # =========================================================================
     # 🏥 TRANSICIÓN A CARTOLA

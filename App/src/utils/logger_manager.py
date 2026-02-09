@@ -3,13 +3,19 @@
 """
 Logger Manager Module
 =====================
-Centralizes logging configuration for the Nozhgess application.
-Uses standard Python logging with RotatingFileHandler to ensure performance and thread safety.
+Centraliza la configuraci?n de logging para Nozhgess.
+- Nombres de archivo claros con timestamp (dd.mm.YYYY_HH.MM)
+- Retenci?n estricta: m?ximo 5 logs por tipo
+- Formatos detallados para auditor?a
 """
+from __future__ import annotations
+
 import logging
+import logging.handlers
 import os
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 # Define Logger Names
 LOGGER_GENERAL = "nozhgess.general"
@@ -18,139 +24,262 @@ LOGGER_STRUCTURED = "nozhgess.structured"
 LOGGER_DEBUG = "nozhgess.debug"
 LOGGER_SYSTEM = "nozhgess.system"
 
-def setup_loggers(root_dir: str):
-    """
-    Initializes all application loggers with persistent file handlers.
-    
-    Args:
-        root_dir: The root directory of the project.
-    """
-    log_dir = os.path.join(root_dir, "Logs")
-    
-    # Ensure subdirectories exist
-    dir_general = os.path.join(log_dir, "General")
-    dir_secure = os.path.join(log_dir, "Secure")
-    dir_structured = os.path.join(log_dir, "Structured") # Note: kept simpler name than 'structured' lowercase if preferred, but matching audit
-    dir_crash = os.path.join(log_dir, "Crash")
-    
-    for d in [dir_general, dir_secure, dir_structured, dir_crash]:
-        os.makedirs(d, exist_ok=True)
+# --- Naming / Paths ---
+LOG_DATE_FMT = "%d.%m.%Y_%H.%M"
+LOG_ROOT: Optional[str] = None
+SESSION_STAMP: Optional[str] = None
+LOG_PATHS: Dict[str, str] = {}
+_CONFIGURED = False
 
-    # Common Formatter
-    # For General logs, we want readable format
+
+def _detect_root() -> str:
+    return str(Path(__file__).resolve().parents[3])
+
+
+def get_log_root(root_dir: Optional[str] = None) -> str:
+    """Retorna la ruta ra?z de Logs (y la cachea)."""
+    global LOG_ROOT
+    if root_dir:
+        LOG_ROOT = os.path.join(root_dir, "Logs")
+    if LOG_ROOT:
+        return LOG_ROOT
+    LOG_ROOT = os.path.join(_detect_root(), "Logs")
+    return LOG_ROOT
+
+
+def now_stamp() -> str:
+    """Timestamp corto para nombres de archivo."""
+    return datetime.now().strftime(LOG_DATE_FMT)
+
+
+def get_session_stamp() -> str:
+    return SESSION_STAMP or now_stamp()
+
+
+def _normalize_ext(ext: str) -> str:
+    if not ext:
+        return ""
+    return ext if ext.startswith(".") else f".{ext}"
+
+
+def make_log_filename(prefix: str, stamp: Optional[str] = None, ext: str = "log") -> str:
+    """Genera nombre de log con prefijo y timestamp."""
+    stamp = stamp or get_session_stamp()
+    return f"{prefix}_{stamp}{_normalize_ext(ext)}"
+
+
+def _ensure_dir(path: str) -> None:
+    os.makedirs(path, exist_ok=True)
+
+
+def prune_logs(dir_path: str, prefix: Optional[str] = None, keep: int = 5,
+               exts: Tuple[str, ...] = (".log", ".jsonl")) -> None:
+    """Mantiene como m?ximo 'keep' archivos en un directorio (opcionalmente por prefijo)."""
+    try:
+        if not os.path.exists(dir_path):
+            return
+        files = []
+        for f in os.listdir(dir_path):
+            lower = f.lower()
+            if not lower.endswith(exts):
+                continue
+            if prefix:
+                if not (f.startswith(prefix + "_") or f.startswith(prefix + ".")):
+                    continue
+            files.append(os.path.join(dir_path, f))
+
+        if keep < 0:
+            return
+        files.sort(key=os.path.getmtime, reverse=True)
+        for old in files[keep:]:
+            try:
+                os.remove(old)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def build_log_path(subdir: str, prefix: str, ext: str = "log",
+                   root_dir: Optional[str] = None, stamp: Optional[str] = None,
+                   keep: int = 5) -> str:
+    """Crea directorio, genera ruta y aplica retenci?n."""
+    root = get_log_root(root_dir)
+    dir_path = os.path.join(root, subdir) if subdir else root
+    _ensure_dir(dir_path)
+    if keep is not None:
+        prune_logs(dir_path, prefix=prefix, keep=keep)
+    return os.path.join(dir_path, make_log_filename(prefix, stamp=stamp, ext=ext))
+
+
+def get_log_path(kind: str) -> Optional[str]:
+    """Devuelve la ruta del log ya configurado por setup_loggers."""
+    return LOG_PATHS.get(kind)
+
+
+# ---------------------------------------------------------------------------
+# Configuraci?n
+# ---------------------------------------------------------------------------
+
+def setup_loggers(root_dir: str, force: bool = False) -> Dict[str, str]:
+    """
+    Inicializa todos los loggers del sistema.
+
+    Args:
+        root_dir: carpeta ra?z del proyecto.
+        force: si True, reconfigura aunque ya est? configurado.
+
+    Returns:
+        Dict con rutas de logs generadas.
+    """
+    global LOG_ROOT, SESSION_STAMP, LOG_PATHS, _CONFIGURED
+
+    if _CONFIGURED and not force:
+        return LOG_PATHS
+
+    LOG_ROOT = os.path.join(root_dir, "Logs")
+    _ensure_dir(LOG_ROOT)
+
+    # Nuevo stamp de sesi?n
+    SESSION_STAMP = now_stamp()
+
+    # Directorios
+    dir_general = os.path.join(LOG_ROOT, "General")
+    dir_debug = os.path.join(LOG_ROOT, "Debug")
+    dir_secure = os.path.join(LOG_ROOT, "Secure")
+    dir_structured = os.path.join(LOG_ROOT, "Structured")
+    dir_system = os.path.join(LOG_ROOT, "System")
+
+    for d in [dir_general, dir_debug, dir_secure, dir_structured, dir_system]:
+        _ensure_dir(d)
+
+    # Legacy cleanup (mantener m?ximo 5 por prefijo antiguo)
+    for legacy_prefix in ["nozhgess"]:
+        prune_logs(dir_general, prefix=legacy_prefix, keep=5)
+    # Mantener solo 1 archivo legacy tipo "nozhgess_current.log"
+    prune_logs(dir_general, prefix="nozhgess_current", keep=1)
+    for legacy_prefix in ["debug"]:
+        prune_logs(dir_debug, prefix=legacy_prefix, keep=5)
+    for legacy_prefix in ["system"]:
+        prune_logs(dir_system, prefix=legacy_prefix, keep=5)
+    for legacy_prefix in ["audit"]:
+        prune_logs(dir_secure, prefix=legacy_prefix, keep=5)
+    for legacy_prefix in ["events"]:
+        prune_logs(dir_structured, prefix=legacy_prefix, keep=5)
+
+    # Rutas de logs (nombres claros)
+    log_file_general = build_log_path("General", "TGeneral", "log", root_dir, SESSION_STAMP, keep=5)
+    log_file_debug = build_log_path("Debug", "TDebug", "log", root_dir, SESSION_STAMP, keep=5)
+    log_file_secure = build_log_path("Secure", "TSeguro", "log", root_dir, SESSION_STAMP, keep=5)
+    log_file_struct = build_log_path("Structured", "TSistema", "jsonl", root_dir, SESSION_STAMP, keep=5)
+    log_file_system = build_log_path("System", "TSystem", "log", root_dir, SESSION_STAMP, keep=5)
+
+    LOG_PATHS = {
+        "general": log_file_general,
+        "debug": log_file_debug,
+        "secure": log_file_secure,
+        "structured": log_file_struct,
+        "system": log_file_system,
+        "root": LOG_ROOT,
+        "stamp": SESSION_STAMP,
+    }
+
+    # Formatos m?s detallados para auditor?a
     formatter_general = logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%H:%M:%S'
+        '%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
-    
-    # For Secure/Audit logs, maybe similar or JSON? Keeping text for now as per legacy audit.log
-    # Legacy audit used JSON per line. We can let the caller format the JSON string.
-    # So we use a raw message formatter for Secure and Structured to avoid double-timestamping if they handle it,
-    # OR we standard timestamp.
-    # Legacy Structured logger (logging_pro) wrote JSONL. 
-    # Legacy Secure logger (audit) wrote JSONL.
-    
-    # Let's use a simple pass-through formatter for structured/secure to allow them to control the line format completely
+    formatter_debug = logging.Formatter(
+        '%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s:%(lineno)d] [%(threadName)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
     formatter_raw = logging.Formatter('%(message)s')
 
-    # --- 1. General Logger ---
-    # Log file: nozhgess_current.log
-    # User Request: Maintain 5 logs. Large files valid (20k+ lines ok).
-    # Strategy: Max 50MB per file (huge capacity) to avoid splitting mid-session.
-    # Keep 5 backups.
-    log_file_general = os.path.join(dir_general, "nozhgess_current.log")
-    
-    handler_general = RotatingFileHandler(
-        log_file_general,
-        maxBytes=50 * 1024 * 1024, # 50 MB
-        backupCount=5,
-        encoding='utf-8',
-        delay=False
+    # Handlers (archivos)
+    # Limitar crecimiento de logs para evitar saturar I/O y ralentizar la app.
+    _max_bytes = 10 * 1024 * 1024  # 10 MB
+    _backup_count = 5
+
+    handler_general = logging.handlers.RotatingFileHandler(
+        log_file_general, encoding='utf-8', maxBytes=_max_bytes, backupCount=_backup_count
     )
     handler_general.setFormatter(formatter_general)
-    
+    handler_general.setLevel(logging.INFO)
+
+    handler_debug = logging.handlers.RotatingFileHandler(
+        log_file_debug, encoding='utf-8', maxBytes=_max_bytes, backupCount=_backup_count
+    )
+    handler_debug.setFormatter(formatter_debug)
+    handler_debug.setLevel(logging.DEBUG)
+
+    handler_secure = logging.handlers.RotatingFileHandler(
+        log_file_secure, encoding='utf-8', maxBytes=_max_bytes, backupCount=_backup_count
+    )
+    handler_secure.setFormatter(formatter_raw)
+    handler_secure.setLevel(logging.INFO)
+
+    handler_struct = logging.handlers.RotatingFileHandler(
+        log_file_struct, encoding='utf-8', maxBytes=_max_bytes, backupCount=_backup_count
+    )
+    handler_struct.setFormatter(formatter_raw)
+    handler_struct.setLevel(logging.INFO)
+
+    handler_system = logging.handlers.RotatingFileHandler(
+        log_file_system, encoding='utf-8', maxBytes=_max_bytes, backupCount=_backup_count
+    )
+    handler_system.setFormatter(formatter_general)
+    handler_system.setLevel(logging.INFO)
+
+    # Root logger: captura logs externos (logging.* directo)
+    root_logger = logging.getLogger()
+    # INFO reduce ruido de selenium/urllib3 en producción; DEBUG sólo si se sobreescribe manualmente.
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers = []
+    root_logger.addHandler(handler_general)
+    root_logger.addHandler(handler_debug)
+
+    # General / Debug: archivos dedicados (sin propagación para evitar duplicados en GUI)
     logger_gen = logging.getLogger(LOGGER_GENERAL)
-    logger_gen.setLevel(logging.INFO)
-    logger_gen.handlers = [] # Clear existing
+    logger_gen.setLevel(logging.DEBUG)
+    logger_gen.handlers = []
     logger_gen.addHandler(handler_general)
     logger_gen.propagate = False
 
-    # --- 2. Secure Logger (Audit) ---
-    log_file_secure = os.path.join(dir_secure, "audit.log")
-    handler_secure = RotatingFileHandler(
-        log_file_secure,
-        maxBytes=50 * 1024 * 1024, # 50 MB
-        backupCount=5, # Standardized to 5 as requested
-        encoding='utf-8',
-        delay=False
-    )
-    handler_secure.setFormatter(formatter_raw)
-    
+    logger_debug = logging.getLogger(LOGGER_DEBUG)
+    logger_debug.setLevel(logging.DEBUG)
+    logger_debug.handlers = []
+    logger_debug.addHandler(handler_debug)
+    logger_debug.propagate = False
+
+    # Secure / Structured / System: archivos dedicados, sin propagaci?n
     logger_sec = logging.getLogger(LOGGER_SECURE)
     logger_sec.setLevel(logging.INFO)
     logger_sec.handlers = []
     logger_sec.addHandler(handler_secure)
     logger_sec.propagate = False
 
-    # --- 3. Structured Logger (JSONL) ---
-    log_file_struct = os.path.join(dir_structured, "events.jsonl")
-    handler_struct = RotatingFileHandler(
-        log_file_struct,
-        maxBytes=50 * 1024 * 1024, # 50 MB
-        backupCount=5,
-        encoding='utf-8',
-        delay=False
-    )
-    handler_struct.setFormatter(formatter_raw)
-    
     logger_struct = logging.getLogger(LOGGER_STRUCTURED)
     logger_struct.setLevel(logging.INFO)
     logger_struct.handlers = []
     logger_struct.addHandler(handler_struct)
-    logger_struct.addHandler(handler_struct)
     logger_struct.propagate = False
 
-    # --- 4. Debug Logger ---
-    dir_debug = os.path.join(log_dir, "Debug")
-    os.makedirs(dir_debug, exist_ok=True)
-    log_file_debug = os.path.join(dir_debug, "debug.log")
-    
-    handler_debug = RotatingFileHandler(
-        log_file_debug,
-        maxBytes=50 * 1024 * 1024,
-        backupCount=3,
-        encoding='utf-8',
-        delay=False
-    )
-    handler_debug.setFormatter(formatter_general) # Readable format for debug
-    
-    logger_debug = logging.getLogger(LOGGER_DEBUG)
-    logger_debug.setLevel(logging.INFO)
-    logger_debug.handlers = []
-    logger_debug.addHandler(handler_debug)
-    logger_debug.propagate = False
-
-    # --- 5. System/Crash Logger ---
-    dir_system = os.path.join(log_dir, "System")
-    os.makedirs(dir_system, exist_ok=True)
-    log_file_system = os.path.join(dir_system, "system.log")
-    
-    handler_system = RotatingFileHandler(
-        log_file_system,
-        maxBytes=50 * 1024 * 1024,
-        backupCount=5,
-        encoding='utf-8',
-        delay=False
-    )
-    handler_system.setFormatter(formatter_general)
-    
     logger_sys = logging.getLogger(LOGGER_SYSTEM)
     logger_sys.setLevel(logging.INFO)
     logger_sys.handlers = []
     logger_sys.addHandler(handler_system)
     logger_sys.propagate = False
 
+    # Silenciar ruido externo que inflaba TDebug (Selenium / urllib3).
+    logging.getLogger("selenium").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("selenium.webdriver.remote.remote_connection").setLevel(logging.WARNING)
+    logging.getLogger("selenium.webdriver.common").setLevel(logging.WARNING)
+
+    _CONFIGURED = True
     print("[LoggerManager] Logging initialized successfully.")
+    return LOG_PATHS
+
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

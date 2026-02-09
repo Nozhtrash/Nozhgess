@@ -9,10 +9,12 @@ import time
 import threading
 from datetime import datetime
 from pathlib import Path
+from src.utils import logger_manager as logmgr
 
-LOG_DIR = Path(__file__).resolve().parents[2] / "Logs"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+LOG_DIR = Path(logmgr.get_log_root(str(PROJECT_ROOT))) / "System"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-PROFILE_PATH = LOG_DIR / "profiling_live.txt"
+PROFILE_PATH = Path(logmgr.build_log_path("System", "TProfiler", "txt", root_dir=str(PROJECT_ROOT), stamp=logmgr.get_session_stamp(), keep=5))
 
 
 def _load_last_total():

@@ -106,12 +106,12 @@ def validar_fecha(fecha: str) -> Tuple[bool, Optional[datetime]]:
     if not fecha or not isinstance(fecha, str):
         return False, None
     
-    # Verificar formato básico
-    if not re.match(r'^\d{2}/\d{2}/\d{4}$', fecha.strip()):
+    # Verificar formato básico (DD-MM-YYYY)
+    if not re.match(r'^\d{2}-\d{2}-\d{4}$', fecha.strip()):
         return False, None
     
     try:
-        dt = datetime.strptime(fecha.strip(), "%d/%m/%Y")
+        dt = datetime.strptime(fecha.strip(), "%d-%m-%Y")
         
         # Verificar rango razonable
         if dt.year < 1900 or dt.year > 2100:

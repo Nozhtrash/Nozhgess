@@ -10,10 +10,10 @@ from src.utils.Terminal import log_info, log_warn, log_error, log_ok
 # Paths
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # App/src/utils -> App/src -> App -> Root
-LOG_DIR_STRUCTURED = os.path.join(BASE_DIR, "Logs", "structured")
+LOG_DIR_STRUCTURED = os.path.join(BASE_DIR, "Logs", "Structured")
 os.makedirs(LOG_DIR_STRUCTURED, exist_ok=True)
 
-def rotar_logs(directorio: str, mantener: int = 4) -> None:
+def rotar_logs(directorio: str, mantener: int = 5) -> None:
     try:
         archivos = [
             os.path.join(directorio, f)

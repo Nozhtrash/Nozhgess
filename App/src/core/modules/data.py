@@ -69,7 +69,10 @@ class DataParsingMixin:
             xp = "//div[span[normalize-space(.)='Fecha de fallecimiento'] and p]"
             el = self._find([xp], "presence", "cartola_read_fallecimiento")
             if el:
-                return dparse((el.find_element(By.TAG_NAME, "p").text or "").strip())
+                p_tag = self._find([".//p"], "visible", "cartola_read_fallecimiento")
+                if not p_tag:
+                    return None
+                return dparse((p_tag.text or "").strip())
         except Exception:
             pass
         return None
@@ -96,7 +99,9 @@ class DataParsingMixin:
             casos_texto = []
             for div in casos_divs:
                 try:
-                    p_element = div.find_element(By.XPATH, ".//label/p")
+                    p_element = self._find([".//label/p"], "visible", "case_list_read")
+                    if not p_element:
+                        continue
                     texto = (p_element.text or "").strip()
                     if texto:
                         casos_texto.append(texto)
@@ -122,8 +127,9 @@ class DataParsingMixin:
             
             root = None
             for xp in flat_xpaths:
-                 root = self._find(xp, "presence", "case_list_read")
-                 if root: break
+                root = self._find([xp] if isinstance(xp, str) else xp, "presence", "case_list_read")
+                if root:
+                    break
             
             if not root:
                 return []
@@ -132,7 +138,9 @@ class DataParsingMixin:
             
             for i, div in enumerate(casos_divs):
                 try:
-                    p = div.find_element(By.XPATH, ".//label/p")
+                    p = self._find([".//label/p"], "visible", "case_list_read")
+                    if not p:
+                        continue
                     raw_text = (p.text or "").strip()
                     if not raw_text: continue
                     
@@ -190,8 +198,9 @@ class DataParsingMixin:
             ]
             tbody = None
             for xp in xpaths_tbody:
-                tbody = self._find(xp, "presence", "mini_find_table")
-                if tbody: break
+                tbody = self._find([xp] if isinstance(xp, str) else xp, "presence", "mini_find_table")
+                if tbody:
+                    break
                 
             if not tbody:
                 return []
@@ -256,7 +265,8 @@ class DataParsingMixin:
             contenedor = None
             for xpath in contenedor_xpaths:
                 contenedor = self._find([xpath], "presence", "case_list_read")
-                if contenedor: break
+                if contenedor:
+                    break
             
             if not contenedor: return None
             
@@ -273,7 +283,9 @@ class DataParsingMixin:
         if not root: return None
         
         try:
-            checkbox = root.find_element(By.XPATH, ".//input[@type='checkbox']")
+            checkbox = self._find([".//input[@type='checkbox']"], "clickable", "case_click_checkbox")
+            if not checkbox:
+                return None
             if not checkbox.is_selected():
                 try:
                     checkbox.click()
@@ -296,7 +308,9 @@ class DataParsingMixin:
         try:
             root = self._case_root(i)
             if root:
-                checkbox = root.find_element(By.XPATH, ".//input[@type='checkbox']")
+                checkbox = self._find([".//input[@type='checkbox']"], "clickable", "case_click_checkbox")
+                if not checkbox:
+                    return
                 if checkbox.is_selected():
                     try:
                         checkbox.click()
@@ -332,7 +346,7 @@ class DataParsingMixin:
         
         for idx, xp in enumerate(xpaths_estrategia_1, 1):
             try:
-                result = self.driver.find_element(By.XPATH, xp)
+                result = self._find([xp], "presence", "mini_find_table")
                 if result:
                     log_info(f"   ✅ Encontrado con estrategia 1, intento {idx}")
                     return result
@@ -346,22 +360,20 @@ class DataParsingMixin:
         # Estrategia 2
         for idx_offset in [2, 1]:
             try:
-                caso_div = self.driver.find_element(
-                    By.XPATH, 
-                    f"//div[contains(@class,'contRow') and contains(@class,'scrollH')]/div[{i + idx_offset}]"
-                )
+                xp_case = f"//div[contains(@class,'contRow') and contains(@class,'scrollH')]/div[{i + idx_offset}]"
+                caso_div = self._find([xp_case], "presence", "case_list_read")
                 if caso_div:
                     log_info(f"   ✅ Encontrado div del caso {i} con offset +{idx_offset}")
                     try:
-                        tbody = caso_div.find_element(By.XPATH, ".//div[6]/div[2]/div/table/tbody")
+                        tbody = self._find([".//div[6]/div[2]/div/table/tbody"], "presence", "mini_find_table")
                         if tbody:
                             log_info("   ✅ Encontrado tbody dentro del div del caso")
                             return tbody
                     except Exception:
-                        tbody = caso_div.find_element(By.XPATH, ".//table/tbody")
-                        if tbody:
+                        tbodies = caso_div.find_elements(By.XPATH, ".//table/tbody")
+                        if tbodies:
                             log_info("   ✅ Encontrado tbody (fallback) dentro del div del caso")
-                            return tbody
+                            return tbodies[0]
             except Exception:
                 continue
         log_warn(f"   ⚠️ Estrategia 2 falló para todos los offsets")
@@ -457,15 +469,20 @@ class DataParsingMixin:
 
     def _tbody_from_label_p(self, p_el):
         """Obtiene tbody relativo a un label encontrado."""
-        for xp in [
+        xps = [
             "../../../following-sibling::div[1]//table/tbody",
             "../../following-sibling::div[1]//table/tbody",
             "../following-sibling::div[1]//table/tbody",
             "ancestor::div[1]/following-sibling::div[1]//table/tbody"
-        ]:
+        ]
+        for xp in xps:
             try:
-                tb = p_el.find_element(By.XPATH, xp)
-                if tb: return tb
+                tb = self._find([xp], "presence", "mini_find_table")
+                if not tb:
+                    candidates = p_el.find_elements(By.XPATH, xp)
+                    tb = candidates[0] if candidates else None
+                if tb:
+                    return tb
             except Exception:
                 continue
         return None
@@ -484,9 +501,14 @@ class DataParsingMixin:
                 for xp in XPATHS.get("IPD_TBODY_FALLBACK", []):
                     try:
                         relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
-                        if tbody: break
-                    except Exception: continue
+                        tbody = self._find([relative], "presence", "mini_find_table")
+                        if not tbody:
+                            candidates = root.find_elements(By.XPATH, relative)
+                            tbody = candidates[0] if candidates else None
+                        if tbody:
+                            break
+                    except Exception:
+                        continue
             if not tbody: return [], [], []
 
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
@@ -516,10 +538,16 @@ class DataParsingMixin:
                 for xp in XPATHS.get("OA_TBODY_FALLBACK", []):
                     try:
                         relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
-                        if tbody: break
-                    except Exception: continue
-            if not tbody: return [], [], [], [], []
+                        tbody = self._find([relative], "presence", "mini_find_table")
+                        if not tbody:
+                            candidates = root.find_elements(By.XPATH, relative)
+                            tbody = candidates[0] if candidates else None
+                        if tbody:
+                            break
+                    except Exception:
+                        continue
+            if not tbody: 
+                return [], [], [], [], []
 
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
             parsed = []
@@ -541,66 +569,90 @@ class DataParsingMixin:
         except Exception: return [], [], [], [], []
 
     def leer_aps_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str]]:
-        if not root: return [], []
+        if not root:
+            return [], []
         try:
             tbody = None
             for xp in XPATHS.get("APS_TBODY_FALLBACK", []):
                 try:
-                    if xp.startswith("/html"): tbody = self.driver.find_element(By.XPATH, xp)
-                    else: tbody = root.find_element(By.XPATH, xp.lstrip("."))
+                    if xp.startswith("/html"):
+                        tbody = self._find([xp], "presence", "mini_find_table")
+                    else:
+                        tbody = self._find([xp.lstrip(".")], "presence", "mini_find_table")
                     if tbody:
-                        if tbody.find_elements(By.TAG_NAME, "tr"): break
+                        if tbody.find_elements(By.TAG_NAME, "tr"):
+                            break
                         tbody = None
-                except Exception: continue
+                except Exception:
+                    continue
             if not tbody:
                 p = self._find_section_label_p(root, "Hoja Diaria APS")
-                if p: tbody = self._tbody_from_label_p(p)
-            if not tbody: return [], []
+                if p:
+                    tbody = self._tbody_from_label_p(p)
+            if not tbody:
+                return [], []
 
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
             parsed = []
             for tr in rows:
                 try:
                     tds = tr.find_elements(By.TAG_NAME, "td")
-                    if len(tds) < 3: continue
+                    if len(tds) < 3:
+                        continue
                     fecha_txt = (tds[1].text or "").strip()
                     estado_txt = (tds[2].text or "").strip()
-                    if estado_txt and "caso" not in estado_txt.lower(): continue
+                    if estado_txt and "caso" not in estado_txt.lower():
+                        continue
                     fecha_dt = dparse(fecha_txt) or 0
                     parsed.append((fecha_dt, fecha_txt, estado_txt))
-                except Exception: continue
+                except Exception:
+                    continue
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0: parsed = parsed[:n]
+            if n and n > 0:
+                parsed = parsed[:n]
             return ([p[1] for p in parsed], [p[2] for p in parsed])
-        except Exception: return [], []
+        except Exception:
+            return [], []
 
     def leer_sic_desde_caso(self, root: Any, n: int) -> Tuple[List[str], List[str]]:
-        if not root: return [], []
+        if not root:
+            return [], []
         try:
             tbody = None
             p = self._find_section_label_p(root, "solicitudes de interconsultas")
-            if p: tbody = self._tbody_from_label_p(p)
+            if p:
+                tbody = self._tbody_from_label_p(p)
             if not tbody:
                 for xp in XPATHS.get("SIC_TBODY_FALLBACK", []):
                     try:
                         relative = "." + xp.split("/main")[1] if "/main" in xp else xp
-                        tbody = root.find_element(By.XPATH, relative)
-                        if tbody: break
-                    except Exception: continue
-            if not tbody: return [], []
+                        tbody = self._find([relative], "presence", "mini_find_table")
+                        if not tbody:
+                            candidates = root.find_elements(By.XPATH, relative)
+                            tbody = candidates[0] if candidates else None
+                        if tbody:
+                            break
+                    except Exception:
+                        continue
+            if not tbody:
+                return [], []
 
             rows = tbody.find_elements(By.TAG_NAME, "tr") or []
             parsed = []
             for tr in rows:
                 try:
                     tds = tr.find_elements(By.TAG_NAME, "td")
-                    if len(tds) < 9: continue
+                    if len(tds) < 9:
+                        continue
                     fecha_sic = (tds[2].text or "").strip()
                     derivado = (tds[8].text or "").strip()
                     fecha_dt = dparse(fecha_sic) or 0
                     parsed.append((fecha_dt, fecha_sic, derivado))
-                except Exception: continue
+                except Exception:
+                    continue
             parsed.sort(key=lambda x: x[0] if x[0] else 0, reverse=True)
-            if n and n > 0: parsed = parsed[:n]
+            if n and n > 0:
+                parsed = parsed[:n]
             return ([p[1] for p in parsed], [p[2] for p in parsed])
-        except Exception: return [], []
+        except Exception:
+            return [], []

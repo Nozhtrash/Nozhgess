@@ -261,8 +261,9 @@ class PersistentMissionManager:
                     return f"{mission.get('icon', '📁')} {mission.get('name', 'Misión sin nombre')}"
                 else:
                     return "❌ Misión no encontrada"
-            except:
+            except Exception:
                 return "❌ Error obteniendo misión"
+
     
     def refresh_cache(self):
         """Refrescar cache desde disco (forzar reload)"""
@@ -380,16 +381,18 @@ class MissionListWidget:
                     # Convertir a número de línea
                     line_num = int(selection_start.split('.')[0]) - 1
                     return line_num
-            except:
+            except Exception:
                 pass
+
             
             # Método alternativo: buscar línea actual del cursor
             try:
                 cursor_pos = self.missions_listbox.index("insert")
                 line_num = int(cursor_pos.split('.')[0]) - 1
                 return line_num
-            except:
+            except Exception:
                 pass
+
             
             return None
             

@@ -3,24 +3,31 @@
     {
       "nombre": "Artritis Reumatoide",
       "keywords": [
-        "artritis reumatoidea"
+        "artritis reumatoide",
+        "artritis reumatoide"
       ],
-      "objetivos": [
+      "objetivos": [],
+      "habilitantes": [
         "0101113"
       ],
-      "habilitantes": [],
       "excluyentes": [],
       "familia": "52",
       "especialidad": "07-110-2",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
-      "keywords_contra": [],
       "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
       "require_ipd": true,
       "require_oa": true,
-      "require_aps": true,
-      "require_sic": true,
+      "require_aps": false,
+      "require_sic": false,
       "show_futures": true,
       "requiere_ipd": true,
       "requiere_aps": true,
@@ -33,27 +40,20 @@
         "fecha": "10"
       },
       "anios_codigo": [],
-      "frecuencia_cantidad": 1,
-      "edad_min": 15,
-      "vigencia_dias": 180,
-      "max_objetivos": 1,
-      "max_habilitantes": 1,
-      "max_excluyentes": 1,
-      "max_ipd": 1,
-      "max_oa": 1,
-      "max_aps": 1,
-      "max_sic": 1,
       "folio_vih": false,
       "folio_vih_codigos": [],
       "frecuencias": [
         {
-          "code": "LEGACY",
+          "code": "0101113",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
+          "periodicity": "Mes"
         }
       ],
-      "active_frequencies": 0
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Reumatología (192) - Enero.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
     }
   ]
 }

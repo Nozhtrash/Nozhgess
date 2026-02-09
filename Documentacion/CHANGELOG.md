@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2026-02-08
+### 🧹 Infraestructura y Documentación Forense
+- **Limpieza Masiva de Residuos:** Eliminación de archivos `.bak`, logs temporales y dependencias huérfanas identificadas en la auditoría.
+- **Rediseño del README:** Migración total a español y actualización de capacidades técnicas (Session Parasitism v2 e Intergrator).
+- **Actualización Maestra de Documentación:** Sincronización de todas las guías técnicas con la arquitectura actual del sistema.
+- **Mejora del Diccionario de Errores:** Clasificación forense expandida con protocolos de resolución nivel 3.
+
 ## [3.4.0] - 2026-02-05
+
 ### 🛡️ Forensic Logic & Robustness
 - **"Caso en Contra" Full Fix:** Resolved a critical bug where the "En Contra" block was ignored due to missing column initialization.
 - **Auto-Initialization:** The results dictionary now pre-fills all columns from the mission config, preventing silent failures and guaranteeing Excel consistency.

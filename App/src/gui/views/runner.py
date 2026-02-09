@@ -57,21 +57,17 @@ class RunnerView(ctk.CTkFrame):
         self.current_match_idx = -1
         self._search_timer = None
         
-        # Log file handling
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Crear carpetas de logs si no existen
+        # Log file handling (paths definidos al iniciar ejecución)
         self.log_dir = os.path.join(ruta_proyecto, "Logs")
         self.terminal_log_dir = os.path.join(self.log_dir, "Terminal")
         self.debug_log_dir = os.path.join(self.log_dir, "Debug")
-        
         os.makedirs(self.terminal_log_dir, exist_ok=True)
         os.makedirs(self.debug_log_dir, exist_ok=True)
-        
-        # Archivos de log con timestamp
-        self.terminal_log_file = os.path.join(self.terminal_log_dir, f"terminal_{timestamp}.log")
-        self.debug_log_file = os.path.join(self.debug_log_dir, f"debug_{timestamp}.log")
+
+        self._terminal_log_path = None
+        self._terminal_log_fh = None
+        self._terminal_log_stamp = None
+        self._terminal_log_lock = threading.Lock()
         
         # Título
         # Título
@@ -396,6 +392,57 @@ class RunnerView(ctk.CTkFrame):
         level: 'AUTO', 'INFO', 'DEBUG', etc.
         """
         self.log_queue.put((message, level))
+
+    # =========================================================================
+    # LOG FILES (Terminal Principal)
+    # =========================================================================
+    def _init_run_logs(self):
+        """Inicializa el log de Terminal Principal con naming estándar."""
+        try:
+            from src.utils import logger_manager as logmgr
+            stamp = logmgr.now_stamp()
+            self._terminal_log_stamp = stamp
+            self._terminal_log_path = logmgr.build_log_path(
+                "Terminal", "TPrincipal", "log", root_dir=ruta_proyecto, stamp=stamp, keep=5
+            )
+            # Legacy cleanup (archivos terminal_*.log)
+            logmgr.prune_logs(os.path.join(self.log_dir, "Terminal"), prefix="terminal", keep=5)
+            self._terminal_log_fh = open(self._terminal_log_path, "a", encoding="utf-8")
+        except Exception as e:
+            # No bloquear ejecución por logging
+            self._terminal_log_path = None
+            self._terminal_log_fh = None
+            self._log(f"⚠️ No se pudo inicializar log TPrincipal: {e}", level="WARN")
+
+    def _write_terminal_log(self, line: str):
+        """Escribe una línea en el log TPrincipal si está disponible."""
+        if not self._terminal_log_fh:
+            return
+        try:
+            with self._terminal_log_lock:
+                self._terminal_log_fh.write(line + "\n")
+                try:
+                    self._terminal_log_fh.flush()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _close_run_logs(self):
+        """Cierra archivos de log abiertos por el Runner."""
+        try:
+            if self._terminal_log_fh:
+                with self._terminal_log_lock:
+                    try:
+                        self._terminal_log_fh.flush()
+                    except Exception:
+                        pass
+                    try:
+                        self._terminal_log_fh.close()
+                    except Exception:
+                        pass
+        finally:
+            self._terminal_log_fh = None
     
     # =========================================================================
     # LOGGING HANDLER PERSONALIZADO
@@ -412,7 +459,7 @@ class RunnerView(ctk.CTkFrame):
             try:
                 msg = self.format(record)
                 self.queue_ref.put((msg, "FILE")) # Nivel especial 'FILE'
-            except:
+            except Exception:
                 self.handleError(record)
 
     def _start_log_worker(self):
@@ -422,6 +469,7 @@ class RunnerView(ctk.CTkFrame):
             # Regex para escapar secuencias ANSI reales (ESC ...)
             ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             while self.log_worker_running:
+
                 try:
                     item = self.log_queue.get(timeout=0.25)
                 except queue.Empty:
@@ -457,49 +505,49 @@ class RunnerView(ctk.CTkFrame):
                     to_terminal = False
                     to_debug = True
 
+                logged_general = False
+
                 if to_terminal:
                     # Write to Centralized General Logger (File handled by logger_manager)
                     try:
                         import logging
                         from src.utils.logger_manager import LOGGER_GENERAL
                         logging.getLogger(LOGGER_GENERAL).info(clean_msg)
-                    except:
+                        logged_general = True
+                    except Exception:
                         pass
+
                     
                     # Send to UI
                     self.ui_queue.put(("terminal", clean_msg + "\n"))
+                    # Persist Terminal Principal
+                    self._write_terminal_log(clean_msg)
 
                 if to_debug:
-                    # Write to Centralized Debug/Secure Logger or just Info?
-                    # The user wants "Debug" logs. 
-                    # logger_manager has General, Secure, Structured.
-                    # We can use General for debug too, or add a Debug logger to manager?
-                    # Plan said: "Refactor runner.py to write to LOGGER_GENERAL and LOGGER_DEBUG"
-                    # But LOGGER_DEBUG doesn't exist in logger_manager.py yet! 
-                    # We should probably put it in General or create a specific one.
-                    # Let's use General for now as they often overlap, or Secure?
-                    # Actually, let's stick to General for everything into 'nozhgess_current.log' for now, 
-                    # OR simply log to general.
-                    # Wait, legacy runner made separate files. 
-                    # Let's log 'to_debug' messages to General but maybe with a prefix? 
-                    # Or better: Add a Debug logger to manager?
-                    # User asked for "5 logs max". 
-                    # If we add a new logger, we add files.
-                    # Let's write debug/terminal ALL to General.
+                    # Write to Debug logger (archivo TDebug)
                     try:
                         import logging
-                        from src.utils.logger_manager import LOGGER_GENERAL
-                        # Distinguish in log file? 
-                        # The clean_msg usually has tags.
-                        logging.getLogger(LOGGER_GENERAL).info(clean_msg)
-                    except:
+                        from src.utils.logger_manager import LOGGER_DEBUG, LOGGER_GENERAL
+                        logging.getLogger(LOGGER_DEBUG).info(clean_msg)
+                        if not logged_general:
+                            logging.getLogger(LOGGER_GENERAL).info(clean_msg)
+                            logged_general = True
+                    except Exception:
                         pass
+
 
                     self.ui_queue.put(("debug", clean_msg + "\n"))
                 
-                # Fallback
+                # Fallback: si no calza en terminal ni debug, va a debug + se registra
                 if not to_terminal and not to_debug:
-                     self.ui_queue.put(("debug", clean_msg + "\n"))
+                    try:
+                        import logging
+                        from src.utils.logger_manager import LOGGER_GENERAL
+                        logging.getLogger(LOGGER_GENERAL).info(clean_msg)
+                    except Exception:
+                        pass
+
+                    self.ui_queue.put(("debug", clean_msg + "\n"))
 
         self._log_worker_thread = threading.Thread(target=_worker, daemon=True)
         self._log_worker_thread.start()
@@ -517,7 +565,7 @@ class RunnerView(ctk.CTkFrame):
                 elif target == "debug":
                     self.debug_console.append(text)
                 elif target == "reset_state":
-                     self._transition_to(RunState.STOPPED)
+                     self._transition_to(RunState.IDLE)
                 processed += 1
         except queue.Empty:
             pass
@@ -551,6 +599,10 @@ class RunnerView(ctk.CTkFrame):
         
         self.start_time = time.time()
         self._transition_to(RunState.RUNNING)
+
+        # Inicializar logs de ejecución (Terminal Principal)
+        self._close_run_logs()
+        self._init_run_logs()
         
         # Abrir archivos de log dedicados (si se usan)
         # REFACTOR 2026: Delegado a logger_manager
@@ -689,6 +741,9 @@ class RunnerView(ctk.CTkFrame):
             except Exception:
                 pass
         self._transition_to(RunState.COMPLETED)
+
+        # Cerrar logs de ejecución
+        self._close_run_logs()
         
         # Mostrar notificación de Windows
         try:
@@ -797,8 +852,9 @@ class RunnerView(ctk.CTkFrame):
             if tab == "💻 Terminal Principal": return self.term_console
             if tab == "🔧 Terminal Debug": return self.debug_console
             if tab == "📝 Terminal General": return self.general_console
-        except:
+        except Exception:
             pass
+
         return None
 
     # (Deleted duplicate method)
@@ -933,9 +989,11 @@ class RunnerView(ctk.CTkFrame):
         
         # Configurar tags si no existen (Solo una vez)
         try:
-             console.text_area.tag_config("search_highlight", background="#f1c40f", foreground="black") # Amarillo
-             console.text_area.tag_config("search_current", background="#e67e22", foreground="white", borderwidth=1, relief="raised") # Naranja fuerte
-        except: pass
+            console.text_area.tag_config("search_highlight", background="#f1c40f", foreground="black") # Amarillo
+            console.text_area.tag_config("search_current", background="#e67e22", foreground="white", borderwidth=1, relief="raised") # Naranja fuerte
+        except Exception:
+            pass
+
 
         # Buscar todas las coincidencias (Heurística: buscar máximo 1000 para no congelar)
         self.search_matches = []

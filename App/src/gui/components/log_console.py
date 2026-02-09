@@ -48,7 +48,8 @@ class LogConsole(ctk.CTkFrame):
         )
         self.text_area.pack(fill="both", expand=True)
         self.text_area.configure(state="disabled")
-        self.max_lines = 8000  # límite de líneas en memoria para evitar uso excesivo de RAM
+        # límite de líneas en memoria para evitar uso excesivo de RAM (bajado para sesiones largas)
+        self.max_lines = 3000
         
         # Tags de colores
         self.text_area.tag_config("INFO", foreground=self.colors.get("info", "#3b82f6"))

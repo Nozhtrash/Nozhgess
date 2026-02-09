@@ -95,8 +95,8 @@ class TestValidarFecha:
     """Tests for date validation."""
     
     def test_fecha_valida(self):
-        """Fecha válida en formato DD/MM/YYYY."""
-        ok, dt = validar_fecha("15/06/2025")
+        """Fecha válida en formato DD-MM-YYYY."""
+        ok, dt = validar_fecha("15-06-2025")
         assert ok is True
         assert dt.day == 15
         assert dt.month == 6
@@ -104,39 +104,39 @@ class TestValidarFecha:
     
     def test_fecha_primer_dia_mes(self):
         """Fecha del primer día del mes."""
-        ok, dt = validar_fecha("01/01/2025")
+        ok, dt = validar_fecha("01-01-2025")
         assert ok is True
         assert dt.day == 1
         assert dt.month == 1
     
     def test_fecha_ultimo_dia_mes(self):
         """Fecha del último día del mes."""
-        ok, dt = validar_fecha("31/12/2025")
+        ok, dt = validar_fecha("31-12-2025")
         assert ok is True
         assert dt.day == 31
         assert dt.month == 12
     
     def test_fecha_dia_invalido(self):
         """Día inválido (32)."""
-        ok, dt = validar_fecha("32/01/2025")
+        ok, dt = validar_fecha("32-01-2025")
         assert ok is False
         assert dt is None
     
     def test_fecha_mes_invalido(self):
         """Mes inválido (13)."""
-        ok, dt = validar_fecha("15/13/2025")
+        ok, dt = validar_fecha("15-13-2025")
         assert ok is False
         assert dt is None
     
     def test_fecha_febrero_29_bisiesto(self):
         """29 de febrero en año bisiesto."""
-        ok, dt = validar_fecha("29/02/2024")  # 2024 es bisiesto
+        ok, dt = validar_fecha("29-02-2024")  # 2024 es bisiesto
         assert ok is True
         assert dt.day == 29
     
     def test_fecha_febrero_29_no_bisiesto(self):
         """29 de febrero en año no bisiesto (inválido)."""
-        ok, dt = validar_fecha("29/02/2025")  # 2025 no es bisiesto
+        ok, dt = validar_fecha("29-02-2025")  # 2025 no es bisiesto
         assert ok is False
     
     def test_fecha_vacia(self):
@@ -152,17 +152,17 @@ class TestValidarFecha:
     
     def test_fecha_con_espacios(self):
         """Fecha con espacios extra."""
-        ok, dt = validar_fecha("  15/06/2025  ")
+        ok, dt = validar_fecha("  15-06-2025  ")
         assert ok is True
     
     def test_fecha_muy_antigua(self):
         """Fecha muy antigua (antes de 1900)."""
-        ok, dt = validar_fecha("01/01/1899")
+        ok, dt = validar_fecha("01-01-1899")
         assert ok is False
     
     def test_fecha_muy_futura(self):
         """Fecha muy futura (después de 2100)."""
-        ok, dt = validar_fecha("01/01/2101")
+        ok, dt = validar_fecha("01-01-2101")
         assert ok is False
 
 

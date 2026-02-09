@@ -8,6 +8,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
+from src.utils import logger_manager as logmgr
 
 # Directorio de crash reports
 CRASH_DIR = None
@@ -31,8 +32,11 @@ def log_crash(exc_type, exc_value, exc_traceback):
         return
     
     # Generar nombre de archivo con timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    crash_file = os.path.join(CRASH_DIR, f"crash_{timestamp}.log")
+    timestamp = logmgr.now_stamp()
+    # Retenci?n estricta: m?ximo 5 logs
+    logmgr.prune_logs(CRASH_DIR, prefix="TCrash", keep=5)
+    logmgr.prune_logs(CRASH_DIR, prefix="crash", keep=5)
+    crash_file = os.path.join(CRASH_DIR, f"TCrash_{timestamp}.log")
     
     # Formatear traceback
     tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
@@ -78,3 +82,9 @@ def install_crash_handler(project_root: str):
     # Install handler
     sys.excepthook = exception_handler
     print("✅ Crash reporting system initialized")
+
+
+# Alias legacy (compatibilidad)
+def configurar_crash_reporting(project_root: str):
+    """Alias de install_crash_handler para compatibilidad."""
+    return install_crash_handler(project_root)

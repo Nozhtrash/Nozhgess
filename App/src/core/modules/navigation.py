@@ -209,27 +209,29 @@ class NavigationMixin:
             if not force:
                 try:
                     for xp in XPATHS.get("BTN_MENU_BUSQUEDA", [])[:2]:
-                        el = self.driver.find_element(By.XPATH, xp)
+                        els = self.driver.find_elements(By.XPATH, xp)
+                        el = els[0] if els else None
                         if el and el.is_displayed():
                             return
                 except (NoSuchElementException, TimeoutException):
                     pass
-            
             self.log.info("📂 Expandiendo submenú 'Ingreso y Consulta Paciente'...")
             
             for xp in XPATHS.get("BTN_MENU_INGRESO_CONSULTA_CARD", []):
                 try:
-                    el = self.driver.find_element(By.XPATH, xp)
-                    if el:
-                        el.click()
-                        try:
-                            WebDriverWait(self.driver, 0.5).until(
-                                EC.visibility_of_element_located((By.XPATH, XPATHS["BTN_MENU_BUSQUEDA"][0]))
-                            )
-                        except TimeoutException:
-                            pass
-                        self.log.info("✅ Submenú expandido")
-                        return
+                    els = self.driver.find_elements(By.XPATH, xp)
+                    el = els[0] if els else None
+                    if not el:
+                        continue
+                    el.click()
+                    try:
+                        WebDriverWait(self.driver, 0.5).until(
+                            EC.visibility_of_element_located((By.XPATH, XPATHS["BTN_MENU_BUSQUEDA"][0]))
+                        )
+                    except TimeoutException:
+                        pass
+                    self.log.info("✅ Submenú expandido")
+                    return
                 except (NoSuchElementException, TimeoutException):
                     continue
             

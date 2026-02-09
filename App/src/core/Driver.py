@@ -35,7 +35,7 @@ from src.core.Formatos import dparse, _norm
 from src.utils.Direcciones import XPATHS
 from src.core.locators import XPATHS as LOCS
 from src.utils.Errores import SpinnerStuck, pretty_error
-from src.utils.Esperas import ESPERAS, espera
+from src.utils.Esperas import ESPERAS, espera, get_wait_timeout
 from src.utils.Terminal import log_error, log_info, log_ok, log_warn, log_debug
 from src.core.flows import ensure_logged_in as ensure_logged_in_flow
 
@@ -152,24 +152,25 @@ class SiggesDriver:
         except Exception:
             return False
 
-    def esperar_spinner(self, appear_timeout: float = 0.0, clave_espera: str = "spinner") -> None:
+    def esperar_spinner(self, appear_timeout: float = 0.0, clave_espera: str = "spinner_short") -> None:
         """
         Espera obligatoria a que desaparezca el spinner.
         """
         if not self.hay_spinner():
-            return 
-        
+            return
+
+        timeout = get_wait_timeout(clave_espera) or 5.0
         try:
             css = XPATHS.get("SPINNER_CSS", "dialog.loading")
-            WebDriverWait(self.driver, 5.0).until(
+            WebDriverWait(self.driver, timeout).until(
                 EC.invisibility_of_element_located((By.CSS_SELECTOR, css))
             )
         except TimeoutException:
-            pass # Continue execution, don't crash
+            pass  # Continue execution, don't crash
 
     def _wait_smart(self) -> None:
         """Helper para esperar spinner post-acción."""
-        time.sleep(0.3) # Grace period
+        time.sleep(0.1) # Grace period (Optimized)
         self.esperar_spinner()
 
     # =========================================================================
@@ -197,8 +198,8 @@ class SiggesDriver:
             "clickable": EC.element_to_be_clickable
         }.get(mode, EC.element_to_be_clickable)
 
-        # Timeout básico (aumentado para reducir falsos negativos)
-        timeout = 5.0 
+        # Timeout configurable vía tabla ESPERAS
+        timeout = get_wait_timeout(clave_espera) or 5.0
 
         for xp in locs:
             try:
@@ -239,6 +240,18 @@ class SiggesDriver:
                 len(self.driver.find_elements(By.XPATH, xpath)) > 0
         except Exception:
             return False
+
+    def _first(self, ctx, by, selector):
+        """Devuelve el primer elemento o None sin lanzar excepción."""
+        try:
+            els = ctx.find_elements(by, selector)
+            return els[0] if els else None
+        except Exception:
+            return None
+
+    def _driver_first(self, by, selector):
+        """Wrapper rápido sobre driver.find_elements()."""
+        return self._first(self.driver, by, selector)
 
     # =========================================================================
     #                       WRAPPERS PÚBLICOS
@@ -384,6 +397,31 @@ class SiggesDriver:
             # 2. Si estamos en /login → cerrada
             if "#/login" in url:
                 log_info("[DEBUG] → URL es /login, sesión CERRADA")
+                return True
+            
+            # 2.1 NUEVO: Ruta Crítica #/02 (Sesión forzada cerrada)
+            if "#/02" in url:
+                log_warn("🛑 DETECTADO: Ruta crítica #/02 → Sesión cerrada forzadamente.")
+                log_info("🔘 Intentando recuperar sesión con botón 'Presione para reconectar'...")
+                
+                # XPath del botón según usuario
+                btn_xpath = "//button[p[contains(text(), 'Presione')]]"
+                
+                try:
+                    # Intentar clickear el botón
+                    btn = WebDriverWait(self.driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, btn_xpath))
+                    )
+                    btn.click()
+                    log_ok("✅ Botón de reconexión presionado. Esperando transición...")
+                    time.sleep(2.0) # Esperar a que la app reaccione
+                except Exception as e:
+                    log_error(f"❌ Falló click en botón de reconexión: {e}")
+                    # Fallback robusto: recargar la página
+                    log_info("🔄 Fallback: Recargando página...")
+                    self.driver.refresh()
+                    time.sleep(2.0)
+                
                 return True
             
             # 3. Si estamos en /perfil → en proceso de login, tratamos como cerrada
@@ -640,7 +678,7 @@ class SiggesDriver:
             # User path: .../div[1]/div/label/input
             # Relative path from row (div[i]): ./div/label/input
             try:
-                chk = fila.find_element(By.XPATH, ".//input[@type='checkbox']")
+                chk = self._first(fila, By.XPATH, ".//input[@type='checkbox']")
                 log_debug(f"[DEBUG] expandir_caso: checkbox encontrado, clickeando...")
                 
                 # Solo clickear si no está seleccionado (para expandir)
@@ -652,13 +690,14 @@ class SiggesDriver:
                 # Scroll y Click
                 self.click(chk)
                 self._wait_smart()
-                # Espera adicional para carga de tablas internas
-                try:
-                    WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, "//table"))
-                    )
-                except Exception:
-                    pass
+                # Espera adicional solo si estamos EXPANDIENDO (si el input quedó checked)
+                if chk.is_selected():
+                    try:
+                        WebDriverWait(self.driver, 8).until(
+                            lambda d: len(fila.find_elements(By.TAG_NAME, "td")) > 0
+                        )
+                    except Exception:
+                        espera(0.5)
                 
                 log_debug(f"[DEBUG] expandir_caso: caso {indice} expandido OK")
                 
@@ -690,7 +729,7 @@ class SiggesDriver:
             for th in theads:
                 texts = [h.text.lower() for h in th.find_elements(By.TAG_NAME, "th")]
                 if all(any(k in t for t in texts) for k in header_keywords):
-                    return th.find_element(By.XPATH, "following-sibling::tbody[1]")
+                    return self._first(th, By.XPATH, "following-sibling::tbody[1]")
         except Exception:
             pass
         return None
@@ -732,7 +771,7 @@ class SiggesDriver:
             "ancestor::div[1]/following-sibling::div[1]//table/tbody",
         ]:
             try:
-                tb = p_el.find_element(By.XPATH, xp)
+                tb = self._first(p_el, By.XPATH, xp)
                 if tb:
                     return tb
             except Exception:
@@ -753,7 +792,7 @@ class SiggesDriver:
         # 1) Anclado por título exacto de la Biblia
         for xp in LOCS.get("TITLE_PO", []) or []:
             try:
-                title_el = search_ctx.find_element(By.XPATH, xp)
+                title_el = self._first(search_ctx, By.XPATH, xp)
                 # Tabla suele estar en el siguiente contenedor hermano
                 for rel_xp in [
                     "../../following-sibling::div[1]//table/tbody",
@@ -761,7 +800,7 @@ class SiggesDriver:
                     "following::table[1]/tbody",
                 ]:
                     try:
-                        tb = title_el.find_element(By.XPATH, rel_xp)
+                        tb = self._first(title_el, By.XPATH, rel_xp)
                         if tb:
                             return tb
                     except Exception:
@@ -773,7 +812,7 @@ class SiggesDriver:
         # Solo el xpath específico de PO (evitar el genérico que toma cualquier contRow)
         for xp in (LOCS.get("PRESTACIONES_TBODY", [])[:1]):
             try:
-                tb = search_ctx.find_element(By.XPATH, xp)
+                tb = self._first(search_ctx, By.XPATH, xp)
                 if tb:
                     return tb
             except Exception:
@@ -790,7 +829,7 @@ class SiggesDriver:
 
         # 4) Búsqueda GLOBAL por texto de th (más robusta cuando cambian los índices de div)
         try:
-            tb = self.driver.find_element(
+            tb = self._driver_first(
                 By.XPATH,
                 "//th[contains(., 'Código de prestación')]/ancestor::table/tbody"
             )
@@ -809,15 +848,15 @@ class SiggesDriver:
             # Mapear columnas por encabezado si existe
             code_idx = glosa_idx = fecha_idx = estab_idx = esp_idx = ref_idx = None
             try:
-                table = tbody.find_element(By.XPATH, "..")
-                thead = table.find_element(By.TAG_NAME, "thead")
-                headers = [h.text.lower().strip() for h in thead.find_elements(By.TAG_NAME, "th")]
+                table = self._first(tbody, By.XPATH, "..")
+                thead = self._first(table, By.TAG_NAME, "thead") if table else None
+                headers = [h.text.lower().strip() for h in thead.find_elements(By.TAG_NAME, "th")] if thead else []
                 for i, h in enumerate(headers):
                     if code_idx is None and "código" in h and "prest" in h:
                         code_idx = i
                     if glosa_idx is None and "glosa" in h and "prest" in h:
                         glosa_idx = i
-                    if fecha_idx is None and ("término" in h or "fecha término" in h or "fecha" in h):
+                    if fecha_idx is None and ("término" in h or "fecha término" in h or "fecha" in h or "atención" in h or "f. atención" in h):
                         fecha_idx = i
                     if ref_idx is None and "referencia" in h:
                         ref_idx = i
@@ -835,7 +874,9 @@ class SiggesDriver:
                 cols = row.find_elements(By.TAG_NAME, "td")
                 if cols:
                     c_ref = cols[ref_idx].text.strip() if ref_idx is not None and ref_idx < len(cols) else cols[0].text.strip()
-                    c_fecha = cols[fecha_idx].text.strip() if fecha_idx is not None and fecha_idx < len(cols) else (cols[3].text.strip() if len(cols) > 3 else cols[1].text.strip())
+                    
+                    # Fallback Prioridad: 1 (Atención) > 3 (Digitación)
+                    c_fecha = cols[fecha_idx].text.strip() if fecha_idx is not None and fecha_idx < len(cols) else (cols[1].text.strip() if len(cols) > 1 else (cols[3].text.strip() if len(cols) > 3 else ""))
 
                     # Código: intentar por header; si no, heurística por regex de dígitos (6-8)
                     c_codigo = ""
@@ -897,7 +938,7 @@ class SiggesDriver:
                         "./../../../following-sibling::div[1]//table/tbody",
                     ]:
                         try:
-                            tbody = label.find_element(By.XPATH, rel_xp)
+                            tbody = self._first(label, By.XPATH, rel_xp)
                             if tbody:
                                 log_debug("[DEBUG] leer_ipd: tbody encontrado por label")
                                 break
@@ -913,7 +954,7 @@ class SiggesDriver:
                 log_debug("[DEBUG] leer_ipd: usando fallbacks de XPath absoluto...")
                 for xp in LOCS.get("IPD_TBODY_FALLBACK", []):
                     try:
-                        tbody = self.driver.find_element(By.XPATH, xp)
+                        tbody = self._driver_first(By.XPATH, xp)
                         if tbody:
                             log_debug(f"[DEBUG] leer_ipd: tbody encontrado con {xp[:60]}...")
                             break
@@ -965,10 +1006,15 @@ class SiggesDriver:
             tbody = None
             
             # MÉTODO 1: Buscar por texto del label - buscamos "(OA)" que es único
+            # ACTUALIZACIÓN: Buscar también "Ordenes de" por si el formato cambia ligeramente
             try:
-                labels = self.driver.find_elements(By.XPATH, 
-                    "//div/label/p[contains(text(), '(OA)')]"
-                )
+                # Intento 1: Texto exacto (OA)
+                labels = self.driver.find_elements(By.XPATH, "//div/label/p[contains(text(), '(OA)')]")
+                
+                # Intento 2: Si no hay (OA), buscar "Ordenes de"
+                if not labels:
+                     labels = self.driver.find_elements(By.XPATH, "//div/label/p[contains(text(), 'Ordenes de')]")
+                
                 for label in labels:
                     log_debug(f"[DEBUG] leer_oa: label encontrado: {label.text[:50] if label.text else 'vacío'}...")
                     for rel_xp in [
@@ -978,7 +1024,7 @@ class SiggesDriver:
                         "./../../../following-sibling::div[1]//table/tbody",
                     ]:
                         try:
-                            tbody = label.find_element(By.XPATH, rel_xp)
+                            tbody = self._first(label, By.XPATH, rel_xp)
                             if tbody:
                                 log_debug("[DEBUG] leer_oa: tbody encontrado por label")
                                 break
@@ -994,7 +1040,7 @@ class SiggesDriver:
                 log_debug("[DEBUG] leer_oa: usando fallbacks...")
                 for xp in LOCS.get("OA_TBODY_FALLBACK", []):
                     try:
-                        tbody = self.driver.find_element(By.XPATH, xp)
+                        tbody = self._driver_first(By.XPATH, xp)
                         if tbody:
                             log_debug(f"[DEBUG] leer_oa: tbody encontrado con fallback")
                             break
@@ -1012,13 +1058,24 @@ class SiggesDriver:
             for r in rows:
                 try:
                     tds = r.find_elements(By.TAG_NAME, "td")
-                    if len(tds) < 13:
-                        continue
-                    folio = (tds[0].text or "").strip()
-                    f_txt = (tds[2].text or "").split(" ")[0].strip()  # Fecha OA
-                    deriv = (tds[8].text or "").strip()                # Derivada para
-                    cod = (tds[9].text or "").strip()                  # Código prestación
-                    diag = (tds[12].text or "").strip()                # Hipótesis diagnóstico
+                    if not tds: continue
+                    
+                    # Indices de Biblia:
+                    # Folio=0 (td[1]), Fecha=2 (td[3]), Deriv=8 (td[9]), Cod=9 (td[10]), Diag=12 (td[13])
+                    # Usamos 'get' seguro simulado
+                    def safe_txt(idx):
+                        return (tds[idx].text or "").strip() if idx < len(tds) else ""
+                    
+                    folio = safe_txt(0)
+                    # Fecha suele estar en index 2, pero a veces formato cambia
+                    # Intentamos buscar fecha valida en primeros 5 indices si falla
+                    f_raw = safe_txt(2)
+                    
+                    f_txt = f_raw.split(" ")[0].strip()
+                    deriv = safe_txt(8)
+                    cod = safe_txt(9)
+                    diag = safe_txt(12)
+                    
                     f_dt = dparse(f_txt) or 0
                     parsed.append((f_dt, f_txt, deriv, diag, cod, folio))
                 except Exception:
@@ -1065,7 +1122,7 @@ class SiggesDriver:
                         "./../../../following-sibling::div[1]//table/tbody",
                     ]:
                         try:
-                            tbody = label.find_element(By.XPATH, rel_xp)
+                            tbody = self._first(label, By.XPATH, rel_xp)
                             if tbody:
                                 log_debug("[DEBUG] leer_aps: tbody encontrado por label")
                                 break
@@ -1081,7 +1138,7 @@ class SiggesDriver:
                 log_debug("[DEBUG] leer_aps: usando fallbacks...")
                 for xp in LOCS.get("APS_TBODY_FALLBACK", []):
                     try:
-                        tbody = self.driver.find_element(By.XPATH, xp)
+                        tbody = self._driver_first(By.XPATH, xp)
                         if tbody:
                             log_debug("[DEBUG] leer_aps: tbody encontrado con fallback")
                             break
@@ -1143,7 +1200,7 @@ class SiggesDriver:
                         "./../../../following-sibling::div[1]//table/tbody",
                     ]:
                         try:
-                            tbody = label.find_element(By.XPATH, rel_xp)
+                            tbody = self._first(label, By.XPATH, rel_xp)
                             if tbody:
                                 log_debug("[DEBUG] leer_sic: tbody encontrado por label")
                                 break
@@ -1159,7 +1216,7 @@ class SiggesDriver:
                 log_debug("[DEBUG] leer_sic: usando fallbacks...")
                 for xp in LOCS.get("SIC_TBODY_FALLBACK", []):
                     try:
-                        tbody = self.driver.find_element(By.XPATH, xp)
+                        tbody = self._driver_first(By.XPATH, xp)
                         if tbody:
                             log_debug("[DEBUG] leer_sic: tbody encontrado con fallback")
                             break
@@ -1366,7 +1423,7 @@ class SiggesDriver:
             root = None
             for xp in cont_xps:
                 try:
-                    root = self.driver.find_element(By.XPATH, xp)
+                    root = self._driver_first(By.XPATH, xp)
                     if root: break
                 except Exception:
                     continue
@@ -1374,7 +1431,7 @@ class SiggesDriver:
                 casos_divs = root.find_elements(By.XPATH, ".//div[@class='contRow'][.//input[@type='checkbox']]")
                 for i, div in enumerate(casos_divs):
                     try:
-                        p = div.find_element(By.XPATH, ".//label/p")
+                        p = self._first(div, By.XPATH, ".//label/p")
                         raw_text = (p.text or "").strip()
                         if not raw_text:
                             continue

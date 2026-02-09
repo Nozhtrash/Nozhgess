@@ -1,60 +1,58 @@
 # 📕 DICCIONARIO MAESTRO DE ERRORES Y SOLUCIONES
-> **Versión:** 1.0 (Feb 2026)
-> **Nivel de Detalle:** Forense / Infraestructura
+> **Versión:** 1.1 (Feb 2026) - Edición Forense III
+> **Nivel de Detalle:** Nivel 3 (Soporte & Ingeniería)
 
-Este documento es la referencia definitiva para diagnosticar y reparar Nozhgess. Los errores se clasifican por su origen y severidad.
+Este documento es la referencia definitiva para diagnosticar y reparar Nozhgess. Los errores se clasifican por su origen, severidad y protocolo de resolución.
 
 ---
 
-# 1. ERRORES DE INFRAESTRUCTURA (NIVEL ROJO)
-*Estos errores impiden que el robot siquiera comience su trabajo.*
+# 1. ERRORES DE INFRAESTRUCTURA (NIVEL ROJO 🔴)
+*Impiden el arranque o la conexión con el motor de automatización.*
 
-| Código / Mensaje | Causa Raíz | Solución Técnica |
+| Código / Mensaje | Causa Raíz | Solución Técnica N3 |
 | :--- | :--- | :--- |
-| **`ConnectionRefusedError`** | El puerto 9222 de Edge no está abierto o el script PS1 no se ejecutó. | Cierre Edge, ejecute `Iniciador Web.ps1` y verifique que la ventana de Edge cargue. |
-| **`WebDriverException: DevToolsActivePort file doesn't exist`** | El perfil de Edge especificado en el PS1 está bloqueado por otra instancia. | Mate el proceso `msedge.exe` desde el Administrador de Tareas y reintente. |
-| **`SessionNotCreatedException`** | La versión de Edge se actualizó y el Driver quedó obsoleto. | Descargue el `msedgedriver.exe` correspondiente a su versión de Edge y reemplácelo en `App/bin`. |
+| **`ConnectionRefusedError`** | Puerto 9222 de Edge cerrado o script PS1 no ejecutado. | Cerrar Edge, ejecutar `Iniciador Web.ps1` y verificar puerto con `netstat -ano | findstr 9222`. |
+| **`DevToolsActivePort`** | Perfil de Edge bloqueado por otra instancia. | Ejecutar `taskkill /F /IM msedge.exe` y reintentar. |
+| **`SessionNotCreated`** | Versión de Edge y Driver desincronizados. | Actualizar `msedgedriver.exe` en `App/bin` (Verificar versión en `edge://settings/help`). |
+| **`MaxRetryError`** | Fallo crítico en el `RetryManager` tras 5 intentos. | Reiniciar el equipo. Indica saturación de memoria o hilos huérfanos. |
 
 ---
 
-# 2. ERRORES DEL MOTOR DE ANÁLISIS (NIVEL NARANJA)
-*El robot corre, pero falla al procesar ciertos pacientes.*
+# 2. ERRORES DEL MOTOR DE AUTOMATIZACIÓN (NIVEL NARANJA 🟠)
+*El robot está corriendo, pero falla en la interacción con la web.*
 
-### 2.1. `TimeoutException` en Búsqueda
-- **Síntoma:** El robot escribe el RUT pero nunca hace click en la lupa o se queda esperando la tabla.
-- **Solución Forense:** 
-    1. Revise la velocidad del internet del hospital.
-    2. Aumente el valor de `ESPERA_BUSQUEDA` en `App/src/utils/Esperas.py`.
-    3. Verifique si SIGGES lanzó un popup de "Aviso del Sistema" que bloquea la vista.
-
-### 2.2. `StaleElementReferenceException`
-- **Síntoma:** El robot intenta leer una fecha y lanza un error de "referencia vieja".
-- **Solución Forense:** 
-    - El sistema ya reintenta automáticamente, pero si persiste, asegúrese de que el método `_invalidar_cache_estado()` se llame antes de entrar a la cartola del paciente.
+| Código / Mensaje | Causa Raíz | Protocolo de Resolución |
+| :--- | :--- | :--- |
+| **`TimeoutException`** | Elemento no cargó en el tiempo estipulado (Default 10s). | Aumentar `ESPERA_MEDIO` en `src/utils/Esperas.py` o verificar latencia de red. |
+| **`ClickIntercepted`** | Un popup o el "Spinner" de SIGGES bloquea el elemento. | Verificar que `SPINNER_CSS` en `locators.py` esté actualizado (SIGGES cambia IDs frecuentemente). |
+| **`StaleElement`** | El DOM cambió mientras se leía el dato. | El sistema ya reintenta, pero si persiste, forzar `sigges.refresh()` antes de la lectura. |
+| **`ElementNotInteractable`** | El elemento existe pero está oculto o deshabilitado. | Verificar si el paciente está en estado "Cerrado" o "Anulado" en SIGGES. |
 
 ---
 
-# 3. ERRORES DE LÓGICA CLÍNICA (NIVEL AMARILLO)
-*El robot termina, pero los datos en el Excel no guardan sentido.*
+# 3. ERRORES DE LÓGICA CLÍNICA Y DATOS (NIVEL AMARILLO 🟡)
+*El robot termina, pero los resultados requieren auditoría humana.*
 
-### 3.1. "Caso en Contra detectado pero columnas vacías"
-- **Causa:** Las `keywords_contra` en el JSON son demasiado específicas.
-- **Solución:** Use términos más cortos. En lugar de "Diabetes Mellitus Tipo 1 Descompensada", use solo "Tipo 1".
+### 3.1. Caso en Contra / Alerta de Divergencia
+- **Síntoma:** El Excel marca "Caso en Contra" y bloquea el procesamiento automático.
+- **Causa:** El paciente tiene una patología GES distinta a la proyectada en la misión (Ej: T1 vs T2).
+- **Solución:** Nozhgess extrae los datos del caso divergente. El auditor debe validar si el ingreso en la nómina original fue un error administrativo.
 
-### 3.2. "Fechas Habilitantes no aparecen en rojo"
-- **Causa:** El código de prestación en SIGGES tiene espacios al final o el JSON tiene el código mal escrito.
-- **Solución:** Revise `latest.log`. El robot imprime: `[DEBUG] Comparando Código Web: '5002101 ' con JSON: '5002101'`. Si hay espacios, el motor de normalización (`Formatos.py`) debe ser actualizado.
-
----
-
-# 4. PROTOCOLO DE REPORTE DE ERRORES (SOPORTE)
-
-Si el error no está en este diccionario:
-1.  **NO REINTENTE** más de 3 veces si el fallo es idéntico.
-2.  **CAPTURE:** El contenido de la carpeta `Logs/` y una captura de pantalla de la consola de Nozhgess.
-3.  **REVISE:** Si SIGGES está en "Mantención" (Suele ocurrir los fines de semana o después de las 20:00 hrs).
+### 3.2. Disparidad de Códigos de Prestación
+- **Síntoma:** El reporte dice "No Encontrado" pero el examen está en SIGGES.
+- **Solución:** SIGGES usa espacios al final de los códigos. Nozhgess v3.5.1 usa `Formatos.normalizar_codigo()` para limpiar estos caracteres. Verifique que el código en el JSON no tenga caracteres ocultos.
 
 ---
 
-**© 2026 Nozhgess Support & Engineering**
+# 4. PROTOCOLO DE SOPORTE AVANZADO
+
+Si el error persiste tras aplicar las soluciones:
+1.  **Auditoría de Logs:** Revise `Logs/latest.log`. Busque la traza `[TERMINAL]` para errores de lógica o `[DEBUG]` para errores de Selenium.
+2.  **Volcado Forense:** Si un RUT falla sistemáticamente, el sistema genera un `debug_root_RUT.html`. Ábralo para ver qué leyó el robot.
+3.  **Reset de Sesión:** Borre la carpeta de perfil temporal definida en el `Iniciador Web.ps1` para limpiar cookies corruptas.
+
+---
+
+**© 2026 Nozhgess Engineering**
 *"La estabilidad es el resultado de un diagnóstico preciso."*
+

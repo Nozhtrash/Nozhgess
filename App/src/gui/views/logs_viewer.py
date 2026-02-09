@@ -25,11 +25,11 @@ CAT_CONFIG = {
     "General":    {"icon": "📝", "color": "#3498db", "path": ["General"]},
     "Terminal":   {"icon": "💻", "color": "#2ecc71", "path": ["Terminal"]},
     "Debug":      {"icon": "🐞", "color": "#f1c40f", "path": ["Debug"]},
-    "App Log":    {"icon": "📱", "color": "#1abc9c", "path": ["App Log"]},
+    "Telemetría": {"icon": "📱", "color": "#1abc9c", "path": ["App Log"]},
     "Seguridad":  {"icon": "🛡️", "color": "#9b59b6", "path": ["Secure"]},
-    "Sistema":    {"icon": "⚙️", "color": "#e67e22", "path": ["Structured"]},
+    "Sistema":    {"icon": "⚙️", "color": "#e67e22", "path": ["Structured", "System"]},
     "Crash":      {"icon": "💥", "color": "#e74c3c", "path": ["Crash"]},
-    "Todo":       {"icon": "📂", "color": "#95a5a6", "path": ["General", "Terminal", "Debug", "App Log", "Secure", "Structured", "Crash"]}
+    "Todo":       {"icon": "📂", "color": "#95a5a6", "path": ["General", "Terminal", "Debug", "App Log", "Secure", "Structured", "System", "Crash"]}
 }
 
 class LogsViewerView(ctk.CTkFrame):
@@ -68,7 +68,7 @@ class LogsViewerView(ctk.CTkFrame):
         
         self.cat_buttons = {}
         # Orden de despliegue
-        cats_order = ["General", "Terminal", "Debug", "App Log", "Seguridad", "Sistema", "Crash"]
+        cats_order = ["General", "Terminal", "Debug", "Telemetría", "Seguridad", "Sistema", "Crash"]
         
         for cat_name in cats_order:
             btn = ctk.CTkButton(

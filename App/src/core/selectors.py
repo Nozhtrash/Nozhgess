@@ -10,8 +10,10 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 import json
 import os
+import shutil
 from collections import defaultdict, Counter
 from src.utils.Terminal import log_info, log_warn, log_error
+from src.utils import logger_manager as logmgr
 
 if TYPE_CHECKING:
     from src.core.waits import SmartWait
@@ -21,7 +23,27 @@ class SelectorDriftTracker:
     Rastrea el uso de selectores fallback para detectar degradación silenciosa (drift).
     Persiste las estadísticas en disco para análisis offline.
     """
-    def __init__(self, persistence_file: str = "logs/drift_report.json"):
+    def __init__(self, persistence_file: str = None):
+        # Ubicación estándar en Logs/System
+        if not persistence_file:
+            log_root = logmgr.get_log_root()
+            persistence_file = os.path.join(log_root, "System", "DriftReport.json")
+
+            # Migrar legacy si existe
+            legacy_candidates = [
+                os.path.join(log_root, "drift_report.json"),
+                os.path.join(os.getcwd(), "logs", "drift_report.json"),
+            ]
+            if not os.path.exists(persistence_file):
+                for lp in legacy_candidates:
+                    if os.path.exists(lp):
+                        try:
+                            os.makedirs(os.path.dirname(persistence_file), exist_ok=True)
+                            shutil.move(lp, persistence_file)
+                        except Exception:
+                            pass
+                        break
+
         self.persistence_file = persistence_file
         self.stats = self._load()
 

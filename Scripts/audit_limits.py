@@ -48,6 +48,8 @@ z_utils.Motor.Formatos.normalizar_codigo = lambda x: str(x).strip()
 z_utils.Motor.Formatos.normalizar_rut = lambda x: x
 z_utils.Motor.Formatos.same_month = lambda a,b: False
 z_utils.Motor.Formatos.solo_fecha = lambda x: x
+z_utils.Motor.Formatos.vac_row = lambda m, f, r, n, obs="": {"Fecha": f, "Rut": r, "Nombre": n, "Observación": obs}
+z_utils.Motor.Formatos.en_vigencia = lambda a,b,c: True
 z_utils.Motor.Mini_Tabla = types.ModuleType("Mini_Tabla")
 z_utils.Motor.Mini_Tabla.leer_mini_tabla = lambda x: []
 
@@ -76,7 +78,7 @@ for var in ["NOMBRE_DE_LA_MISION", "RUTA_ARCHIVO_ENTRADA", "RUTA_CARPETA_SALIDA"
             "REVISAR_HABILITANTES", "REVISAR_EXCLUYENTES", "FILAS_IPD", "FILAS_OA", 
             "FILAS_APS", "FILAS_SIC", "HABILITANTES_MAX", "EXCLUYENTES_MAX", 
             "VENTANA_VIGENCIA_DIAS", "OBSERVACION_FOLIO_FILTRADA", "CODIGOS_FOLIO_BUSCAR", 
-            "FOLIO_VIH", "FOLIO_VIH_CODIGOS"]:
+            "FOLIO_VIH", "FOLIO_VIH_CODIGOS", "ANIOS_REVISION_MAX", "REVISAR_HISTORIA_COMPLETA"]:
     setattr(ma, var, None)
 
 # Set defaults
@@ -92,8 +94,9 @@ sys.modules["Mision_Actual"] = ma
 
 # Setup Paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
-sys.path.insert(0, os.path.join(current_dir, "App"))
+root_dir = os.path.dirname(current_dir)
+sys.path.insert(0, root_dir)
+sys.path.insert(0, os.path.join(root_dir, "App"))
 
 # Import Conexiones
 try:
@@ -243,8 +246,8 @@ def run_audit():
     # In this test we have 1 objective code "OBJ1".
     # And we have multple dates for it.
     # Check if F Obj 1 exists.
-    print(f"[Objetivos] F Obj 1 present: {'F Obj 1' in res}")
-    print(f"[Objetivos] F Obj 2 present (should not be populated/relevant): {res.get('F Obj 2', 'Empty')}")
+    print(f"[Objetivos] Objetivo 1 present: {'Objetivo 1' in res}")
+    print(f"[Objetivos] Objetivo 2 present (should not be populated/relevant): {res.get('Objetivo 2', 'Empty')}")
     
     # Also verify that inside the cell, we don't hold multiple dates if that was the requirement?
     # The requirement "max habilitantes" typically refers to how many historical records to show.
@@ -264,7 +267,7 @@ def run_audit():
     # If the user meant "Only show 1 date per objective", that might be what "max_objetivos" implies if they are thinking about "1 result".
     # However, for now, verifying that my fix works as implemented (Limit Objective Types) is the first step.
     
-    val_obj = res.get("F Obj 1", "")
+    val_obj = res.get("Objetivo 1", "")
     print(f"[Objective Value] {val_obj}")
 
 run_audit()

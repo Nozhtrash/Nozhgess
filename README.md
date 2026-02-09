@@ -1,86 +1,87 @@
-# 🩺 NOZHGESS: Clinical-Grade Automation & Forensic Audit Platform v3.5.0
-> **"Robustness over Speed. Truth over Assumption. Evidence over Opinion."**
+# 🩺 NOZHGESS: Plataforma de Automatización Clínica y Auditoría Forense v3.5.1
+> **"Robustez sobre Velocidad. Verdad sobre Suposición. Evidencia sobre Opinión."**
 
-[![Version](https://img.shields.io/badge/Version-3.5.0_Forensic_II-0078D4?style=for-the-badge&logo=github)](./Documentacion/CHANGELOG.md)
-[![Architecture](https://img.shields.io/badge/Architecture-MVC--S_Forensic-orange?style=for-the-badge)](./Documentacion/BIBLIA_TECNICA_NOZHGESS.md)
-[![Engine](https://img.shields.io/badge/Engine-Selenium_Hybrid_CDP-43B02A?style=for-the-badge&logo=selenium&logoColor=white)]()
-[![UI](https://img.shields.io/badge/UI-CustomTkinter_Industrial-7c4dff?style=for-the-badge)](./Documentacion/DOCUMENTACION_FRONTEND_PROFUNDA.md)
-[![Stability](https://img.shields.io/badge/Stability-Production_Ready-success?style=for-the-badge)]()
+[![Versión](https://img.shields.io/badge/Versión-3.5.1_Forensic_III-0078D4?style=for-the-badge&logo=github)](./Documentacion/CHANGELOG.md)
+[![Arquitectura](https://img.shields.io/badge/Arquitectura-MVC--S_Integrated-orange?style=for-the-badge)](./Documentacion/BIBLIA_TECNICA_NOZHGESS.md)
+[![Motor](https://img.shields.io/badge/Motor-Selenium_Hybrid_CDP-43B02A?style=for-the-badge&logo=selenium&logoColor=white)]()
+[![IU](https://img.shields.io/badge/IU-CustomTkinter_Industrial-7c4dff?style=for-the-badge)](./Documentacion/DOCUMENTACION_FRONTEND_PROFUNDA.md)
 
-Nozhgess is a **high-precision software agent** designed for the clinical environment. It automates the verification of GES (Explicit Health Guarantees) by executing forensic scraping on SIGGES, identifying diagnostic disparities, and generating validated clinical reports with 100% auditability.
-
----
-
-## 🚀 Hyper-Capabilities & Nuclear Features
-
-### 1. Hybrid Session Parasitism (CDP Protocol)
-Unlike standard bots, Nozhgess operates via **Session Parasitism**.
-- **The Hook:** Connects directly to a running Microsoft Edge instance via the **Chrome DevTools Protocol (CDP)** on port `9222`.
-- **Security Bypass:** It inherits the user's active session, NTML certificates, and security tokens, allowing it to navigate SIGGES without secondary authentication prompts.
-
-### 2. Forensic Logic Engine (Execution Engine v3.5)
-The internal brain (`Conexiones.py`) implements a clinical decision tree:
-- **Smart Selection:** Algorithms that prioritize "Active" cases and utilizeRecency scoring to discard obsolete data.
-- **Caso en Contra (Contra-Case Logic):** Automatically detects if a patient is misfiled (e.g., Type 1 Diabetes in a Type 2 list) and executes a recursive audit of the divergent case.
-- **V2 Frequency Validation:** A delta-based temporal engine that calculates months/years since last procedures, ensuring compliance with clinical protocols.
-
-### 3. Industrial-Grade GUI
-Built on **CustomTkinter**, the UI is designed for high-density information environments.
-- **Optimized Log Search:** A dual-highlighting (Yellow/Orange) search engine capable of handling 5,000+ log lines without UI lag.
-- **Async Execution:** Full multithreading bridge using a producer-consumer pattern (`queue.Queue`) to keep the interface responsive during heavy IO operations.
+Nozhgess es un **agente de software de alta precisión** diseñado para el entorno clínico. Automatiza la verificación de Garantías Explícitas en Salud (GES) mediante la ejecución de scraping forense en SIGGES, identificando disparidades diagnósticas y generando reportes clínicos validados con un 100% de auditabilidad.
 
 ---
 
-## 🏗️ System Visualizer (High-Level Architecture)
+## 🚀 Súper-Capacidades y Funciones Nucleares
+
+### 1. Parasitismo de Sesión Híbrido (Protocolo CDP)
+A diferencia de los bots estándar, Nozhgess opera mediante **Parasitismo de Sesión**.
+- **El Gancho:** Se conecta directamente a una instancia de Microsoft Edge en ejecución mediante el **Chrome DevTools Protocol (CDP)** en el puerto `9222`.
+- **Bypass de Seguridad:** Hereda la sesión activa del usuario, certificados NTML y tokens de seguridad, permitiendo navegar SIGGES sin solicitudes de autenticación secundarias.
+
+### 2. Motor de Lógica Forense (Execution Engine v3.5.1)
+El cerebro interno (`Conexiones.py` e `integrator.py`) implementa un árbol de decisión clínico:
+- **Selección Inteligente:** Algoritmos que priorizan casos "Activos" y utilizan puntuación de recencia para descartar datos obsoletos.
+- **Lógica de Caso en Contra:** Detecta automáticamente si un paciente está mal ingresado (ej. Diabetes Tipo 1 en una lista de Tipo 2) y ejecuta una auditoría recursiva del caso divergente.
+- **Validación de Frecuencias V2:** Un motor temporal basado en deltas que calcula meses/años desde los últimos procedimientos, asegurando el cumplimiento de protocolos clínicos.
+- **Integrador Avanzado:** Nuevo sistema que unifica validaciones de RUT, fechas y nombres con optimización de memoria para grandes volúmenes de datos.
+
+### 3. Interfaz de Grado Industrial
+Construida sobre **CustomTkinter**, la interfaz está diseñada para entornos de alta densidad de información.
+- **Búsqueda de Logs Optimizada:** Motor de búsqueda con resaltado dual (Amarillo/Naranja) capaz de manejar más de 5,000 líneas de log sin lag.
+- **Ejecución Asíncrona:** Puente multihilo total utilizando un patrón productor-consumidor (`queue.Queue`) para mantener la interfaz sensible durante operaciones pesadas de E/S.
+
+---
+
+## 🏗️ Visualizador del Sistema (Arquitectura de Alto Nivel)
 
 ```mermaid
 graph TD
-    A[Excel Mission Input] --> B{Data Sanitizer}
-    B -->|Normalized RUT| C[Selenium CDP Engine]
-    C -->|Parasitic Hook| D(SIGGES Browser Session)
-    D -->|Scrape: IPD/OA/SIC| E[Refining Logic]
-    E -->|Compare: JSON Rules| F{Validation}
-    F -->|Critical Found| G[Red Alert / Habilitante]
-    F -->|Divergence| H[Caso en Contra Alert]
-    G & H --> I[Professional Excel Report]
-    I --> J[Massive Load Sheet]
+    A[Entrada Excel Misión] --> B{Sanitizador de Datos}
+    B -->|RUT Normalizado| C[Motor Selenium CDP]
+    C -->|Hook Parasitario| D(Sesión Navegador SIGGES)
+    D -->|Scrape: IPD/OA/SIC| E[Lógica de Refinamiento]
+    E -->|Comparar: Reglas JSON| F{Validación}
+    F -->|Crítico Encontrado| G[Alerta Roja / Habilitante]
+    F -->|Divergencia| H[Alerta Caso en Contra]
+    G & H --> I[Reporte Excel Profesional]
+    I --> J[Hoja de Carga Masiva]
 ```
 
 ---
 
-## 🛠️ Technical Stack & Rationale
+## 🛠️ Stack Técnico y Racional
 
-| Layer | Technology | Rationale |
+| Capa | Tecnología | Racional |
 | :--- | :--- | :--- |
-| **Core** | Python 3.12 | Stability, rich library ecosystem, and native threading. |
-| **Automation** | Selenium + CDP | Direct browser control without the need for standalone drivers. |
-| **GUI** | CustomTkinter | Premium aesthetics and native Windows performance. |
-| **Data** | Openpyxl | Robust handling of complex Excel styling and formulas. |
-| **Boot** | PowerShell Core | Seamless integration with Windows process management. |
+| **Núcleo** | Python 3.12 | Estabilidad, ecosistema rico y multihilo nativo. |
+| **Automatización** | Selenium + CDP | Control directo del navegador sin necesidad de drivers independientes. |
+| **IU** | CustomTkinter | Estética premium y rendimiento nativo en Windows. |
+| **Datos** | Openpyxl / Pandas | Manejo robusto de estilos Excel complejos, fórmulas y optimización de memoria. |
+| **Arranque** | PowerShell Core | Integración perfecta con la gestión de procesos de Windows. |
 
 ---
 
-## 📂 Project Landscapes (Knowledge Base)
+## 📂 Paisajes del Proyecto (Base de Conocimiento)
 
-The project is extensively documented to ensure a **5-minute repair time**:
+El proyecto está extensamente documentado para garantizar un **tiempo de reparación de 5 minutos**:
 
-1.  [📘 **Operational Guide**](./Documentacion/GUIA_OPERATIVA_MAESTRA.md): User-focused step-by-step.
-2.  [📙 **Technical Bible**](./Documentacion/BIBLIA_TECNICA_NOZHGESS.md): Low-level logic, threading, and Mermaid flows.
-3.  [🛠️ **Backend Deep Dive**](./Documentacion/DOCUMENTACION_BACKEND_DEEP_DIVE.md): Scraper orchestration and error masks.
-4.  [🖥️ **Frontend Deep Dive**](./Documentacion/DOCUMENTACION_FRONTEND_PROFUNDA.md): UI performance and buffering details.
-5.  [🗺️ **Data Mapping**](./Documentacion/DOCUMENTACION_MAPA_DE_DATOS.md): XPath references and CSS Drift protocols.
-6.  [⚙️ **Configuration Guide**](./Documentacion/GUIA_CONFIGURACION_MISIONES.md): Mission JSON dictionary.
-7.  [📕 **Error Dictionary**](./Documentacion/DICCIONARIO_ERRORES_SOLUCIONES.md): Master list of failures and N3 solutions.
+1.  [📘 **Guía Operativa**](./Documentacion/GUIA_OPERATIVA_MAESTRA.md): Paso a paso enfocado al usuario.
+2.  [📜 **Biblia Técnica**](./Documentacion/BIBLIA_TECNICA_NOZHGESS.md): Lógica de bajo nivel, hilos y flujos Mermaid.
+3.  [🛠️ **Deep Dive Backend**](./Documentacion/DOCUMENTACION_BACKEND_DEEP_DIVE.md): Orquestación del scraper y máscaras de error.
+4.  [🖥️ **Deep Dive Frontend**](./Documentacion/DOCUMENTACION_FRONTEND_PROFUNDA.md): Rendimiento de IU y detalles de buffering.
+5.  [🗺️ **Mapa de Datos**](./Documentacion/DOCUMENTACION_MAPA_DE_DATOS.md): Referencias XPath y protocolos CSS Drift.
+6.  [⚙️ **Guía de Configuración**](./Documentacion/GUIA_CONFIGURACION_MISIONES.md): Diccionario JSON de misiones.
+7.  [📕 **Diccionario de Errores**](./Documentacion/DICCIONARIO_ERRORES_SOLUCIONES.md): Lista maestra de fallos y soluciones N3.
 
 ---
 
-## 🛤️ Roadmap & Future Vision
+## 🛤️ Hoja de Ruta y Visión Futura
 
-- [ ] **v4.0:** Integration of Local LLMs for intelligent observation analysis.
-- [ ] **v4.1:** Multi-tab parallel processing for 3x speed improvement.
-- [ ] **v4.2:** Automated XPath Self-Healing using visual recognition fallback.
+- [x] **v3.5.1:** Limpieza de infraestructura y actualización de documentación maestra.
+- [ ] **v4.0:** Integración de LLMs locales para análisis inteligente de observaciones.
+- [ ] **v4.1:** Procesamiento paralelo multi-pestaña para una mejora de velocidad de 3x.
+- [ ] **v4.2:** Auto-reparación de XPath mediante fallback de reconocimiento visual.
 
 ---
 
 **© 2026 Nozhgess Foundation**
-*Bridging Clinical Excellence and Engineering Precision.*
+*Uniendo la Excelencia Clínica con la Precisión de la Ingeniería.*

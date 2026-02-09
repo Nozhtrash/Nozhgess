@@ -326,8 +326,9 @@ class EnhancedNozhgessProcessor:
                     ok, _ = validar_rut(str(row['RUT']))
                     if not ok:
                         is_valid = False
-                except:
+                except Exception:
                     is_valid = False
+
             
             # Validación Fecha (si existe la columna)
             if 'Fecha' in row and pd.notna(row['Fecha']):
@@ -335,8 +336,9 @@ class EnhancedNozhgessProcessor:
                     ok, _ = validar_fecha(str(row['Fecha']))
                     if not ok:
                         is_valid = False
-                except:
+                except Exception:
                     is_valid = False
+
             
             # Validación Nombre (si existe la columna)
             if 'Nombre' in row and pd.notna(row['Nombre']):
@@ -344,8 +346,9 @@ class EnhancedNozhgessProcessor:
                     ok, _ = validar_nombre(str(row['Nombre']))
                     if not ok:
                         is_valid = False
-                except:
+                except Exception:
                     is_valid = False
+
             
             if is_valid:
                 valid_rows.append(row)
@@ -391,8 +394,9 @@ class EnhancedNozhgessProcessor:
         if hasattr(self, 'ui_callback') and callable(self.ui_callback):
             try:
                 self.ui_callback(metrics)
-            except:
+            except Exception:
                 pass
+
     
     def set_ui_callback(self, callback):
         """Establecer callback para actualizaciones de UI"""
@@ -550,9 +554,10 @@ class EnhancedNozhgessProcessor:
         try:
             edad_min = int(mission.get('edad_min', 0) or 0)
             edad_max = int(mission.get('edad_max', 0) or 0)
-        except:
+        except Exception:
             edad_min = 0
             edad_max = 0
+
 
         # 3. Process Rows using Real Logic
         results = []
@@ -609,8 +614,9 @@ class EnhancedNozhgessProcessor:
              # driver.buscar_paciente(rut)
              # ...
              return {'IPD': 'No', 'OA': 'No', 'APS': 'No', 'SIC': 'No'}
-        except:
+        except Exception:
              return {'IPD': 'Error'}
+
 
     def cleanup(self):
         """Limpiar recursos"""

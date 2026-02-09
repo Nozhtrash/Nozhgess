@@ -256,7 +256,9 @@ LOCATORS: Dict[str, Dict[str, List[str]]] = {
             "//*[@id='root']/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/thead",
         ],
         "PRESTACIONES_TBODY": [
-            "//*[@id='root']/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[15]/div[6]/div[2]/div/table/tbody",
+            "//table[thead//th[contains(., 'Código de prestación')]]/tbody",
+            "//p[contains(., 'Prestaciones otorgadas')]/ancestor::div[1]/following-sibling::div//table/tbody",
+            "//p[contains(., 'Prestaciones')]/ancestor::div[1]/following-sibling::div//table/tbody",
             "//div[contains(@class, 'contRow') and contains(@class, 'contRowBox')]//table/tbody",
         ],
         "PRESTACIONES_REF_OA": [

@@ -97,6 +97,13 @@ def main():
         os.makedirs(os.path.join(SCRIPT_DIR, "Logs", "Crash"), exist_ok=True)
         os.makedirs(os.path.join(SCRIPT_DIR, "Logs"), exist_ok=True)
         os.makedirs(os.path.join(SCRIPT_DIR, "Crash_Reports"), exist_ok=True)
+
+        # Inicializar logging centralizado lo antes posible
+        try:
+            from src.utils.logger_manager import setup_loggers
+            setup_loggers(SCRIPT_DIR)
+        except Exception:
+            pass
         
         app = NozhgessApp()
         app.mainloop()

@@ -391,12 +391,14 @@ def _auto_detectar_columnas(tbody, rows) -> Optional[Dict[str, int]]:
     """
     try:
         # Estrategia 1: Buscar thead
-        parent_table = tbody.find_element(By.XPATH, "..")
+        parents = tbody.find_elements(By.XPATH, "..")
+        parent_table = parents[0] if parents else None
         headers = None
         
         try:
-            thead = parent_table.find_element(By.TAG_NAME, "thead")
-            headers = thead.find_elements(By.TAG_NAME, "th")
+            theads = parent_table.find_elements(By.TAG_NAME, "thead") if parent_table else []
+            thead = theads[0] if theads else None
+            headers = thead.find_elements(By.TAG_NAME, "th") if thead else []
             if headers:
                 log_info(f"🔍 Encontrado thead con {len(headers)} headers")
                 result = _mapear_headers(headers)

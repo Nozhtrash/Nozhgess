@@ -6,30 +6,105 @@
   "MISION_POR_ARCHIVO": true,
   "MISSIONS": [
     {
-      "nombre": "Tumores Primarios",
+      "nombre": "VIH Nomina",
       "keywords": [
-        "Tumores Primarios",
-        "snc",
-        "SNC"
+        "vih",
+        "sida",
+        "vih/sida",
+        "sida ."
       ],
-      "objetivos": [],
+      "objetivos": [
+        "3107215",
+        "3107314",
+        "2506019"
+      ],
       "habilitantes": [
-        "3904001",
-        "3904002",
-        "3904003",
-        "3904004",
-        "3904005"
+        "2508015",
+        "2505839",
+        "2505872",
+        "2505876",
+        "2505877"
+      ],
+      "excluyentes": [
+        "2504092"
+      ],
+      "familia": "18",
+      "especialidad": "07-118-2",
+      "frecuencia": "Mensual",
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": true,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": true,
+      "folio_vih_codigos": [
+        "2504092"
+      ],
+      "frecuencias": [
+        {
+          "code": "3107215",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        },
+        {
+          "code": "3107314",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        },
+        {
+          "code": "2506019",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Infectología (236) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
+    },
+    {
+      "nombre": "Endoprótesis de Cadera",
+      "keywords": [
+        "endoprotesis",
+        "endoprótesis",
+        "endoprótesis de cadera"
+      ],
+      "objetivos": [
+        "0101111"
+      ],
+      "habilitantes": [
+        "2104229",
+        "2104329"
       ],
       "excluyentes": [],
-      "familia": "43",
-      "especialidad": "13-13-01",
+      "familia": "12",
+      "especialidad": "07-700-2",
       "frecuencia": "Mensual",
-      "edad_min": 15,
-      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Tumores.xlsx",
-      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
-      "keywords_contra": [],
-      "frecuencia_cantidad": 1,
       "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
       "vigencia_dias": 180,
       "max_objetivos": 1,
       "max_habilitantes": 1,
@@ -50,45 +125,312 @@
       "active_year_codes": false,
       "indices": {
         "rut": "1",
-        "nombre": "3",
-        "fecha": "5"
+        "nombre": "2",
+        "fecha": "10"
       },
       "anios_codigo": [],
       "folio_vih": false,
       "folio_vih_codigos": [],
       "frecuencias": [
         {
-          "code": "3904001",
+          "code": "0101111",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
-        },
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
+    },
+    {
+      "nombre": "Artrosis de Cadera",
+      "keywords": [
+        "ARTROSIS DE CADERA Y/O RODILLA LEVE O MODERADA",
+        "rodilla"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "0101111"
+      ],
+      "excluyentes": [],
+      "familia": "41",
+      "especialidad": "07-700-2",
+      "frecuencia": "Mensual",
+      "edad_min": 55,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Traumatología (194) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
+      "keywords_contra": [],
+      "frecuencia_cantidad": 1,
+      "periodicidad": "Cada Vez",
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "frecuencias": [
         {
-          "code": "3904002",
+          "code": "0101111",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": ""
-        },
-        {
-          "code": "3904003",
-          "freq_type": "Mes",
-          "freq_qty": 1,
-          "periodicity": ""
-        },
-        {
-          "code": "3904004",
-          "freq_type": "Mes",
-          "freq_qty": 1,
-          "periodicity": ""
-        },
-        {
-          "code": "3904005",
-          "freq_type": "Mes",
-          "freq_qty": 1,
-          "periodicity": ""
+          "periodicity": "Mes"
         }
       ],
       "active_frequencies": 1
+    },
+    {
+      "nombre": "Hiperplasia Nómina",
+      "keywords": [
+        "Hiperplasia"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "0101111"
+      ],
+      "excluyentes": [],
+      "familia": "35",
+      "especialidad": "07-800-2",
+      "frecuencia": "Mensual",
+      "frecuencias": [
+        {
+          "code": "0101111",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "anios_codigo": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/Hiperplasia Nomina.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
+      "keywords_contra": [],
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "3",
+        "fecha": "5"
+      }
+    },
+    {
+      "nombre": "Cáncer de Testículo",
+      "keywords": [
+        "testículo",
+        "testicular",
+        "testiculo",
+        "cáncer de testículo",
+        "cancer de testiculo"
+      ],
+      "objetivos": [
+        "3106004"
+      ],
+      "habilitantes": [
+        "1902068",
+        "1703040",
+        "1704017",
+        "1802009",
+        "2507036",
+        "2902001",
+        "2902002",
+        "2902003",
+        "2902004",
+        "3002207"
+      ],
+      "excluyentes": [],
+      "familia": "16",
+      "especialidad": "07-800-2",
+      "frecuencia": "Mensual",
+      "edad_min": 15,
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "frecuencias": [
+        {
+          "code": "3106004",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Urología (116) - Enero.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
+    },
+    {
+      "nombre": "Artritis Reumatoide",
+      "keywords": [
+        "artritis reumatoide",
+        "artritis reumatoide"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "0101113"
+      ],
+      "excluyentes": [],
+      "familia": "52",
+      "especialidad": "07-110-2",
+      "frecuencia": "Mensual",
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "frecuencias": [
+        {
+          "code": "0101113",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Artritis Reumatoide.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
+    },
+    {
+      "nombre": "Artritis Juvenil",
+      "keywords": [
+        "artritis juvenil",
+        "idiopatica"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "0101112"
+      ],
+      "excluyentes": [],
+      "familia": "63",
+      "especialidad": "07-110-2",
+      "frecuencia": "Mensual",
+      "periodicidad": "Mensual",
+      "frecuencia_cantidad": 1,
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "2",
+        "fecha": "10"
+      },
+      "anios_codigo": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "frecuencias": [
+        {
+          "code": "0101112",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "keywords_contra": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Artritis Juvenil.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas"
     }
   ]
 }

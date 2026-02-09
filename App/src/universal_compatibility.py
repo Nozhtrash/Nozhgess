@@ -75,15 +75,26 @@ class UniversalCompatibilityManager:
             # Más verboso para desarrollo
             log_level = logging.DEBUG
         
-        logging.basicConfig(
-            level=log_level,
-            format=f'[{datetime.now().strftime("%H:%M:%S")}] [{self.execution_mode}] %(levelname)s: %(message)s',
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler(self.project_root / 'Logs' / f'universal_{self.execution_mode.lower()}.log', encoding='utf-8')
-            ]
-        )
-    
+        root = logging.getLogger()
+        if root.handlers:
+            root.setLevel(log_level)
+            return
+
+        try:
+            # Usar sistema centralizado si está disponible
+            from src.utils import logger_manager as logmgr
+            logmgr.setup_loggers(str(self.project_root))
+            logging.getLogger().setLevel(log_level)
+        except Exception:
+            # Fallback local mínimo (solo consola para evitar archivos pesados)
+            logging.basicConfig(
+                level=log_level,
+                format=f'[{datetime.now().strftime("%H:%M:%S")}] [{self.execution_mode}] %(levelname)s: %(message)s',
+                handlers=[
+                    logging.StreamHandler()
+                ]
+            )
+
     def setup_paths(self):
         """Configurar paths para compatibilidad universal"""
         # Paths críticos del proyecto

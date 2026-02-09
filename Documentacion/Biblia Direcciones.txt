@@ -1,8 +1,17 @@
-BIBLIA SIGGES — XPATH / SELECTORES (VERSIÓN ORDENADA, TEXTO PLANO)
-============================================================
+==============================================================================
+                    📖 BIBLIA DE DIRECCIONES Y SELECTORES NOZHGESS v3.5.1
+==============================================================================
+Ultima Actualización: 08/02/2026
+Propósito: Repositorio central de XPaths, IDs y Selectores CSS para SIGGES.
 
-## 1) Inicio / Login (detectar sesión cerrada)
-----------------------------------------------
+REGLAS DE MANTENIMIENTO:
+1. NO USAR XPaths Absolutos.
+2. Si un selector cambia, actualizar también 'locators.py'.
+3. Los selectores de Tablas usan índices base 1 [n].
+
+==============================================================================
+1. NAVEGACIÓN PRINCIPAL (LOGIN & SEARCH)
+==============================================================================
 
 📝 Biblia SiggesPágina Inicial:https://www.sigges.cl/#/login (Significa que la sesión está cerrada y hay que iniciar sesión, un detector inteligente para que detecte si la sesión esta cerrada sería ideal, así no hace lo de “uy no encuentro el botón buscar” pues obvio que no lo encuentra, la sesión está cerrada.)Así es el inicio
 📝 Los datos siempre están puestos, solo es necesario presionar ingresar
@@ -377,9 +386,6 @@ BIBLIA SIGGES — XPATH / SELECTORES (VERSIÓN ORDENADA, TEXTO PLANO)
 🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > thead")
 🔹 //*[@id="root"]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/thead
 🔹 /html/body/div[1]/main/div[3]/div[2]/div[1]/div[5]/div[1]/div[2]/div[4]/div[5]/div[2]/div/table/thead
-
-## 2) Selección de Unidad / Hospital
-------------------------------------
 
 📝 Tabla:<tbody><tr><td>49957893</td><td>24/10/2017 10:36:42</td><td>19/10/2017</td><td>09:00</td><td>Hospital Adriana Cousiño (Quintero)</td><td>Medicina Familiar 07-900-1</td><td>Hospital Dr. Gustavo Fricke (Viña del Mar)</td><td>Citología 13-04-02</td><td>Diagnostico</td><td>0801101</td><td>NO</td><td>NO</td><td>EXAMEN, TOMA DE PAP</td><td>On-Line</td><td><button class="botonMini" data-color="verde"><p>Ver</p></button></td></tr></tbody>
 🔹 #root > main > div.content.animate__animated.animate__fadeIn.animate__faster > div.contBody.scroll > div.contBox.maxW > div:nth-child(6) > div:nth-child(1) > div.contRow.contRowBox.scrollH > div:nth-child(4) > div:nth-child(5) > div.contRow.contRowBox > div > table > tbody

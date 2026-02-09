@@ -484,12 +484,16 @@ class DashboardView(ctk.CTkFrame):
             if not os.path.exists(log_path):
                 return "Sin historial de logs"
             
-            files = [f for f in os.listdir(log_path) if f.endswith(".log")]
+            # Buscar logs recursivamente (subcarpetas incluidas)
+            files = []
+            for root, _, fs in os.walk(log_path):
+                for f in fs:
+                    if f.endswith(".log") or f.endswith(".jsonl"):
+                        files.append(os.path.join(root, f))
             if not files:
                 return "Sin historial de logs"
             
-            latest = max(files, key=lambda x: os.path.getmtime(os.path.join(log_path, x)))
-            full_path = os.path.join(log_path, latest)
+            full_path = max(files, key=lambda x: os.path.getmtime(x))
             
             with open(full_path, "rb") as f:
                 f.seek(0, 2)

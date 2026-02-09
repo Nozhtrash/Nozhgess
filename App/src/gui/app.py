@@ -69,6 +69,15 @@ class NozhgessApp(ctk.CTk):
         except Exception as e:
             import sys
             sys.stderr.write(f"⚠️ Error inicializando logs: {e}\n")
+
+        # Log de errores GUI (archivo dedicado con naming estándar)
+        try:
+            from src.utils import logger_manager as logmgr
+            self._gui_error_log_path = logmgr.build_log_path(
+                "Debug", "TGUI", "log", root_dir=ruta_proyecto, stamp=logmgr.get_session_stamp(), keep=5
+            )
+        except Exception:
+            self._gui_error_log_path = os.path.join(ruta_proyecto, "Logs", "Debug", "TGUI_fallback.log")
         
         # 1. Config Manager
         self.config = get_config()
@@ -414,11 +423,13 @@ class NozhgessApp(ctk.CTk):
     #  Manejo global de excepciones Tkinter
     # ================================================================
     def _handle_tk_exception(self, exc, val, tb):
-        """Loggea cualquier excepción no capturada en callbacks Tk y muestra popup resumido."""
+        """Loggea cualquier excepci?n no capturada en callbacks Tk y muestra popup resumido."""
         import traceback, datetime, os
-        log_dir = os.path.join(ruta_proyecto, "Logs", "Debug")
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, "gui_errors.log")
+        log_path = getattr(self, "_gui_error_log_path", None)
+        if not log_path:
+            log_dir = os.path.join(ruta_proyecto, "Logs", "Debug")
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, "TGUI_fallback.log")
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"\n[{datetime.datetime.now().isoformat()}] {exc.__name__}: {val}\n")
             traceback.print_tb(tb, file=f)

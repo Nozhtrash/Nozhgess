@@ -62,25 +62,31 @@
           "code": "3904002",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": ""
+          "periodicity": "Mensual"
         },
         {
           "code": "3904003",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": ""
+          "periodicity": "Mensual"
         },
         {
           "code": "3904004",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": ""
+          "periodicity": "Mensual"
+        },
+        {
+          "code": "3904004",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mensual"
         },
         {
           "code": "3904005",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": ""
+          "periodicity": "Mensual"
         }
       ],
       "active_frequencies": 1

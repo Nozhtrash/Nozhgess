@@ -7,15 +7,16 @@
       ],
       "objetivos": [],
       "habilitantes": [
-        "3901002",
+        "3901002"
+      ],
+      "excluyentes": [
         "3901004"
       ],
-      "excluyentes": [],
       "familia": "39",
       "especialidad": "13-13-01",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Asma Menores.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes/Asma Menores.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "periodicidad": "Mensual",
       "require_ipd": true,
@@ -47,14 +48,20 @@
       "folio_vih_codigos": [],
       "frecuencias": [
         {
-          "code": "LEGACY",
+          "code": "3901002",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Mensual"
+          "periodicity": "Mes"
+        },
+        {
+          "code": "3901004",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
         }
       ],
       "frecuencia_cantidad": 1,
-      "active_frequencies": 0
+      "active_frequencies": 1
     }
   ]
 }
