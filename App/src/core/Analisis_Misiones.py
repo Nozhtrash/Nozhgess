@@ -8,7 +8,8 @@ from src.core.Formatos import (
     limpiar_codigo,
     fecha_en_rango,
     dentro_de_anios,
-    unir_listas
+    unir_listas,
+    dparse
 )
 
 
@@ -101,7 +102,7 @@ class FrequencyValidator:
         
         # Filtro por tipo de ventana
         for item in items_procesados:
-            c = item.get("codigo_limpio")
+            c = item.get("codigo_limpio") or limpiar_codigo(str(item.get("codigo", "")))
             if c != code_target:
                 continue
             
@@ -109,11 +110,13 @@ class FrequencyValidator:
             if not f_item: continue # Sin fecha no cuenta (o sí? asumimos que prestaciones tienen fecha)
              
             # Lógica temporal
-            # OJO: f_item puede ser str o date. Asumimos date tras parseo previo o conversion
-            if isinstance(f_item, str):
-                # Intentar parseo básico si escapó
-                try: f_item = datetime.strptime(f_item, "%Y-%m-%d").date()
-                except Exception: continue
+            # OJO: f_item puede ser str o date. Usamos dparse para robustez.
+            if not isinstance(f_item, (date, datetime)):
+                f_item = dparse(f_item)
+                if f_item:
+                    f_item = f_item.date()
+                else:
+                    continue
                 
             match = False
             
@@ -168,12 +171,15 @@ def construir_observacion(objs, habs, excls):
 def analizar_frecuencias(items_procesados, mision, fecha_nomina_dt):
     """
     Ejecuta todas las validaciones de frecuencia configuradas.
+    
+    NOTA LEGACY: Esta función NO es llamada desde Conexiones.py (pipeline principal).
+    Se mantiene porque analizar_misiones() la usa internamente (L394).
     """
     resultados = {} # Key: "FREQ_{CODE}" -> Dict
     results_codxanio = None # Resultado especial para columna Freq CodxAño
     
     # 1. Frecuencias Específicas (Lista General)
-    freq_specs = mision.get("frecuencias_especificas", [])
+    freq_specs = mision.get("frecuencias", [])
     for cfg in freq_specs:
         if not isinstance(cfg, dict): continue
         code = cfg.get("code")
@@ -258,7 +264,7 @@ def construir_fila(
         "Nombre": nombre,
         "Edad": edad or "",
         "Especialidad": mision.get("especialidad", ""),
-        "Observaciones": construir_observacion(objetivos, habilitantes, excluyentes),
+        "Observación": construir_observacion(objetivos, habilitantes, excluyentes),
         "_age_validation_status": age_status  # Metadata para excel
     }
     
@@ -326,20 +332,10 @@ def analizar_misiones(
         c_new["codigo_limpio"] = limpiar_codigo(str(c.get("codigo", "")))
         
         f_raw = c.get("fecha")
-        if isinstance(f_raw, str):
-            try: 
-                # Intentar varios formatos si es necesario, o estandar (YYYY-MM-DD)
-                # Sigges suele dar DD/MM/YYYY o YYYY-MM-DD. Asumimos ISO del driver.
-                # Si falla, se ignora fecha para freq (seguridad).
-                if "/" in f_raw:
-                     # very basic conversion
-                     parts = f_raw.split("/")
-                     if len(parts) == 3:
-                         c_new["fecha"] = date(int(parts[2]), int(parts[1]), int(parts[0]))
-                else:
-                    c_new["fecha"] = datetime.strptime(f_raw[:10], "%Y-%m-%d").date()
-            except Exception: 
-                pass # Mantener original string o None
+        if f_raw:
+            dt_obj = dparse(f_raw)
+            if dt_obj:
+                c_new["fecha"] = dt_obj.date()
         
         casos_procesados.append(c_new)
 

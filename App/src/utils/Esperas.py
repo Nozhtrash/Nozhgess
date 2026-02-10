@@ -319,13 +319,7 @@ ESPERAS: Dict[str, Dict[str, Any]] = {
         "critical": True,
         "category": "cartola_nav"
     },
-    "spinner_short": {
-        "wait": 1.0,  # Spinner corto tras navegación
-        "sleep": 0.0,
-        "desc": "Esperar spinner corto (navegación rápida)",
-        "critical": False,
-        "category": "cartola_nav"
-    },
+    # spinner_short: definido en sección "Spinners y Cargas" (más abajo)
     "cartola_wait_load": {
         "wait": 5.0,
         "sleep": 0.5,

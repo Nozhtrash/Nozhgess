@@ -845,17 +845,7 @@ class RunnerView(ctk.CTkFrame):
     #  SEARCH LOGIC (Context Aware)
     # =========================================================================
     
-    def _get_active_console(self):
-        """Devuelve el widget textbox activo según la pestaña seleccionada."""
-        try:
-            tab = self.log_tabs.get()
-            if tab == "💻 Terminal Principal": return self.term_console
-            if tab == "🔧 Terminal Debug": return self.debug_console
-            if tab == "📝 Terminal General": return self.general_console
-        except Exception:
-            pass
-
-        return None
+    # _get_active_console definido en sección SEARCH LOGIC (más abajo)
 
     # (Deleted duplicate method)
 
@@ -868,11 +858,7 @@ class RunnerView(ctk.CTkFrame):
             pass
         self._search_job = self.after(150, self._do_search)
 
-    def _update_match_label(self, total):
-        if total and self._search_idx >= 0:
-            self.search_status.configure(text=f"{self._search_idx+1}/{total}")
-        else:
-            self.search_status.configure(text="0/0")
+    # _update_match_label definido en sección SEARCH LOGIC (más abajo)
 
     # (Deleted duplicate logic, moved to end)
 
@@ -920,48 +906,6 @@ class RunnerView(ctk.CTkFrame):
         self.pause_btn.configure(fg_color=colors["warning"])
         self.clear_btn.configure(fg_color=colors["bg_secondary"], text_color=colors["text_primary"])
 
-    # ===== CONTROL DE EJECUCIÓN (PAUSE/RESUME/STOP) =====
-    
-    def _pause_run(self):
-        """Pausa o reanuda la ejecución actual."""
-        if not self.is_running:
-            return
-        
-        if self.is_paused:
-            # Reanudar
-            self._log("▶️ Reanudando ejecución...", level="INFO")
-            self.pause_event.set()
-            self.is_paused = False
-            self.pause_btn.configure(text="⏸  Pausar")
-        else:
-            # Pausar
-            self._log("⏸️ Pausando ejecución...", level="INFO")
-            self.pause_event.clear()
-            self.is_paused = True
-            self.pause_btn.configure(text="▶  Reanudar")
-    
-    def _stop_run(self):
-        """Detiene completamente la ejecución."""
-        if not self.is_running:
-            return
-        
-        self._log("⏹️ DETENIENDO ejecución...", level="WARN")
-        self.stop_requested = True
-        
-        # Si estaba pausado, reanudarlo para que pueda terminar
-        if self.is_paused:
-            self.pause_event.set()
-            self.is_paused = False
-        
-        # Intentar cerrar el driver
-        try:
-            # El driver se cierra automáticamente al finalizar el proceso
-            self._log("⏹️ Señal de detención enviada", level="INFO")
-        except Exception as e:
-            self._log(f"⚠️ Error al detener: {e}", level="WARN")
-        
-        # Resetear estado
-        self._transition_to(RunState.IDLE)
     
     # ===== SISTEMA DE BÚSQUEDA =====
     

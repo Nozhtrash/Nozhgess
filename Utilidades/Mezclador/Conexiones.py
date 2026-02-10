@@ -96,16 +96,15 @@ from Z_Utilidades.Principales.Timing import Timer
 # Local - Motor
 from Z_Utilidades.Motor.Driver import iniciar_driver
 from Z_Utilidades.Motor.Formatos import (
-    normalizar_codigo, dparse, join_clean, solo_fecha, normalizar_rut, vac_row, en_vigencia
+    normalizar_codigo, dparse, join_clean, solo_fecha, normalizar_rut, vac_row, en_vigencia,
+    _norm, has_keyword
 )
 from Z_Utilidades.Motor.Mini_Tabla import leer_mini_tabla
 # from Z_Utilidades.Motor.Objetivos import listar_fechas_objetivo, get_objetivos_config # Modulo no existe
 # =============================================================================
 #                         FUNCIONES AUXILIARES (RESTAURADAS)
 # =============================================================================
-def _norm(s: Any) -> str:
-    """Helper local para normalizar strings (lower + strip)"""
-    return str(s).strip().lower() if s is not None else ""
+# _norm removido, ahora se usa la versión centralizada importada arriba
 # Notification Manager (Try import)
 try:
     from src.gui.managers.notification_manager import get_notifications
@@ -115,7 +114,7 @@ except ImportError:
         def send_system_notification(self, **kwargs): pass
     def get_notifications(): return DummyNotif()
 from src.utils.ExecutionControl import get_execution_control
-from src.core.Analisis_Misiones import FrequencyValidator, analizar_frecuencias
+from src.core.Analisis_Misiones import FrequencyValidator
 # Inicializar colorama
 colorama_init(autoreset=True)
 # Utilidad: recortar listas segÃºn límite configurado
@@ -198,21 +197,13 @@ def seleccionar_caso_inteligente(casos_data: List[Dict[str, Any]], kws: List[str
     
     # 1. Filtrar por Keywords
     # Limpiar keywords para comparación
-    clean_kws = [str(k).strip().lower() for k in (kws or []) if k]
-    
     for c in casos_data:
-        nombre_caso = str(c.get("caso", "")).strip().lower()
-        if not clean_kws: 
+        nombre_caso = c.get("caso", "")
+        if not kws: 
             candidatos.append(c)
             continue
             
-        match = False
-        for kw in clean_kws:
-            if kw in nombre_caso:
-                match = True
-                break
-        
-        if match:
+        if has_keyword(nombre_caso, kws):
             candidatos.append(c)
     if not candidatos:
         # log_debug(f"      [SmartSelect] Sin match para kws {clean_kws} en {len(casos_data)} casos")
@@ -576,11 +567,11 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
              if isinstance(x, dict):
                  anios_codigo_cfg.append(x) # Nuevo formato
              else:
-                 anios_codigo_cfg.append({"code": str(x).strip(), "qty": 1, "type": "Mes", "period_label": "Mensual"}) # Adaptación Legacy
+                 anios_codigo_cfg.append({"code": str(x).strip(), "freq_qty": 1, "freq_type": "Mes", "periodicity": "Mensual"}) # Adaptación Legacy
     else:
         # Fallback string parsing
         tmp = _parse_code_list(anios_codigo_raw)
-        anios_codigo_cfg = [{"code": x, "qty": 1, "type": "Mes", "period_label": "Mensual"} for x in tmp]
+        anios_codigo_cfg = [{"code": x, "freq_qty": 1, "freq_type": "Mes", "periodicity": "Mensual"} for x in tmp]
     selected_year_code = {} # Dict completo
     filas_ipd = int(m.get("max_ipd", FILAS_IPD))
     filas_oa = int(m.get("max_oa", FILAS_OA))
@@ -853,8 +844,21 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         try:
             # Lógica: Índice = Año Objetivo - Año IPD (Antigüedad)
             year_diff = 0
-            # Preferencia de antiguedad: IPD > APS > Apertura Caso
-            start_date = ipd_fecha_dt or aps_fecha_dt or apertura_principal_dt
+            
+            # [NUEVO] Prioridad Proporcional al Usuario: IPD > APS
+            start_date = None
+            source = None
+            
+            if ipd_fecha_dt:
+                start_date = ipd_fecha_dt
+                source = "ipd"
+            elif aps_fecha_dt:
+                start_date = aps_fecha_dt
+                source = "aps"
+            else:
+                # Fallback final a Apertura si no hay nada más
+                start_date = apertura_principal_dt
+                source = "apertura"
             
             if fobj and start_date:
                 year_diff = fobj.year - start_date.year
@@ -864,14 +868,14 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             
             selected_year_code = anios_codigo_cfg[idx_code]
             
-            # Inyectar al resultado (solo el código string para visualización simple)
+            # Inyectar al resultado (Clave unificada: CodxAño)
             code_str = selected_year_code.get("code", "")
-            if "Código Año" in res:
-                 res["Código Año"] = code_str
+            res["CodxAño"] = code_str
+            res["_codxanio_source"] = source  # Metadata para colores en Excel
                  
-            log_debug(f"📅 Código Año Calc: Diff={year_diff} (Obj:{fobj.year if fobj else '?'} - Start:{start_date.year if start_date else '?'}) -> Idx={idx_code} Code={code_str}")
+            log_debug(f"📅 CodxAño Calc (Prioridad {source}): Diff={year_diff} (Obj:{fobj.year if fobj else '?'} - Start:{start_date.year if start_date else '?'}) -> Idx={idx_code} Code={code_str}")
         except Exception as e_code:
-            log_warn(f"Error calculando Código Año: {e_code}")
+            log_warn(f"Error calculando CodxAño: {e_code}")
             pass
     # =========================================================================
     # 🧠 APTO RE (IPD con Sí, APS confirmado o OA en tratamiento)
@@ -1026,7 +1030,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         if dts:
             # Respetar MAX OBJETIVOS solo para la cantidad de fechas a mostrar en la celda
             dts_sliced = dts[:max_objs]
-            res[col_name] = " | ".join(dt.strftime("%d/%m/%Y") for dt in dts_sliced)
+            res[col_name] = " | ".join(dt.strftime("%d-%m-%Y") for dt in dts_sliced)
             fechas_obj_all.extend(dts)
         else:
             res[col_name] = ""
@@ -1040,9 +1044,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             if isinstance(gf, dict):
                 freq_rules.append({
                     "code": str(gf.get("code", "")).strip(),
-                    "qty": int(gf.get("qty", 1)),
-                    "type": str(gf.get("type", "Mes")),
-                    "period_label": str(gf.get("period_label", "Mensual"))
+                    "freq_qty": int(gf.get("freq_qty", 1)),
+                    "freq_type": str(gf.get("freq_type", "Mes")),
+                    "periodicity": str(gf.get("periodicity", "Mensual"))
                 })
         # B) Reglas desde Legacy (Objetivos sin anios_codigo)
         if not general_freqs and m.get("frecuencia") and not m.get("active_year_codes"):
@@ -1060,9 +1064,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             for o in objetivos_cfg:
                 freq_rules.append({
                     "code": o,
-                    "qty": pqty,
-                    "type": ptype,
-                    "period_label": plabel
+                    "freq_qty": pqty,
+                    "freq_type": ptype,
+                    "periodicity": plabel
                 })
         # C) Reglas desde anios_codigo (Código por Año) - SI ESTÃ ACTIVO
         if m.get("active_year_codes") and selected_year_code:
@@ -1070,9 +1074,9 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             # (El resto de códigos del año se ignoran para no ensuciar)
             freq_rules.append({
                 "code": selected_year_code.get("code", ""),
-                "qty": int(selected_year_code.get("qty", 1)),
-                "type": selected_year_code.get("type", "Mes"),
-                "period_label": selected_year_code.get("period_label", "Mensual")
+                "freq_qty": int(selected_year_code.get("freq_qty", 1)),
+                "freq_type": selected_year_code.get("freq_type", "Mes"),
+                "periodicity": selected_year_code.get("periodicity", "Mensual")
             })
         # 2. Ejecutar validación
         freq_res = {}
@@ -1087,9 +1091,6 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
                  "periodicity": val_res.get("periodicity", "Mensual")
              }
         # 3. Volcar resultados al Excel
-        # A) Resultados individuales por código
-        # 3. Volcar resultados al Excel
-        # A) Resultados individuales por código
         for code, v in freq_res.items():
             res[f"Freq {code}"] = v["status"]
             # USAR EL LABEL CONFIGURADO como valor para la columna Period
@@ -1097,7 +1098,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
             rule_lbl = "Mensual" # Default
             for r in freq_rules:
                 if r["code"] == code:
-                    rule_lbl = r.get("period_label", "Mensual")
+                    rule_lbl = r.get("periodicity", "Mensual")
                     break
             res[f"Period {code}"] = rule_lbl
         
@@ -1124,7 +1125,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         if habs_found:
             top = habs_found[:filas_hab]
             res["C Hab"] = join_clean([h[0] for h in top])
-            res["F Hab"] = join_clean([h[1].strftime("%d/%m/%Y") for h in top])
+            res["F Hab"] = join_clean([h[1].strftime("%d-%m-%Y") for h in top])
             hab_vigentes = [h for h in habs_found if en_vigencia(fobj, h[1], VENTANA_VIGENCIA_DIAS)] if fobj else habs_found
             # Simplificado: si hay al menos uno vigente, está OK
             if hab_vigentes:
@@ -1141,7 +1142,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         if excl_found:
             top = excl_found[:filas_excl]
             res["C Excluyente"] = join_clean([x[0] for x in top])
-            res["F Excluyente"] = join_clean([x[1].strftime("%d/%m/%Y") for x in top])
+            res["F Excluyente"] = join_clean([x[1].strftime("%d-%m-%Y") for x in top])
     # ===== OBSERVACIÃ“N FOLIO =====
     if req_oa:
         obs_folio_list = []
@@ -1177,7 +1178,7 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     # Solo fallecimiento, como pidió el usuario.
     obs_parts = []
     if fall_dt:
-        obs_parts.append(f"PACIENTE FALLECIDO EL {fall_dt.strftime('%d/%m/%Y')}")
+        obs_parts.append(f"PACIENTE FALLECIDO EL {fall_dt.strftime('%d-%m-%Y')}")
     
     if obs_parts:
         # Si ya había algo (ej de OA/SIC), lo preservamos o sobreescribimos?
@@ -1334,13 +1335,27 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                 # Paso 5: Leer mini-tabla
                 with TimingContext("Paso 5 - Leer mini-tabla", rut) as ctx:
                     mini = leer_mini_tabla(sigges)
+                    
+                    # 🔄 REINTENTO INTELIGENTE si está vacío (pudo ser fallo de carga)
+                    if not mini:
+                        log_warn(f"{rut}: Mini-tabla vacía, reintentando búsqueda en 2s...")
+                        time.sleep(2)
+                        sigges.click_buscar()
+                        sigges.esperar_spinner(appear_timeout=0.5)
+                        mini = leer_mini_tabla(sigges)
+                    
                     if mini:
                         ctx.extra_info = f"📊 {len(mini)} caso(s)"
                 
-                # Verificación rápida
+                # Verificación Final de Mini-Tabla
                 if not mini:
-                    # NO verificar estado - es lento y innecesario
-                    res_paci = [vac_row(m, fecha, rut, nombre, "Sin Caso mini") for m in MISSIONS]
+                    log_error(f"{rut}: ❌ Sin Mini-Tabla detectada tras reintento")
+                    # Crear fila con fondo rojo (metadata) y saltar
+                    res_paci = []
+                    for m in MISSIONS:
+                        row = vac_row(m, fecha, rut, nombre, "Sin Mini-Tabla")
+                        row["_status_red"] = True # Flag para Excel_Revision
+                        res_paci.append(row)
                     resuelto = True
                     continue
                 
@@ -1370,11 +1385,27 @@ def procesar_paciente(sigges, row, idx, total, t_script_inicio: float) -> Tuple[
                         if caso_encontrado:
                             break
                 
-                # Reportar (sin demora)
+                # Reportar y Decidir SALTO
                 if caso_encontrado:
                     log_info(f"{rut}: {razon}")
                 else:
-                    log_info(f"{rut}: Casos detectados pero sin match de keywords")
+                    log_info(f"{rut}: ⚠️ Casos detectados pero sin match de keywords. Saltando a siguiente...")
+                    # Construir string S/N: Caso1, Caso2...
+                    nombres_encontrados = [str(c.get("caso", "Desc")).strip() for c in mini]
+                    # Eliminar duplicados manteniendo orden
+                    nombres_unicos = []
+                    for n in nombres_encontrados:
+                        if n not in nombres_unicos: nombres_unicos.append(n)
+                    
+                    sn_report = "S/N: " + ", ".join(nombres_unicos)
+                    
+                    res_paci = []
+                    for m in MISSIONS:
+                        row = vac_row(m, fecha, rut, nombre, sn_report)
+                        res_paci.append(row)
+                    
+                    resuelto = True
+                    continue
                 
                 # Paso 6: Leer edad
                 with TimingContext("Paso 6 - Leer edad", rut) as ctx:
