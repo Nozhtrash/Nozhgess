@@ -1,24 +1,34 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Urología Nómina",
+      "nombre": "Hiperplasia Nómina",
       "keywords": [
-        "hiperplasia",
         "Hiperplasia"
       ],
-      "objetivos": [],
-      "habilitantes": [
+      "objetivos": [
         "0101112"
+      ],
+      "habilitantes": [
+        "1902055",
+        "1902056"
       ],
       "excluyentes": [],
       "familia": "35",
       "especialidad": "07-800-2",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/ICEP 1° Quincena - Urología (116) - Enero.xlsx",
+      "frecuencias": [
+        {
+          "code": "0101112",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "anios_codigo": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Nóminas/Hiperplasia Nomina.xlsx",
       "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Nóminas",
       "keywords_contra": [],
-      "frecuencia_cantidad": 1,
-      "periodicidad": "Mensual",
       "vigencia_dias": 180,
       "max_objetivos": 1,
       "max_habilitantes": 1,
@@ -36,24 +46,14 @@
       "requiere_aps": true,
       "filtro_folio_activo": false,
       "codigos_folio": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
       "active_year_codes": false,
       "indices": {
         "rut": "1",
         "nombre": "3",
         "fecha": "10"
-      },
-      "anios_codigo": [],
-      "folio_vih": false,
-      "folio_vih_codigos": [],
-      "frecuencias": [
-        {
-          "code": "LEGACY",
-          "freq_type": "Mes",
-          "freq_qty": 1,
-          "periodicity": "Mensual"
-        }
-      ],
-      "active_frequencies": 0
+      }
     }
   ]
 }

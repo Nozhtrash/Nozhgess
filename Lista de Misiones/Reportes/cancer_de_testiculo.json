@@ -1,0 +1,58 @@
+{
+  "MISSIONS": [
+    {
+      "nombre": "Cancer de Testiculo",
+      "keywords": [
+        "testículo",
+        "testiculo"
+      ],
+      "objetivos": [],
+      "habilitantes": [
+        "3106102"
+      ],
+      "excluyentes": [],
+      "familia": "28",
+      "especialidad": "13-13-01",
+      "frecuencia": "Mensual",
+      "edad_min": 15,
+      "frecuencias": [
+        {
+          "code": "3106102",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "anios_codigo": [],
+      "active_frequencies": 1,
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Cancer de Testiculo.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": [],
+      "vigencia_dias": 180,
+      "max_objetivos": 1,
+      "max_habilitantes": 1,
+      "max_excluyentes": 1,
+      "max_ipd": 1,
+      "max_oa": 1,
+      "max_aps": 1,
+      "max_sic": 1,
+      "require_ipd": true,
+      "require_oa": true,
+      "require_aps": true,
+      "require_sic": true,
+      "show_futures": true,
+      "requiere_ipd": true,
+      "requiere_aps": true,
+      "filtro_folio_activo": false,
+      "codigos_folio": [],
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "active_year_codes": false,
+      "indices": {
+        "rut": "1",
+        "nombre": "3",
+        "fecha": "5"
+      }
+    }
+  ]
+}

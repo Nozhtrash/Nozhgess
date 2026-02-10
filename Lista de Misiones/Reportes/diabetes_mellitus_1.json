@@ -1,21 +1,22 @@
 {
   "MISSIONS": [
     {
-      "nombre": "Alivio",
+      "nombre": "Diabetes Mellitus 1",
       "keywords": [
-        "alivio",
-        "alivio del dolor",
-        "alivio",
-        "Alivio del Dolor ."
+        "diabetes mellitus I",
+        "diabetes mellitus tipo 1",
+        "diabetes mellitus tipo I",
+        "mellitus I",
+        "mellitus 1"
       ],
       "objetivos": [],
       "habilitantes": [
-        "3002023"
+        "3102002"
       ],
       "excluyentes": [
-        "3002123"
+        "3102003"
       ],
-      "familia": "4",
+      "familia": "6",
       "especialidad": "13-13-01",
       "frecuencia": "Mensual",
       "periodicidad": "Mensual",
@@ -37,33 +38,52 @@
       "requiere_aps": true,
       "filtro_folio_activo": false,
       "codigos_folio": [],
-      "active_year_codes": false,
+      "active_year_codes": true,
       "indices": {
         "rut": "1",
         "nombre": "3",
         "fecha": "5"
       },
-      "anios_codigo": [],
-      "folio_vih": false,
-      "folio_vih_codigos": [],
-      "frecuencias": [
+      "anios_codigo": [
         {
-          "code": "3002023",
+          "code": "3102001",
           "freq_type": "Mes",
           "freq_qty": 1,
           "periodicity": "Mes"
         },
         {
-          "code": "3002123",
+          "code": "3102002",
           "freq_type": "Mes",
           "freq_qty": 1,
           "periodicity": "Mes"
         }
       ],
-      "keywords_contra": [],
-      "active_frequencies": 1,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Alivio.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes"
+      "folio_vih": false,
+      "folio_vih_codigos": [],
+      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Diabetes 1.xlsx",
+      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "keywords_contra": [
+        "diabetes mellitus II",
+        "diabetes mellitus tipo 2",
+        "diabetes mellitus tipo II",
+        "mellitus II",
+        "mellitus 2"
+      ],
+      "frecuencias": [
+        {
+          "code": "3102001",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        },
+        {
+          "code": "3102002",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
+        }
+      ],
+      "active_frequencies": 1
     }
   ]
 }
