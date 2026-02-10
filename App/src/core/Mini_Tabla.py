@@ -12,14 +12,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from src.utils.Terminal import log_info, log_debug 
 from src.utils.Direcciones import XPATHS
 from src.utils.Esperas import ESPERAS
+from src.core.Formatos import _norm
 
 
-def _norm(s: str) -> str:
-    """Normaliza texto para comparaciones (quita tildes, minúsculas, etc)."""
-    if not s:
-        return ""
-    s = unicodedata.normalize("NFKD", s)
-    return re.sub(r"[\s]+", " ", re.sub(r"[^a-z0-9\sáéíóúüñ]", " ", "".join(c for c in s if not unicodedata.combining(c)).lower().strip()))
+# _norm removido, ahora se importa desde src.core.Formatos
 
 
 def _limpiar_nombre_caso(texto: str) -> str:
@@ -71,7 +67,7 @@ def _parse_fecha(texto: str) -> Optional[str]:
     
     # Buscar patrón dd/mm/yyyy
     match = re.search(r'(\d{2}/\d{2}/\d{4})', str(texto))
-    return match.group(1) if match else None
+    return match.group(1).replace("/", "-") if match else None
 
 
 def leer_mini_tabla(sigges) -> List[Dict[str, Any]]:

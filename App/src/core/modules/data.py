@@ -144,7 +144,7 @@ class DataParsingMixin:
                     raw_text = (p.text or "").strip()
                     if not raw_text: continue
                     
-                    fecha_match = re.search(r'(\d{2}/\d{2}/\d{4})', raw_text)
+                    fecha_match = re.search(r'(\d{2}[/-]\d{2}[/-]\d{4})', raw_text)
                     nombre = raw_text
                     fecha_str = ""
                     estado = ""
@@ -152,7 +152,7 @@ class DataParsingMixin:
                     fecha_dt = datetime.min
                     
                     if fecha_match:
-                        fecha_str = fecha_match.group(1)
+                        fecha_str = fecha_match.group(1).replace("/", "-")
                         parts = raw_text.split(fecha_str)
                         nombre_raw = parts[0].strip().rstrip(',').strip()
                         if "{" in nombre_raw:
@@ -166,7 +166,7 @@ class DataParsingMixin:
                             estado = rest.strip().lstrip(',').strip()
                             
                         try:
-                            fecha_dt = datetime.strptime(fecha_str, "%d/%m/%Y")
+                            fecha_dt = datetime.strptime(fecha_str, "%d-%m-%Y")
                         except Exception:
                             pass
                     
@@ -217,16 +217,16 @@ class DataParsingMixin:
                         nombre_limpio = raw_nombre.replace('.', '').strip()
                     
                     raw_apertura = tds[2].text.strip()
-                    apertura = raw_apertura.split(' ')[0]
+                    apertura = raw_apertura.split(' ')[0].replace("/", "-")
                     estado = tds[3].text.strip()
                     raw_cierre = tds[5].text.strip()
                     if not raw_cierre or raw_cierre.lower() in ["sin informacion", "sin información", "-", ""]:
                         cierre = "NO"
                     else:
-                        cierre = raw_cierre.split(' ')[0]
+                        cierre = raw_cierre.split(' ')[0].replace("/", "-")
                     
                     try:
-                        dt_obj = datetime.strptime(apertura, "%d/%m/%Y")
+                        dt_obj = datetime.strptime(apertura, "%d-%m-%Y")
                     except Exception:
                         dt_obj = datetime.min
 
@@ -517,7 +517,7 @@ class DataParsingMixin:
                 try:
                     tds = r.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 8: continue
-                    f_txt = (tds[2].text or "").strip()
+                    f_txt = (tds[2].text or "").strip().replace("/", "-")
                     e_txt = (tds[6].text or "").strip()
                     d_txt = (tds[7].text or "").strip()
                     f_dt = dparse(f_txt) or 0
@@ -556,7 +556,7 @@ class DataParsingMixin:
                     tds = r.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 13: continue
                     folio = (tds[0].text or "").strip()
-                    f_txt = (tds[2].text or "").split(" ")[0].strip()
+                    f_txt = (tds[2].text or "").split(" ")[0].strip().replace("/", "-")
                     deriv = (tds[8].text or "").strip()
                     cod = (tds[9].text or "").strip()
                     diag = (tds[12].text or "").strip()
@@ -599,7 +599,7 @@ class DataParsingMixin:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 3:
                         continue
-                    fecha_txt = (tds[1].text or "").strip()
+                    fecha_txt = (tds[1].text or "").strip().replace("/", "-")
                     estado_txt = (tds[2].text or "").strip()
                     if estado_txt and "caso" not in estado_txt.lower():
                         continue
@@ -644,7 +644,7 @@ class DataParsingMixin:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 9:
                         continue
-                    fecha_sic = (tds[2].text or "").strip()
+                    fecha_sic = (tds[2].text or "").strip().replace("/", "-")
                     derivado = (tds[8].text or "").strip()
                     fecha_dt = dparse(fecha_sic) or 0
                     parsed.append((fecha_dt, fecha_sic, derivado))

@@ -107,7 +107,7 @@ def validar_fecha(fecha: str) -> Tuple[bool, Optional[datetime]]:
         return False, None
     
     # Verificar formato básico (DD-MM-YYYY)
-    if not re.match(r'^\d{2}-\d{2}-\d{4}$', fecha.strip()):
+    if not re.match(r'^\d{1,2}-\d{1,2}-\d{4}$', fecha.strip()):
         return False, None
     
     try:

@@ -107,9 +107,7 @@ def _get_header_style(column_name: str) -> dict:
     if "apto" in name:
         return COLORS["grupo_apto"]
 
-    # 6. OBSERVACIONES -> Texto Blanco Negrita (Usamos Azul Oscuro o crea uno específico?)
-    # El usuario pide "Texto blanco en negrita". Usaremos Azul Oscuro por defecto o el mismo de Aptos si prefiere.
-    # Usaremos Azul Oscuro estándar para Observaciones.
+    # 6. OBSERVACIÓN -> Texto Blanco Negrita
     if "observ" in name:
         return COLORS["grupo_azul_oscuro"]
 
@@ -265,14 +263,17 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
 
 
     for i, row in enumerate(ws.iter_rows(min_row=2), start=0):
-        # Check metadata for this row index (i matches list index because min_row=2 skips header)
         age_status = None
         has_age_alert = False
+        status_red = False
+        codxanio_source = None
         
         if rows_metadata and i < len(rows_metadata):
             # Preferir el status nuevo, fallback al booleano antiguo
             age_status = rows_metadata[i].get("_age_validation_status", None)
             has_age_alert = rows_metadata[i].get("_age_alert", False)
+            status_red = rows_metadata[i].get("_status_red", False)
+            codxanio_source = rows_metadata[i].get("_codxanio_source", None)
             
         for cell in row:
             val = cell.value
@@ -317,6 +318,17 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
                 cell.value = val[2:]
                 cell.font = future_font
             
+            # 5. Estilizado de CodxAño (Prioridad IPD/APS)
+            elif "codxaño" in col_name.lower() and codxanio_source:
+                if codxanio_source == "ipd":
+                    # Verde (IPD)
+                    cell.fill = age_green_fill
+                    cell.font = age_font_green
+                elif codxanio_source == "aps":
+                    # Naranja (APS)
+                    cell.fill = future_fill
+                    cell.font = future_font
+
             # 3. Optimización: Si no hubo override, ya tiene el base_font/fill puestos.
                 
             # 3. Folios VIH Usados (Sombreado Verde)
@@ -327,6 +339,13 @@ def _aplicar_estilos(ws, rows_metadata: List[Dict] = None) -> None:
                 if val_clean and val_clean in [str(f).strip().lower().replace("oa", "").strip() for f in folios_usados]:
                     cell.fill = age_green_fill
                     cell.font = age_font_green
+            
+            # 4. Celda ROJA crítica (Sin Mini-Tabla)
+            elif status_red and "observ" in col_name:
+                rf, rt = style_cache.get("grupo_rojo", (None, None))
+                if rf:
+                    cell.fill = rf
+                    cell.font = rt
             
             cell.alignment = align_center
             cell.border = thin_border
@@ -808,7 +827,7 @@ def _expand_column_info(col: str) -> dict:
 
     ejemplo = ""
     if "fecha" in name:
-        ejemplo = "2024-01-15"
+        ejemplo = "15-01-2024"
     elif name == "rut":
         ejemplo = "12345678-9"
     elif name == "edad":

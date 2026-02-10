@@ -78,7 +78,7 @@ EXCEL_HEADERS_BASE = [
     "RUT",
     "Misión",
     "Estado",
-    "Observaciones",
+    "Observación",
 ]
 
 # =============================================================================

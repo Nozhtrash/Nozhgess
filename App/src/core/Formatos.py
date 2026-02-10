@@ -29,26 +29,28 @@ from typing import Any, Optional, List
 
 def _norm(s: str) -> str:
     """
-    Normaliza texto para comparaciones.
+    Normaliza texto para comparaciones (QUITA TILDES).
     
-    - Quita tildes y caracteres especiales
+    - NFKD Normalization + stripping non-spacing marks (tildes)
     - Convierte a minúsculas
     - Colapsa espacios múltiples
-    
-    Args:
-        s: Texto a normalizar
-        
-    Returns:
-        Texto normalizado
     """
     if not s:
         return ""
-    s = unicodedata.normalize("NFKD", s)
+    # 1. Descomponer caracteres (ej: á -> a + ´)
+    s = unicodedata.normalize("NFKD", str(s))
+    # 2. Filtrar solo caracteres que no sean marcas combinadas (quitar acentos)
     s = "".join(c for c in s if not unicodedata.combining(c))
+    # 3. Limpiar caracteres especiales remanentes y normalizar espacios
     s = s.lower().strip()
-    s = re.sub(r"[^a-z0-9\sáéíóúüñ]", " ", s)
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
     s = re.sub(r"[\s]+", " ", s)
     return s
+
+
+def normalizar_texto(s: str) -> str:
+    """Alias público para _norm (normalización con remoción de acentos)."""
+    return _norm(s)
 
 
 def has_keyword(texto: str, kws: List[str]) -> bool:

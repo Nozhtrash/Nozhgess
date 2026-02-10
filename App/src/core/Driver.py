@@ -974,7 +974,7 @@ class SiggesDriver:
                     tds = r.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 8:
                         continue
-                    f_txt = (tds[2].text or "").strip()          # Fecha IPD (col 3)
+                    f_txt = (tds[2].text or "").strip().replace("/", "-")          # Fecha IPD (col 3)
                     e_txt = (tds[6].text or "").strip()          # Confirma/descarta (col 7)
                     d_txt = (tds[7].text or "").strip()          # Diagnóstico (col 8)
                     f_dt = dparse(f_txt) or 0
@@ -1071,7 +1071,7 @@ class SiggesDriver:
                     # Intentamos buscar fecha valida en primeros 5 indices si falla
                     f_raw = safe_txt(2)
                     
-                    f_txt = f_raw.split(" ")[0].strip()
+                    f_txt = f_raw.split(" ")[0].strip().replace("/", "-")
                     deriv = safe_txt(8)
                     cod = safe_txt(9)
                     diag = safe_txt(12)
@@ -1158,7 +1158,7 @@ class SiggesDriver:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 3:
                         continue
-                    fecha_txt = (tds[1].text or "").strip()   # Col 2 Fecha atención
+                    fecha_txt = (tds[1].text or "").strip().replace("/", "-")   # Col 2 Fecha atención
                     estado_txt = (tds[2].text or "").strip()  # Col 3 Estado
                     fecha_dt = dparse(fecha_txt) or 0
                     parsed.append((fecha_dt, fecha_txt, estado_txt))
@@ -1236,7 +1236,7 @@ class SiggesDriver:
                     tds = tr.find_elements(By.TAG_NAME, "td")
                     if len(tds) < 9:
                         continue
-                    fecha_sic = (tds[2].text or "").strip()   # Col 3 Fecha SIC
+                    fecha_sic = (tds[2].text or "").strip().replace("/", "-")   # Col 3 Fecha SIC
                     derivado = (tds[8].text or "").strip()    # Col 9 Derivada para
                     fecha_dt = dparse(fecha_sic) or 0
                     parsed.append((fecha_dt, fecha_sic, derivado))

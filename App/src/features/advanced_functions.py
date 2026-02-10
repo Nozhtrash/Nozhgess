@@ -85,15 +85,13 @@ class AdvancedDataProcessor:
             # Validación de fecha
             if 'Fecha' in row and pd.notna(row['Fecha']):
                 try:
-                    # Validar formato de fecha
-                    date_str = str(row['Fecha'])
-                    if '/' in date_str:
-                        day, month, year = date_str.split('/')
-                        datetime.strptime(f"{year.zfill(4)}-{month.zfill(2)}-{day.zfill(2)}", "%Y-%m-%d")
-                    else:
-                        row_errors.append('Formato de fecha inválido')
+                    # Usar dparse para soportar múltiples formatos (incluyendo dd-mm-yyyy)
+                    from src.core.Formatos import dparse
+                    dt_obj = dparse(str(row['Fecha']))
+                    if not dt_obj:
+                        row_errors.append('Formato de fecha inválido o no reconocido')
                 except:
-                    row_errors.append('Fecha inválida')
+                    row_errors.append('Error al procesar fecha')
             else:
                 row_errors.append('Fecha faltante')
             
