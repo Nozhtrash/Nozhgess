@@ -133,55 +133,105 @@ class SiggesDriver:
         return any(fatal in error_str for fatal in errores_fatales)
 
     # =========================================================================
-    #                         SPINNER / ESPERAS
+    #                         SPINNER / ESPERAS PRECISAS (SMART DETECTOR)
     # =========================================================================
 
     def hay_spinner(self) -> bool:
-        """Detecta si hay un spinner de carga visible."""
+        """
+        Detecta si hay un spinner de carga visible usando JS (Ultra-Rápido).
+        Detecta:
+        1. <dialog class='loading' open>
+        2. <div class='circulo'> visible
+        """
         try:
-            # Check multiple selectors for spinner
-            css_selectors = [
-                XPATHS.get("SPINNER_CSS", "dialog.loading"),
-                "div.circulo",
-                "dialog[open] .circulo"
-            ]
-            for css in css_selectors:
-                if self.driver.find_elements(By.CSS_SELECTOR, css):
-                    return True
-            return False
+            # Script JS retorna true si encuentra el elemento visible y con dimensiones
+            js_script = """
+            var d = document.querySelector("dialog.loading[open]");
+            if (d && (d.offsetParent !== null || d.getBoundingClientRect().width > 0)) return true;
+            
+            var c = document.querySelector("div.circulo");
+            if (c && (c.offsetParent !== null || c.getBoundingClientRect().width > 0)) return true;
+            
+            return false;
+            """
+            return self.driver.execute_script(js_script)
         except Exception:
             return False
 
-    def esperar_spinner(self, appear_timeout: float = 0.0, clave_espera: str = "spinner_short") -> None:
+    def esperar_spinner(self, appear_timeout: float = 0.6, diff_timeout: float = 60.0, clave_espera: str = None) -> None:
         """
-        Espera obligatoria a que desaparezca el spinner.
+        Detector Inteligente v2.0:
+        1. Fase Detección (0 - 0.6s): Sondea rápidisimo si APARECE.
+           - Si no aparece en este tiempo -> Asume que no cargó nada y retorna.
+           - Si aparece -> Pasa a Fase 2.
+           
+        2. Fase Espera (hasta 60s): Espera a que DESAPAREZCA.
+           - Checkeo JS continuo.
         """
-        if not self.hay_spinner():
+        t_start = time.time()
+        spinner_detected = False
+        
+        # --- FASE 1: DETECCIÓN RÁPIDA DE APARICIÓN ---
+        # Intervalo ultra-corto para atrapar parpadeos rápidos
+        while (time.time() - t_start) < appear_timeout:
+            if self.hay_spinner():
+                spinner_detected = True
+                break
+            time.sleep(0.05) # 50ms polling
+            
+        if not spinner_detected:
+            # Si en 0.6 seg no vi nada, asumo que la acción no tuvo carga bloqueante.
+            # (El script sigue rapidísimo)
             return
 
-        timeout = get_wait_timeout(clave_espera) or 5.0
-        try:
-            css = XPATHS.get("SPINNER_CSS", "dialog.loading")
-            WebDriverWait(self.driver, timeout).until(
-                EC.invisibility_of_element_located((By.CSS_SELECTOR, css))
-            )
-        except TimeoutException:
-            pass  # Continue execution, don't crash
+        # --- FASE 2: ESPERA DE TERMINO (HAY SPINNER) ---
+        # Ya sabemos que está ahí. Ahora esperamos que se vaya.
+        # Logueamos solo si la espera es "larga" para no ensuciar.
+        
+        t_wait_start = time.time()
+        # [TIMEOUT FIX] Si no hay clave, usar diff_timeout (60s).
+        # Antes: get_wait_timeout(None) devolvía default (2.0s) evitando el uso de diff_timeout.
+        timeout_val = get_wait_timeout(clave_espera) if clave_espera else diff_timeout
+        showed_log = False
+        
+        while (time.time() - t_wait_start) < timeout_val:
+            if not self.hay_spinner():
+                # SE FUE!
+                return
+            
+            # Si lleva más de 3 segundos, avisar al usuario
+            if not showed_log and (time.time() - t_wait_start) > 3.0:
+                log_info(f"⏳ Esperando carga... ({timeout_val}s max)")
+                showed_log = True
+                
+            time.sleep(0.1) # 100ms polling para salida
 
+        # Si llegamos aquí, fue Timeout
+        # Si llegamos aquí, fue Timeout
+        msg = f"⚠️ Spinner detectado por más de {timeout_val:.1f}s (Posible 'Stuck')"
+        log_error(msg)
+        # [ROBUST] Lanzamos excepción para activar recovery en Conexiones.py
+        # Si sigue pegado, no tiene sentido clickear nada.
+        raise TimeoutException(msg)
+        
     def _wait_smart(self) -> None:
-        """Helper para esperar spinner post-acción."""
-        time.sleep(0.1) # Grace period (Optimized)
+        """Helper compatible: llama a la nueva lógica inteligente."""
+        # Sin sleep inicial ciego. El detector inteligente se encarga del grace period (Fase 1).
         self.esperar_spinner()
-
-    # =========================================================================
-    #                       FIND / CLICK GENÉRICOS
-    # =========================================================================
 
     # =========================================================================
     #                       FIND / CLICK GENÉRICOS DE BAJO NIVEL
     # =========================================================================
 
     def _find(self, locators: Any, mode: str = "clickable", clave_espera: str = "default") -> Optional[Any]:
+        # ... (código existente de _find) ...
+        # Copia local de _find para evitar borrarlo si el replace range lo cubre
+        # (Nota: Asegúrate de que este bloque no reemplace _find si no toca sus lineas internas)
+        # En este caso, el range incluye _find? Si StartLine es 139 y EndLine 300, SÍ.
+        # Mejor usar el contenido original de _find aquí o ajustar range.
+        # AJUSTE: Range cubre 139-300. _find empieza en 224.
+        # Voy a re-escribir _find tal cual
+        
         """
         Método interno para buscar elementos iterando sobre una lista de XPaths.
         Restaura la funcionalidad de _find perdida.
@@ -214,6 +264,9 @@ class SiggesDriver:
         Método interno para hacer click en una lista de selectores.
         Intenta click normal, luego JS.
         """
+        # [PRE-CHECK] Antes de nada, verificar si hay spinner "rezagado"
+        self.esperar_spinner(appear_timeout=0.1)
+        
         el = self._find(locators, "clickable")
         if not el:
             return False
@@ -269,6 +322,10 @@ class SiggesDriver:
     def click(self, element) -> bool:
         """Click seguro."""
         if not element: return False
+        
+        # [PRE-CHECK] Antes de nada, verificar si hay spinner "rezagado"
+        self.esperar_spinner(appear_timeout=0.1)
+        
         try:
             element.click()
             return True
@@ -299,6 +356,10 @@ class SiggesDriver:
 
     def type(self, element, text: str) -> bool:
         if not element: return False
+        
+        # [PRE-CHECK] Antes de nada, verificar si hay spinner "rezagado"
+        self.esperar_spinner(appear_timeout=0.1)
+        
         try:
             element.clear()
             element.send_keys(text)
@@ -574,13 +635,18 @@ class SiggesDriver:
             log_debug(f"📂 Menú cerrado (Clases: '{clases}'). Abriendo...")
             
             # Click en el Header (Título) para abrir
-            header = self._find_clickable(XPATHS["BTN_MENU_INGRESO_CONSULTA_CARD"])
+            # [LOGS FIX] Usamos _find(presence) + click() porque _find_clickable es muy estricto
+            # y falla si hay un overlay/"ghost" spinner. click() tiene fallback JS que lo atraviesa.
+            header = self._find(XPATHS["BTN_MENU_INGRESO_CONSULTA_CARD"], mode="presence")
             if header:
-                self.click(header)
-                time.sleep(0.5) # Animación CSS
-                return True
+                if self.click(header):
+                    time.sleep(0.5) # Animación CSS
+                    return True
+                else:
+                    log_error("❌ Click falló en header del menú (incluso con JS).")
+                    return False
             else:
-                log_error("❌ No se pudo clickear el header del menú.")
+                log_error("❌ No se encontró el elemento header del menú.")
                 return False
                 
         except Exception as e:

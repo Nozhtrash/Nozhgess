@@ -7,6 +7,7 @@ Permite ver, copiar, agregar y exportar código VBA.
 import customtkinter as ctk
 import os
 import sys
+from src.gui.theme import get_font
 import subprocess
 from tkinter import filedialog, messagebox
 from src.utils.telemetry import log_ui
@@ -23,7 +24,7 @@ class VbaViewerView(ctk.CTkFrame):
     """Visor de archivos VBA con funciones completas."""
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.current_file = None
@@ -39,9 +40,9 @@ class VbaViewerView(ctk.CTkFrame):
         header.pack(fill="x", padx=25, pady=(20, 10))
         
         self.title = ctk.CTkLabel(
-            header,
-            text="📊 Macros VBA",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            header, 
+            text="📜 Macros VBA (Nozhtrash)", 
+            font=get_font(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title.pack(side="left")
@@ -53,7 +54,7 @@ class VbaViewerView(ctk.CTkFrame):
         self.add_btn = ctk.CTkButton(
             btn_frame,
             text="➕ Agregar",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13), # Changed font
             fg_color=colors["accent"],
             hover_color=colors["success"],
             width=100,
@@ -66,7 +67,7 @@ class VbaViewerView(ctk.CTkFrame):
         self.folder_btn = ctk.CTkButton(
             btn_frame,
             text="📁",
-            font=ctk.CTkFont(size=14),
+            font=get_font(size=14), # Changed font
             fg_color=colors["bg_card"],
             hover_color=colors["accent"],
             text_color=colors["text_primary"],
@@ -167,12 +168,29 @@ class VbaViewerView(ctk.CTkFrame):
         )
         self.delete_btn.pack(side="left", padx=3)
         
+        # Botón Guardar (NUEVO)
+        self.save_btn = ctk.CTkButton(
+            viewer_btns,
+            text="💾 Guardar",
+            font=ctk.CTkFont(size=12),
+            fg_color=colors["success"],
+            hover_color="#2ecc71",
+            text_color="#ffffff",
+            width=90,
+            height=34,
+            corner_radius=8,
+            command=self._save_script
+        )
+        self.save_btn.pack(side="left", padx=3)
+        
         self.code_text = ctk.CTkTextbox(
             self.viewer_frame,
             font=ctk.CTkFont(family="Consolas", size=12),
             fg_color=colors["bg_primary"],
             text_color=colors["text_primary"],
-            corner_radius=10
+            corner_radius=10,
+            border_width=1, # Borde agregado
+            border_color=colors.get("border", "#30363d")
         )
         self.code_text.pack(fill="both", expand=True, padx=12, pady=(8, 8))
         
@@ -293,6 +311,26 @@ class VbaViewerView(ctk.CTkFrame):
             shutil.copy2(self.current_file, dest)
             self.export_btn.configure(text="✅ Exportado")
             self.after(1500, lambda: self.export_btn.configure(text="📤 Exportar"))
+    
+    def _save_script(self):
+        """Guarda los cambios en el script actual."""
+        if not self.current_file:
+            messagebox.showwarning("Aviso", "No hay ningún archivo seleccionado para guardar.")
+            return
+
+        try:
+            content = self.code_text.get("1.0", "end-1c")
+            with open(self.current_file, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                try: os.fsync(f.fileno())
+                except: pass
+                
+            self.save_btn.configure(text="✅ Guardado")
+            self.after(1500, lambda: self.save_btn.configure(text="💾 Guardar"))
+            log_ui("vba_saved", file=os.path.basename(self.current_file))
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar el archivo:\n{e}")
     
     def _delete_script(self):
         """Elimina el script actual."""

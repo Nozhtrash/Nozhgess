@@ -2,7 +2,9 @@
   "MISSIONS": [
     {
       "nombre": "Artrosis Reporte",
-      "keywords": [],
+      "keywords": [
+        "rodilla"
+      ],
       "objetivos": [],
       "habilitantes": [
         "2101001"
@@ -21,8 +23,8 @@
       ],
       "anios_codigo": [],
       "active_frequencies": 1,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Artrosis de Cadera Reporte.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Artrosis de Cadera Reporte.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "vigencia_dias": 180,
       "max_objetivos": 1,
@@ -48,7 +50,8 @@
         "rut": "1",
         "nombre": "3",
         "fecha": "5"
-      }
+      },
+      "edad_min": 15
     }
   ]
 }

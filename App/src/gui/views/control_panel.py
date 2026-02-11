@@ -12,6 +12,8 @@ from src.gui.components import Card, FormRow
 from src.gui.controllers.mision_controller import MisionController
 from src.gui.managers.notification_manager import get_notifications
 from src.utils.telemetry import log_ui
+from src.gui.theme import get_font
+import logging
 
 # Asegurar path para imports
 ruta_current = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +32,7 @@ class ControlPanelView(ctk.CTkFrame):
     """
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.controller = MisionController(ruta_proyecto)
@@ -61,7 +63,7 @@ class ControlPanelView(ctk.CTkFrame):
         ctk.CTkLabel(
             header,
             text="⚙️ Configuración Global",
-            font=ctk.CTkFont(size=22, weight="bold"),
+            font=get_font(size=22, weight="bold"),
             text_color=self.colors["text_primary"]
         ).pack(side="left")
 
@@ -72,10 +74,10 @@ class ControlPanelView(ctk.CTkFrame):
         self.save_btn = ctk.CTkButton(
             footer,
             text="💾  Guardar Configuración",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             fg_color=self.colors["accent"],
             hover_color=self.colors["success"],
-            height=40, corner_radius=8,
+            height=40, corner_radius=10,
             command=self._on_save
         )
         self.save_btn.pack(side="left", fill="x", expand=True)
@@ -120,7 +122,7 @@ class ControlPanelView(ctk.CTkFrame):
         c_mode.pack(fill="x", pady=10)
         
         lbl = ctk.CTkLabel(c_mode.content, text="Seleccione cómo desea generar los reportes Excel:", 
-                          text_color=self.colors["text_secondary"], font=ctk.CTkFont(size=11))
+                          text_color=self.colors["text_secondary"], font=get_font(size=11))
         lbl.pack(anchor="w", pady=(0, 5))
 
         mode_frame = ctk.CTkFrame(c_mode.content, fg_color="transparent")

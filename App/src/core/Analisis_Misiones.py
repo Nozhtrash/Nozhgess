@@ -83,7 +83,10 @@ class FrequencyValidator:
                 "target": int
             }
         """
-        code_target = limpiar_codigo(str(config.get("code", "")))
+        # Limpieza robusta del código objetivo
+        raw_code = str(config.get("code", ""))
+        code_target = limpiar_codigo(raw_code)
+        
         freq_type = config.get("freq_type", "Mes") # Mes, Año, Vida
         try:
             target_qty = int(config.get("freq_qty", 1))
@@ -100,34 +103,45 @@ class FrequencyValidator:
 
         count = 0
         
+        # Debugging (Solo si hay match potencial)
+        debug_matches = []
+        
         # Filtro por tipo de ventana
         for item in items_procesados:
-            c = item.get("codigo_limpio") or limpiar_codigo(str(item.get("codigo", "")))
+            # Normalización robusta del código del item (fallback si no tiene pre-calculado)
+            c = item.get("codigo_limpio")
+            if not c:
+                c = limpiar_codigo(str(item.get("codigo", "")))
+            
+            # Comparación exacta de códigos
             if c != code_target:
                 continue
             
             f_item = item.get("fecha")
-            if not f_item: continue # Sin fecha no cuenta (o sí? asumimos que prestaciones tienen fecha)
+            if not f_item: continue 
              
             # Lógica temporal
             # OJO: f_item puede ser str o date. Usamos dparse para robustez.
             if not isinstance(f_item, (date, datetime)):
-                f_item = dparse(f_item)
-                if f_item:
-                    f_item = f_item.date()
+                f_item_parsed = dparse(f_item)
+                if f_item_parsed:
+                    f_item_date = f_item_parsed.date()
                 else:
                     continue
+            else:
+                 f_item_date = f_item.date() if isinstance(f_item, datetime) else f_item
                 
             match = False
             
             if freq_type == "Mes":
-                # Mismo Mes y Año
-                if f_item.year == fecha_ref.year and f_item.month == fecha_ref.month:
+                # Mismo Mes y Año (Lógica Calendario Estricta)
+                # NO usar diferencia de días. Solo coincidencia de Mes/Año.
+                if f_item_date.year == fecha_ref.year and f_item_date.month == fecha_ref.month:
                     match = True
                     
             elif freq_type == "Año":
                 # Mismo Año
-                if f_item.year == fecha_ref.year:
+                if f_item_date.year == fecha_ref.year:
                     match = True
                     
             elif freq_type == "Vida":
@@ -136,10 +150,16 @@ class FrequencyValidator:
             
             if match:
                 count += 1
+                debug_matches.append(f"{f_item_date.strftime('%d-%m-%Y')}")
 
         # Resultado
         ok = count >= target_qty
+        
+        # Formato de salida mejorado
         res_str = f"{count}/{target_qty} {freq_type}"
+        
+        # Log debug si hubo falsos positivos aparentes (opcional)
+        # print(f"DEBUG FREQ {code_target}: Found {count} -> {debug_matches}")
         
         return {
             "result_str": res_str,

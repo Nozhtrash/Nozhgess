@@ -73,12 +73,18 @@
           "freq_type": "Mes",
           "freq_qty": 1,
           "periodicity": "Mes"
+        },
+        {
+          "code": "2501132",
+          "freq_type": "Mes",
+          "freq_qty": 1,
+          "periodicity": "Mes"
         }
       ],
       "keywords_contra": [],
       "active_frequencies": 1,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Dialisis.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes"
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Dialisis.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes"
     }
   ]
 }

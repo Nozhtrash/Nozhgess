@@ -95,6 +95,7 @@ Sub TransferirFAPDesdeMatíasACargaMasivaA()
     listaPrestaciones.Add "2104159", "2062"
     listaPrestaciones.Add "2104162", "2063"
     listaPrestaciones.Add "2104167", "2056"
+    listaPrestaciones.Add "2104174", "2072"
     listaPrestaciones.Add "2104190", "2078"
     listaPrestaciones.Add "2104228", "2048"
     listaPrestaciones.Add "2104229N", "2049"

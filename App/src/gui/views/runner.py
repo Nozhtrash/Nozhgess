@@ -15,6 +15,8 @@ import logging  # Required for GuiLogHandler
 from src.utils.telemetry import log_ui
 from src.gui.components import LogConsole, StatusBadge
 from src.core.states import RunState
+from src.gui.theme import get_font
+from src.gui.components.help_icon import HelpIcon
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -34,7 +36,7 @@ class RunnerView(ctk.CTkFrame):
     """Vista para ejecutar revisiones con logs en tiempo real."""
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.is_running = False
@@ -70,26 +72,35 @@ class RunnerView(ctk.CTkFrame):
         self._terminal_log_lock = threading.Lock()
         
         # Título
-        # Título
-        self.title = ctk.CTkLabel(
-            self,
-            text="Centro de Ejecución",
-            font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=colors["text_primary"]
-        )
-        self.title.pack(anchor="w", padx=26, pady=(24, 8))
+        # Assuming 'header_frame' is intended to be 'self' or a new frame on 'self'
+        # Based on the original code, the title is directly on 'self'.
+        # Let's create a title_frame on 'self' to hold the label and HelpIcon.
+        title_frame = ctk.CTkFrame(self, fg_color="transparent")
+        title_frame.pack(anchor="w", padx=26, pady=(24, 8))
+
+        ctk.CTkLabel(
+            title_frame, text="Control de Ejecución", 
+            font=get_font(size=18, weight="bold"),
+            text_color=self.colors["text_primary"]
+        ).pack(side="left")
+
+        HelpIcon(title_frame, text="Panel de control principal para iniciar, detener y monitorear misiones.", text_color=self.colors["text_muted"]).pack(side="left", padx=10)
         
         # Sección: Iniciadores
         init_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=10)
         init_frame.pack(fill="x", padx=24, pady=12)
         
-        init_header = ctk.CTkLabel(
-            init_frame,
+        init_header_frame = ctk.CTkFrame(init_frame, fg_color="transparent")
+        init_header_frame.pack(fill="x", padx=12, pady=(10, 6))
+
+        ctk.CTkLabel(
+            init_header_frame,
             text="🚀 Iniciadores",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=get_font(size=14, weight="bold"),
             text_color=colors["text_primary"]
-        )
-        init_header.pack(anchor="w", padx=12, pady=(10, 6))
+        ).pack(side="left")
+
+        HelpIcon(init_header_frame, text="Herramientas para preparar el entorno antes de la revisión.", text_color=colors["text_secondary"]).pack(side="left", padx=10)
         
         init_buttons = ctk.CTkFrame(init_frame, fg_color="transparent")
         init_buttons.pack(fill="x", padx=12, pady=(0, 10))
@@ -98,11 +109,11 @@ class RunnerView(ctk.CTkFrame):
         self.web_btn = ctk.CTkButton(
             init_buttons,
             text="🌐  Iniciar Edge Debug",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             fg_color="#3498db",
             hover_color="#2980b9",
-            height=34,
-            corner_radius=8,
+            height=40,
+            corner_radius=10,
             command=self._start_edge
         )
         self.web_btn.pack(side="left", padx=(0, 10), fill="x", expand=True)
@@ -112,27 +123,35 @@ class RunnerView(ctk.CTkFrame):
         exec_frame = ctk.CTkFrame(self, fg_color=colors["bg_card"], corner_radius=10)
         exec_frame.pack(fill="x", padx=24, pady=10)
         
-        exec_header = ctk.CTkLabel(
-            exec_frame,
+        exec_header_frame = ctk.CTkFrame(exec_frame, fg_color="transparent")
+        exec_header_frame.pack(fill="x", padx=12, pady=(10, 6))
+
+        ctk.CTkLabel(
+            exec_header_frame,
             text="▶️ Ejecutar Revisión",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=get_font(size=14, weight="bold"),
             text_color=colors["text_primary"]
-        )
-        exec_header.pack(anchor="w", padx=12, pady=(10, 6))
+        ).pack(side="left")
+
+        HelpIcon(exec_header_frame, text="Controles para iniciar, pausar y detener la automatización.", text_color=colors["text_secondary"]).pack(side="left", padx=10)
         
-        exec_buttons = ctk.CTkFrame(exec_frame, fg_color="transparent")
-        exec_buttons.pack(fill="x", padx=12, pady=(0, 10))
+        # Scrollable Controls for Responsiveness
+        exec_buttons_container = ctk.CTkScrollableFrame(exec_frame, fg_color="transparent", orientation="horizontal", height=60)
+        exec_buttons_container.pack(fill="x", padx=12, pady=(0, 10))
+        
+        exec_buttons = ctk.CTkFrame(exec_buttons_container, fg_color="transparent")
+        exec_buttons.pack(fill="y", expand=True)
         
         # Botón Iniciar
         self.run_btn = ctk.CTkButton(
             exec_buttons,
-            text="▶  Iniciar",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color=colors["success"],
-            hover_color="#27ae60",
-            width=108,
-            height=36,
-            corner_radius=8,
+            text="💾 Exportar",
+            font=get_font(size=12, weight="bold"),
+            fg_color=colors["bg_secondary"],
+            hover_color=colors["bg_card"],
+            width=120,
+            height=40,
+            corner_radius=10,
             command=lambda: self._safe_start_run()
         )
         self.run_btn.pack(side="left", padx=(0, 10))
@@ -140,13 +159,13 @@ class RunnerView(ctk.CTkFrame):
         # Botón Pausar (inicialmente deshabilitado)
         self.pause_btn = ctk.CTkButton(
             exec_buttons,
-            text="⏸  Pausar",
-            font=ctk.CTkFont(size=13),
-            fg_color=colors["warning"],
-            hover_color="#e67e22",
-            width=108,
-            height=36,
-            corner_radius=8,
+            text="📸 Snapshot",
+            font=get_font(size=12, weight="bold"),
+            fg_color=colors["accent"],
+            hover_color=colors["accent_hover"],
+            width=120,
+            height=40,
+            corner_radius=10,
             state="disabled",
             command=self._pause_run
         )
@@ -156,12 +175,12 @@ class RunnerView(ctk.CTkFrame):
         self.stop_btn = ctk.CTkButton(
             exec_buttons,
             text="⏹  Detener",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13, weight="bold"),
             fg_color=colors["error"],
             hover_color="#c0392b",
-            width=108,
-            height=36,
-            corner_radius=8,
+            width=120,
+            height=40,
+            corner_radius=10,
             state="disabled",
             command=self._stop_run
         )
@@ -171,13 +190,13 @@ class RunnerView(ctk.CTkFrame):
         self.clear_btn = ctk.CTkButton(
             exec_buttons,
             text="🗑  Limpiar Logs",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13, weight="bold"),
             fg_color=self.colors["bg_secondary"],
             hover_color=colors["bg_primary"],
             text_color=colors["text_primary"],
-            width=110,
-            height=42,
-            corner_radius=8,
+            width=140,
+            height=40,
+            corner_radius=10,
             command=self._clear_logs
         )
         self.clear_btn.pack(side="left")
@@ -328,8 +347,8 @@ class RunnerView(ctk.CTkFrame):
         self.state = new_state
         
         if new_state == RunState.IDLE:
-            self.run_btn.configure(state="normal", text="▶  Iniciar", fg_color=self.colors["success"])
-            self.pause_btn.configure(state="disabled", text="⏸  Pausar", fg_color=self.colors["warning"])
+            self.run_btn.configure(text="▶ Iniciar Revisión", state="normal", fg_color=self.colors.get("success", "#22c55e"))
+            self.pause_btn.configure(text="⏸ Pausar", state="disabled", fg_color=self.colors["warning"])
             self.stop_btn.configure(state="disabled")
             self.status_badge.set_status("IDLE", "Listo")
             self.is_running = False
@@ -880,7 +899,7 @@ class RunnerView(ctk.CTkFrame):
     def update_colors(self, colors):
         """Actualiza colores sin recrear la vista (Vital para no matar el thread)."""
         self.colors = colors
-        self.configure(fg_color=colors["bg_primary"])
+        self.configure(fg_color=colors["bg_primary"], border_color=colors.get("accent", "#7c4dff"))
         self.title.configure(text_color=colors["text_primary"])
         self.status_badge.update_colors(colors)
         

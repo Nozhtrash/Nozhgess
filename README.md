@@ -22,7 +22,9 @@ El cerebro interno (`Conexiones.py` e `integrator.py`) implementa un árbol de d
 - **Selección Inteligente:** Algoritmos que priorizan casos "Activos" y utilizan puntuación de recencia para descartar datos obsoletos.
 - **Lógica de Caso en Contra:** Detecta automáticamente si un paciente está mal ingresado (ej. Diabetes Tipo 1 en una lista de Tipo 2) y ejecuta una auditoría recursiva del caso divergente.
 - **Validación de Frecuencias V2:** Un motor temporal basado en deltas que calcula meses/años desde los últimos procedimientos, asegurando el cumplimiento de protocolos clínicos.
+- **Motor de Columnas Dinámicas (v3.5.1):** Generación automática de estructuras de reporte basada en la configuración de la misión, eliminando columnas vacías y adaptándose a cualquier protocolo clínico.
 - **Integrador Avanzado:** Nuevo sistema que unifica validaciones de RUT, fechas y nombres con optimización de memoria para grandes volúmenes de datos.
+- **Auditoría Forense Granular:** Rastreo de cada decisión lógica (Objetivos, Habilitantes, Excluyentes) con trazabilidad de fechas y eventos, asegurando que ningún descarte sea "caja negra".
 
 ### 3. Interfaz de Grado Industrial
 Construida sobre **CustomTkinter**, la interfaz está diseñada para entornos de alta densidad de información.

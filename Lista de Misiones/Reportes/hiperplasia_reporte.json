@@ -3,12 +3,12 @@
     {
       "nombre": "Hiperplasia Reporte",
       "keywords": [
-        "hiperplasia"
+        "Hiperplasia"
       ],
-      "objetivos": [],
-      "habilitantes": [
+      "objetivos": [
         "3902035"
       ],
+      "habilitantes": [],
       "excluyentes": [],
       "familia": "35",
       "especialidad": "13-13-01",
@@ -23,8 +23,8 @@
       ],
       "anios_codigo": [],
       "active_frequencies": 1,
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Hiperplasia Reporte.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Hiperplasia Reporte.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "vigencia_dias": 180,
       "max_objetivos": 1,

@@ -33,7 +33,7 @@ if ruta_proyecto not in sys.path:
 
 from src.gui.theme import (
     ACCENT_COLORS, load_theme, save_theme, set_mode, set_accent_color,
-    THEME_CONFIG_PATH
+    THEME_CONFIG_PATH, get_font
 )
 
 # Path para user settings
@@ -83,7 +83,7 @@ class SettingsView(ctk.CTkFrame):
     """Vista de configuración optimizada."""
     
     def __init__(self, master, colors: dict, on_theme_change: callable = None, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.on_theme_change = on_theme_change
@@ -121,7 +121,7 @@ class SettingsView(ctk.CTkFrame):
         ctk.CTkLabel(
             header,
             text="⚙️  Ajustes",
-            font=ctk.CTkFont(size=28, weight="bold"),
+            font=get_font(size=28, weight="bold"),
             text_color=self.colors["text_primary"]
         ).pack(side="left")
         
@@ -140,12 +140,12 @@ class SettingsView(ctk.CTkFrame):
         """Helper para crear una fila de switch estándar."""
         # 1. Label + Desc
         ctk.CTkLabel(
-            parent, text=label, font=ctk.CTkFont(size=13), 
+            parent, text=label, font=get_font(size=13), 
             text_color=self.colors["text_primary"], anchor="w"
         ).grid(row=row, column=0, sticky="w", padx=16, pady=(12, 0))
         
         ctk.CTkLabel(
-            parent, text=desc, font=ctk.CTkFont(size=10), 
+            parent, text=desc, font=get_font(size=10), 
             text_color=self.colors["text_muted"], anchor="w"
         ).grid(row=row+1, column=0, sticky="w", padx=16, pady=(0, 12))
         
@@ -170,9 +170,9 @@ class SettingsView(ctk.CTkFrame):
 
     def _add_custom_row(self, parent, row, label, desc, widget_fn):
         """Helper para fila con widget personalizado."""
-        ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=13), text_color=self.colors["text_primary"]).grid(row=row, column=0, sticky="w", padx=16, pady=(12, 0))
+        ctk.CTkLabel(parent, text=label, font=get_font(size=13), text_color=self.colors["text_primary"]).grid(row=row, column=0, sticky="w", padx=16, pady=(12, 0))
         if desc:
-            ctk.CTkLabel(parent, text=desc, font=ctk.CTkFont(size=10), text_color=self.colors["text_muted"]).grid(row=row+1, column=0, sticky="w", padx=16, pady=(0, 12))
+            ctk.CTkLabel(parent, text=desc, font=get_font(size=10), text_color=self.colors["text_muted"]).grid(row=row+1, column=0, sticky="w", padx=16, pady=(0, 12))
             w = widget_fn(parent)
             w.grid(row=row, column=1, rowspan=2, padx=16, sticky="e")
             return row + 2
@@ -241,7 +241,8 @@ class SettingsView(ctk.CTkFrame):
                           command=self._disk_usage_threaded).pack(side="left", padx=4)
             return f
         
-        ctk.CTkLabel(card.content, text="Acciones", font=ctk.CTkFont(size=13), text_color=self.colors["text_primary"]).grid(row=r, column=0, sticky="w", padx=16, pady=12)
+        
+        ctk.CTkLabel(card.content, text="Acciones", font=get_font(size=13), text_color=self.colors["text_primary"]).grid(row=r, column=0, sticky="w", padx=16, pady=12)
         create_actions(card.content).grid(row=r, column=0, columnspan=2, sticky="e", padx=16, pady=12)
 
     def _create_shortcuts_section(self):
@@ -259,17 +260,17 @@ class SettingsView(ctk.CTkFrame):
             # Key Badge
             kf = ctk.CTkFrame(fr, fg_color=self.colors.get("bg_secondary"), corner_radius=6)
             kf.pack(side="left")
-            ctk.CTkLabel(kf, text=key, font=ctk.CTkFont(family="Consolas", weight="bold"), text_color=self.colors["accent"]).pack(padx=8, pady=2)
+            ctk.CTkLabel(kf, text=key, font=get_font(size=12, weight="bold"), text_color=self.colors["accent"]).pack(padx=8, pady=2)
             
-            ctk.CTkLabel(fr, text=desc, text_color=self.colors["text_muted"]).pack(side="left", padx=12)
+            ctk.CTkLabel(fr, text=desc, font=get_font(size=12), text_color=self.colors["text_muted"]).pack(side="left", padx=12)
 
     def _create_info_section(self):
         card = self._create_section("Información", "ℹ️")
         r = 0
         
-        items = [("Proyecto", "Nozhgess"), ("Versión", "3.0 LEGENDARY"), ("Python", sys.version.split()[0])]
+        items = [("Proyecto", "Nozhgess"), ("Versión", "3.3 LEGENDARY"), ("Python", sys.version.split()[0])]
         for k, v in items:
-            l = ctk.CTkLabel(card.content, text=k+":", font=ctk.CTkFont(weight="bold"), text_color=self.colors["text_primary"])
+            l = ctk.CTkLabel(card.content, text=k+":", font=get_font(size=12, weight="bold"), text_color=self.colors["text_primary"])
             l.grid(row=r, column=0, sticky="w", padx=16, pady=4)
             
             v_lbl = ctk.CTkLabel(card.content, text=v, text_color=self.colors["text_secondary"])

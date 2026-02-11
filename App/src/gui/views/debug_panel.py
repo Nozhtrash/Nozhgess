@@ -10,6 +10,7 @@ import sys
 import importlib
 from tkinter import messagebox
 from src.utils import DEBUG, DebugSystem
+from src.gui.theme import get_font
 
 ruta_proyecto = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if ruta_proyecto not in sys.path:
@@ -30,7 +31,7 @@ class DebugPanelView(ctk.CTkFrame):
         self.title = ctk.CTkLabel(
             header,
             text="🐛 Panel de Debug",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=get_font(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title.pack(side="left")
@@ -56,7 +57,7 @@ class DebugPanelView(ctk.CTkFrame):
         ctk.CTkLabel(
             frame,
             text=f"{icon} {text}",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=get_font(size=14, weight="bold"),
             text_color=self.colors["accent"]
         ).pack(anchor="w", padx=5)
         
@@ -79,14 +80,14 @@ class DebugPanelView(ctk.CTkFrame):
         ctk.CTkLabel(
             info_frame,
             text="Modo Debug Global",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             text_color=self.colors["text_primary"]
         ).pack(anchor="w")
         
         ctk.CTkLabel(
             info_frame,
             text="Habilita logs detallados, timing de ejecución y modo desarrollador.",
-            font=ctk.CTkFont(size=12),
+            font=get_font(size=11),
             text_color=self.colors["text_secondary"]
         ).pack(anchor="w")
         
@@ -124,7 +125,7 @@ class DebugPanelView(ctk.CTkFrame):
             ctk.CTkButton(
                 btn_frame,
                 text=f"Set {name}",
-                font=ctk.CTkFont(size=12, weight="bold"),
+                font=get_font(size=12, weight="bold"),
                 fg_color=self.colors["bg_secondary"],
                 hover_color=color,
                 border_width=1,
@@ -138,7 +139,7 @@ class DebugPanelView(ctk.CTkFrame):
         self.level_label = ctk.CTkLabel(
             card,
             text=f"Nivel Actual: {DebugSystem._level_name(DebugSystem._current_level)}",
-            font=ctk.CTkFont(size=12),
+            font=get_font(size=11),
             text_color=self.colors["text_secondary"]
         )
         self.level_label.pack(pady=(0, 15))
@@ -159,7 +160,8 @@ class DebugPanelView(ctk.CTkFrame):
             fg_color=self.colors["bg_secondary"],
             hover_color=self.colors["success"],
             width=120,
-            command=lambda: DebugSystem.info("Prueba de mensaje INFO")
+            command=lambda: DebugSystem.info("Prueba de mensaje INFO"),
+            font=get_font(size=12, weight="bold")
         ).pack(side="left", padx=5)
         
         ctk.CTkButton(
@@ -168,7 +170,8 @@ class DebugPanelView(ctk.CTkFrame):
             fg_color=self.colors["bg_secondary"],
             hover_color=self.colors["warning"],
             width=120,
-            command=lambda: DebugSystem.warn("Prueba de mensaje WARN")
+            command=lambda: DebugSystem.warn("Prueba de mensaje WARN"),
+            font=get_font(size=12, weight="bold")
         ).pack(side="left", padx=5)
         
         ctk.CTkButton(
@@ -177,7 +180,8 @@ class DebugPanelView(ctk.CTkFrame):
             fg_color=self.colors["bg_secondary"],
             hover_color=self.colors["error"],
             width=120,
-            command=lambda: DebugSystem.error("Prueba de mensaje ERROR")
+            command=lambda: DebugSystem.error("Prueba de mensaje ERROR"),
+            font=get_font(size=12, weight="bold")
         ).pack(side="left", padx=5)
 
     def _toggle_debug_mode(self):

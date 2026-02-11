@@ -15,8 +15,8 @@
       "familia": "28",
       "especialidad": "13-13-01",
       "frecuencia": "Mensual",
-      "ruta_entrada": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Prostata.xlsx",
-      "ruta_salida": "C:/Users/knoth/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
+      "ruta_entrada": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Archivos/Reportes/Cancer de Prostata.xlsx",
+      "ruta_salida": "C:/Users/usuariohgf/OneDrive/Documentos/Trabajo Oficina/Revisiones, Falta Enviar, CM, Listos/Revisiones/Revisiones Reportes",
       "keywords_contra": [],
       "frecuencia_cantidad": 1,
       "periodicidad": "Cada Vez",
@@ -49,13 +49,13 @@
       "folio_vih_codigos": [],
       "frecuencias": [
         {
-          "code": "LEGACY",
+          "code": "3106102",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Cada Vez"
+          "periodicity": "Mes"
         }
       ],
-      "active_frequencies": 0
+      "active_frequencies": 1
     }
   ]
 }

@@ -41,10 +41,10 @@ class LogConsole(ctk.CTkFrame):
             self,
             activate_scrollbars=True,
             font=font_to_use,
-            fg_color="#0a0a0a",  # Negro casi puro
-            text_color="#f0f0f0",  # Blanco casi puro
+            fg_color=self.colors.get("bg_input", "#0a0a0a"),
+            text_color=self.colors.get("text_primary", "#f0f0f0"),
             border_width=1,
-            border_color="#333333"
+            border_color=self.colors.get("border", "#333333")
         )
         self.text_area.pack(fill="both", expand=True)
         self.text_area.configure(state="disabled")

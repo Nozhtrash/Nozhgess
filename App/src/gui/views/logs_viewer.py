@@ -12,6 +12,7 @@ import sys
 import json
 from tkinter import messagebox
 from datetime import datetime
+from src.gui.theme import get_font
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -36,7 +37,7 @@ class LogsViewerView(ctk.CTkFrame):
     """Visor de archivos de log Avanzado."""
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.current_file = None
@@ -58,7 +59,7 @@ class LogsViewerView(ctk.CTkFrame):
         ctk.CTkLabel(
             self.sidebar, 
             text="📊 OBSERVABILIDAD", 
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             text_color=colors["text_muted"]
         ).pack(anchor="w", padx=20, pady=(24, 12))
         
@@ -74,7 +75,7 @@ class LogsViewerView(ctk.CTkFrame):
             btn = ctk.CTkButton(
                 self.cat_frame,
                 text=f"{CAT_CONFIG[cat_name]['icon']}  {cat_name}",
-                font=ctk.CTkFont(size=12),
+                font=get_font(size=12),
                 fg_color="transparent",
                 text_color=colors["text_secondary"],
                 hover_color=colors["bg_card"],
@@ -93,7 +94,7 @@ class LogsViewerView(ctk.CTkFrame):
         ctk.CTkLabel(
             self.sidebar, 
             text="ARCHIVOS RECIENTES", 
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=get_font(size=12, weight="bold"),
             text_color=colors["text_muted"]
         ).pack(anchor="w", padx=20, pady=(0, 8))
         
@@ -111,14 +112,14 @@ class LogsViewerView(ctk.CTkFrame):
         
         ctk.CTkButton(
             footer, text="🔄 Recargar", 
-            font=ctk.CTkFont(size=12), fg_color=colors["bg_card"], 
+            font=get_font(size=12), fg_color=colors["bg_card"], 
             text_color=colors["text_primary"], hover_color=colors["accent"],
             height=32, command=self._reload_current_view
         ).pack(side="left", fill="x", expand=True, padx=(0, 4))
         
         ctk.CTkButton(
             footer, text="📂 Carpeta", 
-            font=ctk.CTkFont(size=12), fg_color=colors["bg_card"], 
+            font=get_font(size=12), fg_color=colors["bg_card"], 
             text_color=colors["text_primary"], hover_color=colors["bg_hover"],
             height=32, width=40, command=lambda: os.startfile(LOGS_PATH) if os.path.exists(LOGS_PATH) else None
         ).pack(side="right", padx=(4, 0))
@@ -133,7 +134,7 @@ class LogsViewerView(ctk.CTkFrame):
         self.header_content.pack_propagate(False)
         
         # Icono archivo
-        self.file_icon_lbl = ctk.CTkLabel(self.header_content, text="📄", font=ctk.CTkFont(size=24))
+        self.file_icon_lbl = ctk.CTkLabel(self.header_content, text="📄", font=get_font(size=24))
         self.file_icon_lbl.pack(side="left", padx=(20, 10))
         
         # Info archivo
@@ -142,13 +143,13 @@ class LogsViewerView(ctk.CTkFrame):
         
         self.filename_lbl = ctk.CTkLabel(
             info_frame, text="Selecciona un archivo", 
-            font=ctk.CTkFont(size=15, weight="bold"), text_color=colors["text_primary"], anchor="w"
+            font=get_font(size=15, weight="bold"), text_color=colors["text_primary"], anchor="w"
         )
         self.filename_lbl.pack(anchor="w")
         
         self.meta_lbl = ctk.CTkLabel(
             info_frame, text="-- KB • --", 
-            font=ctk.CTkFont(size=11), text_color=colors["text_muted"], anchor="w"
+            font=get_font(size=11), text_color=colors["text_muted"], anchor="w"
         )
         self.meta_lbl.pack(anchor="w")
         
@@ -220,8 +221,6 @@ class LogsViewerView(ctk.CTkFrame):
             path = os.path.join(LOGS_PATH, subdir) if subdir else LOGS_PATH
             if not os.path.exists(path): continue
             
-
-            
             if os.path.isdir(path):
                 try:
                     for f in os.listdir(path):
@@ -249,7 +248,7 @@ class LogsViewerView(ctk.CTkFrame):
             f_btn = ctk.CTkButton(
                 self.file_list,
                 text=f"{name}\n{t_str}",
-                font=ctk.CTkFont(size=11),
+                font=get_font(size=11),
                 fg_color="transparent",
                 hover_color=self.colors["bg_primary"],
                 text_color=self.colors["text_primary"],
@@ -259,10 +258,6 @@ class LogsViewerView(ctk.CTkFrame):
                 command=lambda p=full_path: self._load_file_content(p)
             )
             f_btn.pack(fill="x", pady=1)
-
-        # Autoload first
-        if files_found and not self.current_file:
-            pass
 
     def _load_file_content(self, filepath):
         """Carga contenido optimizado (Tail reading)."""
@@ -333,9 +328,6 @@ class LogsViewerView(ctk.CTkFrame):
                 pretty_text += line + "\n"
         
         self.log_text.insert("1.0", pretty_text)
-        # Coloreado simple (Keywords)
-        # Esto seria lento si es muy largo, lo omitimos por rendimiento o hacemos con tags limitados
-        pass
 
     def _delete_current_file(self):
         """Elimina el archivo actual."""
@@ -391,6 +383,4 @@ class LogsViewerView(ctk.CTkFrame):
         self.configure(fg_color=colors["bg_primary"])
         self.sidebar.configure(fg_color=colors["bg_secondary"])
         self.content.configure(fg_color="transparent")
-        # Re-render UI components if sensitive... simplified for now.
-        pass
-
+        self._highlight_category(self.current_category)

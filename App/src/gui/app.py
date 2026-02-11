@@ -11,6 +11,7 @@ import os
 import subprocess
 import webbrowser
 from datetime import datetime
+import logging
 
 # Agregar la carpeta raíz del proyecto al path
 ruta_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,8 +32,9 @@ import customtkinter as ctk
 
 from src.gui.theme import (
     get_colors, load_theme, register_theme_callback, 
-    get_ui_scale, SIDEBAR
+    get_ui_scale
 )
+from src.version import __version__
 from src.gui.components.sidebar import Sidebar
 from src.gui.components.status_badge import StatusBadge
 from src.gui.managers import get_config, ViewManager
@@ -44,7 +46,7 @@ from src.utils.profiler import auto_profile_if_env
 class NozhgessApp(ctk.CTk):
     """Aplicación principal de Nozhgess GUI v3.0."""
     
-    VERSION = "3.0.0"
+    VERSION = __version__
     
     def __init__(self):
         super().__init__()
@@ -83,7 +85,7 @@ class NozhgessApp(ctk.CTk):
         self.config = get_config()
         
         # 2. Configuración de ventana
-        self.title("Nozhgess Platform v3.2 - Licensed for Medical Data Automation")
+        self.title(f"Nozhgess Platform v{self.VERSION} - Licensed for Medical Data Automation")
         
         w = self.config.get("window.width", 1100)
         h = self.config.get("window.height", 700)
@@ -163,8 +165,17 @@ class NozhgessApp(ctk.CTk):
 
     
     def _apply_theme(self):
-        """Aplica el tema actual - siempre modo oscuro para consistencia."""
-        # FORZAR MODO OSCURO - el modo claro tiene demasiados bugs
+        """
+        Aplica el tema actual - siempre modo oscuro para consistencia.
+        
+        NOTA: El modo claro está desactivado intencionalmente.
+        Los colores del tema claro existen en theme.py y theme_config.json
+        pero tienen bugs de contraste no resueltos. get_colors() siempre
+        retorna los colores del modo oscuro independientemente de esta config.
+        Si se desea habilitar el modo claro en el futuro, corregir los contrastes
+        en DEFAULT_THEME['colors']['light'] y luego remover el hardcode aquí
+        y en get_colors().
+        """
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
@@ -175,52 +186,38 @@ class NozhgessApp(ctk.CTk):
     
     def _create_footer(self):
         """Crea footer ultra-compacto y centrado."""
+        # Footer container - Minimalista
         self.footer = ctk.CTkFrame(
             self, 
             fg_color=self.colors.get("bg_secondary", "#0d1117"),
-            height=18,
+            height=20,
             corner_radius=0
         )
         self.footer.grid(row=1, column=1, sticky="ew")
         self.footer.grid_propagate(False)
         
-        # Un solo container centrado con todo
+        # Centrado
         container = ctk.CTkFrame(self.footer, fg_color="transparent")
         container.place(relx=0.5, rely=0.5, anchor="center")
         
-        year = datetime.now().year
+        # Texto limpio
+        from src.gui.theme import get_font
         
-        # Todo en una línea: Made with ♥ by Nozhtrash | v3.0.0 | © 2026 | IDLE
         ctk.CTkLabel(
             container, 
-            text=f"Made with ♥ by ", 
-            font=ctk.CTkFont(size=9),
+            text="Nozhtrash Platform", 
+            font=get_font(size=10, weight="bold"),
             text_color=self.colors.get("text_muted", "#6e7681")
         ).pack(side="left")
         
-        github_link = ctk.CTkButton(
-            container, 
-            text="Nozhtrash", 
-            font=ctk.CTkFont(size=9, weight="bold"),
-            fg_color="transparent",
-            text_color=self.colors.get("accent", "#00f2c3"),
-            hover_color=self.colors.get("bg_secondary", "#0d1117"),
-            width=50,
-            height=14,
-            corner_radius=2,
-            cursor="hand2",
-            command=lambda: webbrowser.open("https://github.com/Nozhtrash")
-        )
-        github_link.pack(side="left")
-        
         ctk.CTkLabel(
             container, 
-            text=f" | v{self.VERSION} | © {year} | ", 
-            font=ctk.CTkFont(size=9),
+            text=f"  |  v{self.VERSION}  |  ", 
+            font=get_font(size=10),
             text_color=self.colors.get("text_muted", "#484f58")
         ).pack(side="left")
         
-        # STATUS BADGE - Integrado en la línea centrada
+        # STATUS BADGE
         self.status_badge = StatusBadge(
             container, 
             status="IDLE", 
@@ -278,11 +275,7 @@ class NozhgessApp(ctk.CTk):
             self.view_manager.register("missions", MissionsView)
         except ImportError: pass
         
-        try:
-            from src.gui.views.backups_viewer import BackupsViewerView
-            self.view_manager.register("backups", BackupsViewerView)
-        except ImportError: pass
-        
+
         try:
             from src.gui.views.debug_panel import DebugPanelView
             self.view_manager.register("debug", DebugPanelView)
@@ -338,8 +331,9 @@ class NozhgessApp(ctk.CTk):
                 self.after_cancel(self._config_save_timer)
             
             # Programar nuevo timer de 500ms
+            # NOTA: log_ui se llama en _save_window_config, no aquí,
+            # para evitar decenas de llamadas/segundo durante resize.
             self._config_save_timer = self.after(500, self._save_window_config)
-            log_ui("window_configure_event", width=self.winfo_width(), height=self.winfo_height())
 
     def _save_window_config(self):
         """Guarda la configuración de la ventana efectivamente."""
@@ -358,66 +352,29 @@ class NozhgessApp(ctk.CTk):
     
     def _on_close(self):
         """Maneja el cierre limpio."""
+        # NOTA: NO cerramos el navegador Edge al salir (solicitud del usuario).
         try:
-            # Limpiar solo procesos de debug Edge
-            try:
-                import psutil
-                killed = 0
-                
-                # [SOLICITUD USUARIO] NO cerrar el navegador al salir
-                # for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                #     try:
-                #         if proc.info['name'] and 'msedge' in proc.info['name'].lower():
-                #             cmdline = ' '.join(proc.info['cmdline'] or [])
-                #             if '--remote-debugging-port=9222' in cmdline:
-                #                 # proc.terminate()  <-- DESACTIVADO
-                #                 # killed += 1
-                #                 pass
-                #     except (psutil.NoSuchProcess, psutil.AccessDenied):
-                #         continue
-                
-                if killed > 0:
-                    # print(f"🧹 Limpieza: {killed} sesión(es) debug cerrada(s)")
-                    pass
-                    
-            except ImportError:
-                # Fallback sin psutil
-                try:
-                    # subprocess.run(
-                    #     ["taskkill", "/F", "/IM", "msedgedriver.exe"],
-                    #     capture_output=True,
-                    #     creationflags=0x08000000,
-                    #     timeout=2
-                    # )
-                    pass
-                except:
-                    pass
-                    
-        except Exception as e:
-            print(f"⚠️ Error en limpieza: {e}")
-        finally:
             # Guardamos config final (incluye posición actualizada)
-            try:
-                if hasattr(self, "config"):
-                    self.config.save()
-            except Exception:
-                logging.exception("Error guardando config final al cerrar app")
-            
-            try:
-                # Cerrar telemetría con flush
-                self.telemetry.close()
-            except Exception:
-                pass
-            try:
-                # Señal para detener worker de logs en RunnerView si existe
-                from src.gui.views.runner import RunnerView
-                if isinstance(self.current_view, RunnerView):
-                    self.current_view.log_worker_running = False
-                    self.current_view.log_queue.put(None)
-            except Exception:
-                pass
-            self.quit()
-            log_ui("app_close")
+            if hasattr(self, "config"):
+                self.config.save()
+        except Exception:
+            logging.exception("Error guardando config final al cerrar app")
+        
+        try:
+            # Cerrar telemetría con flush
+            self.telemetry.close()
+        except Exception:
+            pass
+        try:
+            # Señal para detener worker de logs en RunnerView si existe
+            from src.gui.views.runner import RunnerView
+            if isinstance(self.current_view, RunnerView):
+                self.current_view.log_worker_running = False
+                self.current_view.log_queue.put(None)
+        except Exception:
+            pass
+        self.quit()
+        log_ui("app_close")
 
     # ================================================================
     #  Manejo global de excepciones Tkinter

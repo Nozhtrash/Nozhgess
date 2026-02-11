@@ -1,59 +1,75 @@
-# 🗺️ MAPA DE DATOS Y SCRAPING: CARTOGRAFÍA v3.5.1
-> **Audiencia:** Mantenedores de Selectores, Desarrolladores Backend y Auditores de Datos.
-> **Propósito:** Mapeo microscópico entre la estructura HTML de SIGGES, la lógica de extracción en Python y el reporte final Integrado.
+# 🗺️ NOZHGESS: MAPA DE DATOS Y OBJETIVOS DE SCRAPING v3.5.1
+> **Objetivo:** Definir con precisión quirúrgica qué datos extrae el robot y de dónde vienen.
 
 ---
 
-# 1. EL MOTOR DE NAVEGACIÓN Y BÚSQUEDA
+## 1. FUENTES DE DATOS PRIMARIAS (SIGGES)
 
-### 1.1. Inyección de Datos Segura
-El sistema utiliza `integrator.py` para normalizar los RUTs (con/sin puntos, con/sin guión) antes de enviarlos al `SiggesDriver`.
-1.  **Limpieza:** `driver.clear_input(selector)`.
-2.  **Inyección:** Escribe el RUT con guión y DV.
-3.  **Disparo:** Presiona la lupa y espera hasta 20 segundos (`ESPERA_BUSQUEDA`).
+El robot extrae información de 4 tablas críticas dentro de la ficha "Historia" de SIGGES.
 
----
+### A. Tabla "Datos del Paciente" (Cabecera)
+| Campo | Selector / Origen | Transformación |
+| :--- | :--- | :--- |
+| **RUT** | Input de Búsqueda | Normalización (Puntos y Guión) |
+| **Edad** | Texto bajo el Nombre | Extracción de entero (ej. "45 Años" -> `45`) |
+| **Fallecido** | Alerta Roja en Cabecera | **NUEVO:** Extracción de fecha `dd-mm-yyyy`. Si no hay fecha, "No". |
 
-# 2. ESCANEO DE LA MINI-TABLA (GATEKEEPER)
+### B. Tabla IPD (Informe de Proceso Diagnóstico)
+*Fuente de confirmación de patología.*
+| Columna SIGGES | Campo Interno | Uso Forense |
+| :--- | :--- | :--- |
+| **Fecha Confirmación** | `f_ipd` | Determina la antigüedad del caso. |
+| **Estado** | `e_ipd` | Busca "Sí", "Confirmado" para validar `Apto RE`. |
+| **Diagnóstico** | `d_ipd` | Texto libre para `Caso en Contra`. |
 
-### 2.1. Algoritmo de Selección Inteligente
-Ubicado en `Conexiones.py`, el método `seleccionar_caso_inteligente` ahora evalúa:
-- **Estado:** Prioriza "Vigente" sobre "Cerrado".
-- **Similarity:** Calcula la distancia de Levenshtein entre el nombre del problema de salud en SIGGES y los términos en el JSON.
-- **Caso en Contra:** Si se detecta un caso que no coincide con la misión pero pertenece al mismo paciente, se extrae el ID de fila para una auditoría secundaria automática.
+### C. Tabla OA (Órdenes de Atención)
+*Fuente de Habilitantes y Objetivos.*
+| Columna SIGGES | Campo Interno | Uso Forense |
+| :--- | :--- | :--- |
+| **Fecha** | `f_oa` | Fecha del procedimiento. Vital para `Frecuencias`. |
+| **Código** | `c_oa` | **CRÍTICO:** Se compara contra `objetivos` del JSON. |
+| **Estado** | `e_oa` | "Otorgado" valida el cumplimiento. |
 
----
-
-# 3. EXTRACCIÓN DE SUB-TABLAS (DEEP SCRAPING)
-
-El motor opera sobre 4 dimensiones de datos mediante `DataParsingMixin`:
-
-### 3.1. IPD (Informes Diagnósticos) - `ipd-table`
-- `td[3]` -> **Fecha de Emisión**.
-- `td[8]` -> **Estado Confirmación**. Si dice "SÍ", se marca el hito diagnóstico.
-
-### 3.2. OA (Órdenes de Atención) - `oa-table`
-- `td[10]` -> **Código Prestación**. Comparado contra la lista blanca del JSON para alertas de Habilitantes.
-- `td[14]` -> **Estado Orden**. Descarta automáticamente órdenes "Anuladas".
-
----
-
-# 4. PROTOCOLO "CSS DRIFT" (REPARACIÓN PASO A PASO)
-
-Si el reporte dice "Sin Información" pero el dato está en SIGGES:
-1.  **Captura del DOM:** `F12` -> Elements.
-2.  **Identificación:** Buscar el nodo `td` que contiene la información.
-3.  **Actualización:** Modificar `locators.py` y resetear el `driver` para que tome los nuevos selectores sin reiniciar la app.
+### D. Tabla SIC (Solicitud de Interconsulta)
+*Fuente de derivaciones.*
+| Columna SIGGES | Campo Interno | Uso Forense |
+| :--- | :--- | :--- |
+| **Fecha** | `f_sic` | Cronología de la derivación. |
+| **Destino** | `d_sic` | Valida si el paciente fue enviado a nivel terciario. |
 
 ---
 
-# 5. GENERACIÓN DEL EXCEL (DATA PAINTING V3)
+## 2. ESTRUCTURA DE SALIDA (EXCEL DINÁMICO)
 
-- **Sanitización:** `Formatos.py` limpia caracteres invisibles (UTF-8 BOM) antes de escribir en Excel.
-- **Styling Dinámico:** `Excel_Revision.py` aplica el "Estilo Forense" (Encabezados Azul Profundo, Celdas con validación de color por edad y estatus).
+El Excel final se construye en tiempo de ejecución. No hay plantilla fija.
+
+### Grupo 1: Identificación (Estático)
+- RUT
+- Nombre
+- Fecha Nómina
+- Edad
+- Fallecido (Fecha/No)
+- Estado (Vigente/No Vigente)
+
+### Grupo 2: Analítica Lógica (Dinámico)
+*Se generan N columnas según `mission_config.json`.*
+
+| Prefijo | Ejemplo | Contenido |
+| :--- | :--- | :--- |
+| **Obj** | `Obj 040101` | `12-05-2025 | 10-01-2025` (Fechas de cumplimiento) |
+| **Hab** | `Hab 500210` | `15-08-2024` (Fecha del habilitante) |
+| **Excl** | `Excl 800100` | Fecha si el paciente tiene una patología excluyente. |
+
+### Grupo 3: Semáforos Lógicos (Calculado)
+- **Hab Vi:** ¿Tiene habilitantes vigentes? (Sí/No)
+- **Apto RE:** ¿Está confirmado clínicamente? (IPD/OA/APS)
 
 ---
 
-**© 2026 Nozhgess Data Logistics**
-*"La verdad clínica reside en la precisión del selector."*
+## 3. PROTOCOLO DE CONSERVACIÓN DE DATOS
+- **No-Persistencia:** Nozhgess no guarda base de datos local. Todo se procesa en RAM y se vuelca al Excel.
+- **Anonimización:** Los logs de consola truncan el RUT (`12.3XX.XXX-K`) por seguridad.
+- **Integridad:** Las fechas SIEMPRE se manejan como objetos `datetime` internamente y solo se convierten a string al escribir el Excel.
 
+---
+**© 2026 Nozhgess Data Science**

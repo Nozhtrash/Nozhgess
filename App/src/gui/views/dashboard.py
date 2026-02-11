@@ -2,22 +2,23 @@
 # -*- coding: utf-8 -*-
 """
 ==============================================================================
-                    DASHBOARD PREMIUM v2.0 - NOZHGESS
+                    DASHBOARD v3.3 - NOZHGESS
 ==============================================================================
-Vista de Dashboard moderna con:
-- Hero Section con botón gradiente
-- Stats Cards con iconos grandes
-- Quick Actions grid
-- Activity Feed con timeline
-- Estado del sistema
+Vista principal rediseñada:
+- Saludo inteligente con frases variadas
+- Hero Section con botón principal
+- Acceso rápido: Edge Debug
 """
 import customtkinter as ctk
 import os
 import sys
 import subprocess
+import random
 from datetime import datetime
-import importlib
+import json
 from src.utils.telemetry import log_ui
+from src.gui.theme import get_font
+from src.gui.components.help_icon import HelpIcon
 
 # Imports del proyecto
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,16 +26,101 @@ ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
 if ruta_proyecto not in sys.path:
     sys.path.insert(0, ruta_proyecto)
 
-# import Mision_Actual.Mision_Actual as MA # REMOVED: Deprecated in favor of MisionController
+# ─── Saludos inteligentes ─────────────────────────────────────────────────── #
+
+_GREETINGS = {
+    "morning": [
+        ("Buenos días ☀️", "Que tengas una excelente mañana"),
+        ("Buenos días ☕", "Café listo, ¡a trabajar!"),
+        ("Buenos días 💪", "Hoy va a ser un gran día"),
+        ("Buenos días 🌅", "Cada mañana es una nueva oportunidad"),
+        ("Buenos días 🎯", "Arrancamos con toda la energía"),
+        ("Buenos días 📋", "Listo para otra jornada productiva"),
+        ("Buenos días 🔥", "A darle con todo hoy"),
+        ("Buenos días 🌤️", "El mejor momento para empezar es ahora"),
+        ("Buenos días ✨", "Hoy es un buen día para avanzar"),
+        ("Buenos días 🏥", "Los datos médicos no se revisan solos"),
+        ("Buenos días 🧠", "Mente fresca, resultados precisos"),
+        ("Buenos días 🎶", "Arrancando la mañana con buena vibra"),
+        ("Buenos días 🚀", "Misión del día: ser productivos"),
+        ("Buenos días 📊", "Nuevos datos, nuevas revisiones"),
+        ("Buenos días 🏆", "Un paso más cerca de la excelencia"),
+        ("Buenos días 🍀", "La suerte favorece a los preparados"),
+        ("Buenos días 🌈", "Que tu día sea tan brillante como tu código"),
+        ("Buenos días ⚡", "Energía al 100% para hoy"),
+        ("Buenos días 🕶️", "El futuro es brillante"),
+        ("Buenos días 🎹", "Todo en armonía hoy"),
+    ],
+    "afternoon": [
+        ("Buenas tardes 🍔", "¿Ya es hora de almorzar o no?"),
+        ("Buenas tardes 🚀", "La tarde está perfecta para avanzar"),
+        ("Buenas tardes 📊", "¡Medio día completado con éxito!"),
+        ("Buenas tardes ⚡", "La energía de la tarde no para"),
+        ("Buenas tardes 🎯", "Todavía queda bastante por hacer"),
+        ("Buenas tardes 💻", "Sesión de tarde activada"),
+        ("Buenas tardes 🌤️", "La productividad no descansa"),
+        ("Buenas tardes ☕", "Un café y seguimos adelante"),
+        ("Buenas tardes 🎵", "Ritmo de tarde, avance constante"),
+        ("Buenas tardes 📝", "A completar las tareas pendientes"),
+        ("Buenas tardes 🏃", "Vamos a buen ritmo hoy"),
+        ("Buenas tardes 🔍", "Revisiones pendientes te esperan"),
+        ("Buenas tardes 💡", "Las mejores ideas llegan por la tarde"),
+        ("Buenas tardes 🎉", "¡Ya casi terminamos el día!"),
+        ("Buenas tardes 📌", "Foco y determinación esta tarde"),
+        ("Buenas tardes 🍰", "¿Un postre o seguimos codificando?"),
+        ("Buenas tardes 🔋", "Recargando pilas para el cierre"),
+        ("Buenas tardes ⛱️", "Mentalmente en la playa, físicamente aquí"),
+        ("Buenas tardes 🚦", "Avanzando sin semáforos"),
+        ("Buenas tardes 🛸", "Productividad de otro mundo"),
+    ],
+    "night": [
+        ("Buenas noches 😴", "Como que ya dio sueño..."),
+        ("Buenas noches 🌙", "Sesión nocturna activada"),
+        ("Buenas noches 🎧", "El silencio de la noche es perfecto"),
+        ("Buenas noches 🌃", "La noche es joven y hay trabajo"),
+        ("Buenas noches 🦉", "Modo búho: productividad nocturna"),
+        ("Buenas noches ✨", "Las estrellas acompañan tu esfuerzo"),
+        ("Buenas noches 🔮", "La magia ocurre en la madrugada"),
+        ("Buenas noches 🍵", "Un té caliente y seguimos"),
+        ("Buenas noches 💤", "Último esfuerzo antes de descansar"),
+        ("Buenas noches 🌠", "Trabajando bajo las estrellas"),
+        ("Buenas noches 🎯", "Aprovechando cada minuto del día"),
+        ("Buenas noches 🖥️", "Tu pantalla brilla más que la luna"),
+        ("Buenas noches 🐺", "Los lobos solitarios trabajan de noche"),
+        ("Buenas noches 🕯️", "Quemando aceite de medianoche"),
+        ("Buenas noches 📖", "Cerrando el día con broche de oro"),
+        ("Buenas noches 🦇", "Vigilando el código desde las sombras"),
+        ("Buenas noches 🛌", "Pronto será hora de dormir"),
+        ("Buenas noches 🌑", "En la oscuridad nace el mejor código"),
+        ("Buenas noches 🛸", "Contacto nocturno establecido"),
+        ("Buenas noches 🌧️", "Noche perfecta para programar"),
+    ],
+}
+
+
+def _get_smart_greeting() -> tuple:
+    """Retorna (saludo, subtítulo) según la hora.
+    Usa hash del día+hora para consistencia durante la misma hora."""
+    hour = datetime.now().hour
+    if 6 <= hour < 12:
+        period = "morning"
+    elif 12 <= hour < 19:
+        period = "afternoon"
+    else:
+        period = "night"
+    
+    # Seed basado en día + hora para que no cambie cada redibujado
+    # pero sí cambie cada hora
+    seed = datetime.now().strftime("%Y%m%d%H")
+    rng = random.Random(seed)
+    return rng.choice(_GREETINGS[period])
 
 
 class DashboardView(ctk.CTkFrame):
-    """Vista de Dashboard premium con diseño moderno."""
+    """Vista de Dashboard v3.3 — limpio y funcional."""
     
     def __init__(self, master, colors: dict, on_run: callable = None, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
-        
-        # MA ya importado a nivel de módulo - no hacer reload (muy lento)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.on_run = on_run
@@ -48,7 +134,7 @@ class DashboardView(ctk.CTkFrame):
             self,
             fg_color="transparent",
             scrollbar_button_color=colors.get("bg_elevated", colors["bg_card"]),
-            scrollbar_button_hover_color=colors.get("accent", "#00f2c3")
+            scrollbar_button_hover_color=colors.get("accent", "#7c4dff")
         )
         self.scroll.grid(row=0, column=0, sticky="nsew", padx=24, pady=20)
         self.scroll.grid_columnconfigure(0, weight=1)
@@ -56,38 +142,41 @@ class DashboardView(ctk.CTkFrame):
         # Construir secciones
         self._create_header()
         self._create_hero_section()
-        self._create_stats_grid()
+        self._create_stats_section() 
         self._create_quick_actions()
-        self._create_activity_feed()
-        self._create_system_status()
+        
         try:
             log_ui("dashboard_view_loaded")
         except Exception:
             pass
     
     def _create_header(self):
-        """Header con saludo y fecha."""
+        """Header con saludo inteligente y fecha."""
         header = ctk.CTkFrame(self.scroll, fg_color="transparent")
         header.pack(fill="x", pady=(0, 24))
         
-        # Izquierda: Saludo dinámico
+        # Izquierda: Saludo + subtítulo
         left = ctk.CTkFrame(header, fg_color="transparent")
         left.pack(side="left", fill="y")
         
-        greeting = self._get_greeting()
+        greeting, subtitle_text = _get_smart_greeting()
         
-        greeting_label = ctk.CTkLabel(
-            left,
-            text=f"{greeting} 👋",
-            font=ctk.CTkFont(size=28, weight="bold"),
+        title_frame = ctk.CTkFrame(left, fg_color="transparent")
+        title_frame.pack(anchor="w")
+
+        title_lbl = ctk.CTkLabel(
+            title_frame, text=greeting, 
+            font=get_font(size=28, weight="bold"),
             text_color=self.colors["text_primary"]
         )
-        greeting_label.pack(anchor="w")
+        title_lbl.pack(side="left")
+
+        HelpIcon(title_frame, text="Este saludo cambia según la hora del día.", text_color=self.colors.get("text_muted", "#6a737d")).pack(side="left", padx=10, pady=5)
         
         subtitle = ctk.CTkLabel(
             left,
-            text="Panel de Control Inteligente",
-            font=ctk.CTkFont(size=14),
+            text=subtitle_text,
+            font=ctk.CTkFont(family="Segoe UI", size=14),
             text_color=self.colors.get("text_secondary", "#8b949e")
         )
         subtitle.pack(anchor="w", pady=(4, 0))
@@ -99,7 +188,9 @@ class DashboardView(ctk.CTkFrame):
         date_badge = ctk.CTkFrame(
             right,
             fg_color=self.colors.get("bg_card", "#21262d"),
-            corner_radius=20
+            corner_radius=20,
+            border_width=1,
+            border_color=self.colors.get("border", "#30363d")
         )
         date_badge.pack()
         
@@ -107,8 +198,8 @@ class DashboardView(ctk.CTkFrame):
         ctk.CTkLabel(
             date_badge,
             text=f"📅  {date_str}",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=self.colors.get("accent", "#00f2c3")
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=self.colors.get("accent", "#7c4dff")
         ).pack(padx=16, pady=8)
     
     def _create_hero_section(self):
@@ -129,274 +220,172 @@ class DashboardView(ctk.CTkFrame):
         ctk.CTkLabel(
             hero_content,
             text="🚀 ¿Listo para comenzar?",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
             text_color=self.colors["text_primary"]
         ).pack(anchor="w")
         
         ctk.CTkLabel(
             hero_content,
             text="Inicia una nueva revisión de pacientes con un solo click",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family="Segoe UI", size=12),
             text_color=self.colors.get("text_secondary", "#8b949e")
         ).pack(anchor="w", pady=(4, 16))
         
-        # Botón principal grande con gradiente simulado
+        # Botón principal grande
         self.run_btn = ctk.CTkButton(
             hero_content,
             text="▶  INICIAR REVISIÓN AHORA",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            fg_color=self.colors.get("accent", "#00f2c3"),
-            hover_color=self.colors.get("success", "#3fb950"),
-            text_color=self.colors.get("bg_primary", "#0d1117"),
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
+            fg_color=self.colors.get("accent", "#7c4dff"),
+            hover_color=self.colors.get("accent_hover", "#6a3fe0"),
+            text_color="#ffffff",
             height=56,
             corner_radius=14,
             command=self._on_run_click
         )
         self.run_btn.pack(fill="x")
-    
-    def _create_stats_grid(self):
-        """Grid de estadísticas."""
-        # Header de sección
-        section_header = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        section_header.pack(fill="x", pady=(0, 12))
+
+    def _create_stats_section(self):
+        """Sección de estadísticas rápidas."""
+        stats_frame = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 24))
+
+        # Title
+        header = ctk.CTkFrame(stats_frame, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 10))
         
         ctk.CTkLabel(
-            section_header,
-            text="📊  ESTADO ACTUAL",
-            font=ctk.CTkFont(size=11, weight="bold"),
+            header, 
+            text="📊  ESTADO DEL SISTEMA",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             text_color=self.colors.get("text_secondary", "#8b949e")
         ).pack(side="left")
-        
-        # Grid de cards
-        grid = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        grid.pack(fill="x", pady=(0, 24))
-        grid.grid_columnconfigure((0, 1), weight=1)
-        
-        # Card 1: Misión Actual
-        self._create_stat_card(
-            grid, 0, 0,
-            icon="🎯",
-            title="MISIÓN ACTUAL",
-            value=self._get_mission_name()
-        )
-        
-        # Card 2: Filtros Activos
-        self._create_stat_card(
-            grid, 0, 1,
-            icon="⚙️",
-            title="FILTROS ACTIVOS",
-            value=self._get_active_filters()
-        )
-    
-    def _create_stat_card(self, parent, row: int, col: int, icon: str, 
-                          title: str, value: str):
-        """Crea una card de estadística."""
-        card = ctk.CTkFrame(
-            parent,
-            fg_color=self.colors.get("bg_card", "#21262d"),
-            corner_radius=16,
-            border_width=1,
-            border_color=self.colors.get("border", "#30363d")
-        )
-        card.grid(row=row, column=col, padx=8, pady=4, sticky="nsew")
-        
-        content = ctk.CTkFrame(card, fg_color="transparent")
-        content.pack(fill="both", expand=True, padx=16, pady=16)
-        
-        # Header
-        header = ctk.CTkFrame(content, fg_color="transparent")
-        header.pack(fill="x")
-        
-        ctk.CTkLabel(
-            header,
-            text=icon,
-            font=ctk.CTkFont(size=20)
-        ).pack(side="left")
-        
-        ctk.CTkLabel(
-            header,
-            text=title,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            text_color=self.colors.get("text_muted", "#6e7681")
-        ).pack(side="left", padx=(8, 0))
-        
-        # Valor
-        ctk.CTkLabel(
-            content,
-            text=value,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=self.colors["text_primary"],
-            wraplength=180,
-            justify="left"
-        ).pack(anchor="w", pady=(10, 0))
-        
-        # Hover effect
-        card.bind("<Enter>", lambda e: card.configure(
-            border_color=self.colors.get("accent", "#00f2c3")
-        ))
-        card.bind("<Leave>", lambda e: card.configure(
-            border_color=self.colors.get("border", "#30363d")
-        ))
-    
-    def _create_quick_actions(self):
-        """Quick actions grid."""
-        # Header
-        ctk.CTkLabel(
-            self.scroll,
-            text="⚡  ACCESOS RÁPIDOS",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=self.colors.get("text_secondary", "#8b949e")
-        ).pack(anchor="w", pady=(0, 12))
-        
-        # Grid 2x2
-        grid = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        grid.pack(fill="x", pady=(0, 24))
-        grid.grid_columnconfigure((0, 1, 2, 3), weight=1)
-        
-        actions = [
-            ("🌐", "Edge Debug", self._start_edge),
-            ("📂", "Entrada", self._open_input),
-            ("📂", "Salida", self._open_output),
-        ]
-        
-        for i, (icon, label, cmd) in enumerate(actions):
-            btn = ctk.CTkButton(
-                grid,
-                text=f"{icon}\n{label}",
-                font=ctk.CTkFont(size=11),
-                fg_color=self.colors.get("bg_card", "#21262d"),
-                hover_color=self.colors.get("bg_elevated", "#30363d"),
-                text_color=self.colors["text_primary"],
-                height=64,
+
+        HelpIcon(header, text="Resumen de la configuración y actividad reciente.", text_color=self.colors.get("text_secondary", "#8b949e")).pack(side="left", padx=10)
+
+        # Grid de tarjetas
+        grid = ctk.CTkFrame(stats_frame, fg_color="transparent")
+        grid.pack(fill="x")
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+        grid.grid_columnconfigure(2, weight=1)
+
+        # Helper para cards
+        def _stat_card(col, title, value, icon, color):
+            card = ctk.CTkFrame(
+                grid, 
+                fg_color=self.colors.get("bg_elevated", self.colors.get("bg_card", "#21262d")),
                 corner_radius=12,
                 border_width=1,
-                border_color=self.colors.get("border", "#30363d"),
-                command=cmd
+                border_color=self.colors.get("border", "#30363d")
             )
-            btn.grid(row=0, column=i, padx=4, sticky="ew")
+            card.grid(row=0, column=col, sticky="nsew", padx=5)
+            
+            # Content
+            f = ctk.CTkFrame(card, fg_color="transparent")
+            f.pack(padx=16, pady=14)
+            
+            # Icon
+            ctk.CTkLabel(f, text=icon, font=ctk.CTkFont(size=20)).pack(anchor="w")
+            
+            # Value
+            ctk.CTkLabel(
+                f, text=str(value), 
+                font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+                text_color=self.colors["text_primary"]
+            ).pack(anchor="w", pady=(4, 0))
+            
+            # Title
+            ctk.CTkLabel(
+                f, text=title, 
+                font=ctk.CTkFont(family="Segoe UI", size=11),
+                text_color=self.colors.get("text_secondary", "#8b949e")
+            ).pack(anchor="w")
+            
+            # Accent bar
+            ctk.CTkFrame(card, height=3, fg_color=color, corner_radius=0).pack(fill="x", side="bottom")
+
+        # Get Data
+        try:
+            from src.gui.controllers.mision_controller import MisionController
+            ctrl = MisionController(ruta_proyecto)
+            cfg = ctrl.load_config()
+            missions = cfg.get("MISSIONS", [])
+            
+            total_missions = len(missions)
+            
+            # Check last activity
+            last_activity = "Nunca"
+            logs_path = os.path.join(ruta_proyecto, "Logs", "General")
+            if os.path.exists(logs_path):
+                try:
+                    files = [os.path.join(logs_path, f) for f in os.listdir(logs_path) if f.endswith(".log")]
+                    if files:
+                        latest = max(files, key=os.path.getmtime)
+                        t = datetime.fromtimestamp(os.path.getmtime(latest))
+                        if t.date() == datetime.today().date():
+                            last_activity = t.strftime("%H:%M")
+                        else:
+                            last_activity = t.strftime("%d/%m")
+                except: pass
+
+            _stat_card(0, "Misiones Config.", total_missions, "📁", self.colors.get("accent", "#3498db"))
+            
+            # --- En Cola ---
+            if not missions:
+                cola_text = "Sin misiones"
+            else:
+                names = [m.get("nombre", "Sin nombre") for m in missions]
+                if len(names) <= 2:
+                    cola_text = "\n".join(names)
+                else:
+                    cola_text = f"{names[0]}\n{names[1]}\n(+{len(names)-2} más)"
+            
+            _stat_card(1, "En Cola (Configuradas)", cola_text, "🎯", self.colors.get("success", "#2ecc71"))
+            
+            _stat_card(2, "Última Actividad", last_activity, "🕒", self.colors.get("warning", "#f1c40f"))
+
+        except Exception as e:
+            _stat_card(0, "Error", "!", "⚠️", "red")
     
-    def _create_activity_feed(self):
-        """Activity feed con timeline."""
-        # Header
+    def _create_quick_actions(self):
+        """Accesos rápidos — solo acciones funcionales."""
+        # Header con HelpIcon
+        qa_header = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        qa_header.pack(fill="x", pady=(0, 12))
+        
         ctk.CTkLabel(
-            self.scroll,
-            text="📝  ACTIVIDAD DEL SISTEMA",
-            font=ctk.CTkFont(size=11, weight="bold"),
+            qa_header,
+            text="⚡  ACCESOS RÁPIDOS",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             text_color=self.colors.get("text_secondary", "#8b949e")
-        ).pack(anchor="w", pady=(0, 12))
-        
-        # Container
-        feed = ctk.CTkFrame(
-            self.scroll,
-            fg_color=self.colors.get("bg_card", "#21262d"),
-            corner_radius=16,
-            border_width=1,
-            border_color=self.colors.get("border", "#30363d")
-        )
-        feed.pack(fill="x", pady=(0, 24))
-        
-        feed_content = ctk.CTkFrame(feed, fg_color="transparent")
-        feed_content.pack(fill="x", padx=16, pady=16)
-        
-        # Activity items
-        activities = [
-            ("🟢", "Sistema Iniciado", "Ahora", "success"),
-            ("ℹ️", self._get_latest_log_snippet(), "Reciente", "info"),
-        ]
-        
-        for i, (icon, text, time, status) in enumerate(activities):
-            self._create_activity_item(feed_content, icon, text, time, status, i == len(activities) - 1)
-    
-    def _create_activity_item(self, parent, icon: str, text: str, 
-                               time: str, status: str, is_last: bool):
-        """Crea un item de actividad con timeline."""
-        item = ctk.CTkFrame(parent, fg_color="transparent")
-        item.pack(fill="x", pady=6)
-        
-        # Timeline dot
-        dot_color = {
-            "success": self.colors.get("success", "#3fb950"),
-            "warning": self.colors.get("warning", "#d29922"),
-            "error": self.colors.get("error", "#f85149"),
-            "info": self.colors.get("info", "#58a6ff"),
-        }.get(status, self.colors.get("text_muted", "#6e7681"))
-        
-        # Icon
-        ctk.CTkLabel(
-            item,
-            text=icon,
-            font=ctk.CTkFont(size=14)
         ).pack(side="left")
+
+        HelpIcon(qa_header, text="Herramientas auxiliares y de testeo.", text_color=self.colors.get("text_secondary", "#8b949e")).pack(side="left", padx=10)
         
-        # Text
-        ctk.CTkLabel(
-            item,
-            text=text[:50] + "..." if len(text) > 50 else text,
-            font=ctk.CTkFont(size=12),
+        # Edge Debug button
+        btn = ctk.CTkButton(
+            self.scroll,
+            text="🌐  Iniciar Edge Debug",
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            fg_color=self.colors.get("bg_card", "#21262d"),
+            hover_color=self.colors.get("bg_elevated", "#30363d"),
             text_color=self.colors["text_primary"],
-            anchor="w"
-        ).pack(side="left", padx=(10, 0), fill="x", expand=True)
-        
-        # Time
-        ctk.CTkLabel(
-            item,
-            text=time,
-            font=ctk.CTkFont(size=10),
-            text_color=self.colors.get("text_muted", "#6e7681")
-        ).pack(side="right")
-    
-    def _create_system_status(self):
-        """Estado del sistema."""
-        # Header
-        ctk.CTkLabel(
-            self.scroll,
-            text="💻  SISTEMA",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=self.colors.get("text_secondary", "#8b949e")
-        ).pack(anchor="w", pady=(0, 12))
-        
-        # Container
-        status = ctk.CTkFrame(
-            self.scroll,
-            fg_color=self.colors.get("bg_card", "#21262d"),
-            corner_radius=16,
+            height=48,
+            corner_radius=14,
             border_width=1,
-            border_color=self.colors.get("border", "#30363d")
+            border_color=self.colors.get("border", "#30363d"),
+            command=self._start_edge
         )
-        status.pack(fill="x")
+        btn.pack(fill="x")
         
-        status_content = ctk.CTkFrame(status, fg_color="transparent")
-        status_content.pack(fill="x", padx=16, pady=16)
-        status_content.grid_columnconfigure((0, 1), weight=1)
-        
-        # Python version
-        self._create_status_item(status_content, 0, 0, "🐍 Python", sys.version.split()[0])
-        
-        # Edge Status (simulado)
-        self._create_status_item(status_content, 0, 1, "🌐 Edge Debug", "● Listo", is_status=True)
-    
-    def _create_status_item(self, parent, row: int, col: int, 
-                            label: str, value: str, is_status: bool = False):
-        """Crea un item de estado."""
-        item = ctk.CTkFrame(parent, fg_color="transparent")
-        item.grid(row=row, column=col, sticky="w", padx=8, pady=4)
-        
-        ctk.CTkLabel(
-            item,
-            text=label,
-            font=ctk.CTkFont(size=11),
-            text_color=self.colors.get("text_secondary", "#8b949e")
-        ).pack(side="left")
-        
-        value_color = (self.colors.get("success", "#3fb950") 
-                      if is_status else self.colors["text_primary"])
-        
-        ctk.CTkLabel(
-            item,
-            text=value,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=value_color
-        ).pack(side="left", padx=(8, 0))
+        # Hover effect en el botón Edge
+        btn.bind("<Enter>", lambda e: btn.configure(
+            border_color=self.colors.get("accent", "#7c4dff")
+        ))
+        btn.bind("<Leave>", lambda e: btn.configure(
+            border_color=self.colors.get("border", "#30363d")
+        ))
     
     # ===== LOGIC =====
     
@@ -404,43 +393,6 @@ class DashboardView(ctk.CTkFrame):
         """Handler del botón principal."""
         if self.on_run:
             self.on_run()
-    
-    def _get_greeting(self) -> str:
-        """Obtiene saludo según hora."""
-        hour = datetime.now().hour
-        if hour < 12:
-            return "Buenos días"
-        elif hour < 19:
-            return "Buenas tardes"
-        return "Buenas noches"
-    
-    def _get_mission_name(self) -> str:
-        """Obtiene nombre de misión actual (Optimizada)."""
-        try:
-            # Usar Controller en lugar de reload directo
-            from src.gui.controllers.mision_controller import MisionController
-            ctrl = MisionController(ruta_proyecto)
-            cfg = ctrl.load_config(force_reload=False) # Usar caché
-            return cfg.get("NOMBRE_DE_LA_MISION", "Sin Configurar")
-        except:
-            return "Sin Configurar"
-    
-    def _get_active_filters(self) -> str:
-        """Obtiene filtros activos (Optimizada)."""
-        try:
-            from src.gui.controllers.mision_controller import MisionController
-            ctrl = MisionController(ruta_proyecto)
-            cfg = ctrl.load_config(force_reload=False) 
-            
-            filters = []
-            if cfg.get("REVISAR_IPD"): filters.append("IPD")
-            if cfg.get("REVISAR_OA"): filters.append("OA")
-            if cfg.get("REVISAR_APS"): filters.append("APS")
-            if cfg.get("REVISAR_SIC"): filters.append("SIC")
-            
-            return ", ".join(filters) if filters else "Ninguno"
-        except:
-            return "?"
     
     def update_colors(self, colors: dict):
         """Actualiza colores dinámicamente."""
@@ -454,13 +406,11 @@ class DashboardView(ctk.CTkFrame):
                     child.update_colors(colors)
                 elif isinstance(child, (ctk.CTkFrame, ctk.CTkScrollableFrame)):
                     if hasattr(child, "configure"):
-                        # Si es scroll, actualizar scrollbar
                         if isinstance(child, ctk.CTkScrollableFrame):
                             child.configure(
                                 scrollbar_button_color=colors.get("bg_elevated", "#30363d"),
-                                scrollbar_button_hover_color=colors.get("accent", "#00f2c3")
+                                scrollbar_button_hover_color=colors.get("accent", "#7c4dff")
                             )
-                        # Si tiene border_width, es una card
                         if hasattr(child, "cget") and child.cget("border_width") > 0:
                             child.configure(
                                 fg_color=colors.get("bg_card", "#21262d"),
@@ -468,7 +418,6 @@ class DashboardView(ctk.CTkFrame):
                             )
                     refresh_children(child)
                 elif isinstance(child, ctk.CTkLabel):
-                    # Actualizar colores de texto (evitar sobreescribir acentos si es posible)
                     curr_color = child.cget("text_color")
                     if curr_color == colors.get("text_primary") or curr_color == "#ffffff":
                          child.configure(text_color=colors["text_primary"])
@@ -476,37 +425,6 @@ class DashboardView(ctk.CTkFrame):
                          child.configure(text_color=colors.get("text_secondary", "#8b949e"))
                          
         refresh_children(self)
-
-    def _get_latest_log_snippet(self) -> str:
-        """Obtiene último snippet del log."""
-        try:
-            log_path = os.path.join(ruta_proyecto, "Logs")
-            if not os.path.exists(log_path):
-                return "Sin historial de logs"
-            
-            # Buscar logs recursivamente (subcarpetas incluidas)
-            files = []
-            for root, _, fs in os.walk(log_path):
-                for f in fs:
-                    if f.endswith(".log") or f.endswith(".jsonl"):
-                        files.append(os.path.join(root, f))
-            if not files:
-                return "Sin historial de logs"
-            
-            full_path = max(files, key=lambda x: os.path.getmtime(x))
-            
-            with open(full_path, "rb") as f:
-                f.seek(0, 2)
-                size = f.tell()
-                read_size = min(2048, size)
-                f.seek(-read_size, 2)
-                content = f.read().decode("utf-8", errors="ignore")
-                lines = content.splitlines()
-                if lines:
-                    return lines[-1].strip()[:60]
-            return "Log vacío"
-        except:
-            return "Sin logs disponibles"
     
     # ===== ACTIONS =====
     
@@ -518,22 +436,3 @@ class DashboardView(ctk.CTkFrame):
                 ["powershell", "-ExecutionPolicy", "Bypass", "-File", script],
                 creationflags=0x08000000
             )
-    
-    
-    def _open_input(self):
-        """Abre archivo de entrada."""
-        try:
-            from Mision_Actual import RUTA_ARCHIVO_ENTRADA
-            if os.path.exists(RUTA_ARCHIVO_ENTRADA):
-                os.startfile(RUTA_ARCHIVO_ENTRADA)
-        except:
-            pass
-    
-    def _open_output(self):
-        """Abre carpeta de salida."""
-        try:
-            from Mision_Actual import RUTA_CARPETA_SALIDA
-            if os.path.exists(RUTA_CARPETA_SALIDA):
-                os.startfile(RUTA_CARPETA_SALIDA)
-        except:
-            pass

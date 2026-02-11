@@ -10,6 +10,7 @@ import sys
 import subprocess
 from tkinter import filedialog, messagebox
 from src.utils.telemetry import log_ui
+from src.gui.theme import get_font
 
 ruta_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ruta_proyecto = os.path.dirname(os.path.dirname(ruta_src))
@@ -22,7 +23,7 @@ class DocsViewerView(ctk.CTkFrame):
     """Visor de documentación con búsqueda y exportar."""
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.current_file = None
@@ -34,7 +35,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.title = ctk.CTkLabel(
             header,
             text="📚 Documentación",
-            font=ctk.CTkFont(size=22, weight="bold"),
+            font=get_font(size=22, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.title.pack(side="left")
@@ -46,7 +47,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.add_btn = ctk.CTkButton(
             btn_frame,
             text="➕ Agregar",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13),
             fg_color=colors["accent"],
             hover_color=colors["success"],
             width=96,
@@ -59,7 +60,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.folder_btn = ctk.CTkButton(
             btn_frame,
             text="📁",
-            font=ctk.CTkFont(size=14),
+            font=get_font(size=14),
             fg_color=colors["bg_card"],
             hover_color=colors["accent"],
             text_color=colors["text_primary"],
@@ -77,7 +78,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.search_entry = ctk.CTkEntry(
             search_frame,
             placeholder_text="🔍 Buscar en documentos...",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13),
             fg_color=colors["bg_secondary"],
             border_color=colors["accent"],
             text_color=colors["text_primary"],
@@ -101,7 +102,7 @@ class DocsViewerView(ctk.CTkFrame):
         list_header = ctk.CTkLabel(
             self.list_frame,
             text="📁 Archivos",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=get_font(size=14, weight="bold"),
             text_color=colors["text_primary"]
         )
         list_header.pack(anchor="w", padx=10, pady=(10, 6))
@@ -119,7 +120,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.doc_label = ctk.CTkLabel(
             viewer_header,
             text="Selecciona un documento",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             text_color=colors["text_primary"]
         )
         self.doc_label.pack(side="left")
@@ -127,7 +128,7 @@ class DocsViewerView(ctk.CTkFrame):
         self.export_btn = ctk.CTkButton(
             viewer_header,
             text="📤 Exportar",
-            font=ctk.CTkFont(size=13),
+            font=get_font(size=13),
             fg_color=colors["accent"],
             hover_color=colors["success"],
             width=96,
@@ -199,7 +200,7 @@ class DocsViewerView(ctk.CTkFrame):
             btn = ctk.CTkButton(
                 self.doc_list,
                 text=f"{icon}  {filename}",
-                font=ctk.CTkFont(size=11),
+                font=get_font(size=11),
                 fg_color="transparent",
                 hover_color=self.colors["bg_card"],
                 text_color=self.colors["text_primary"],

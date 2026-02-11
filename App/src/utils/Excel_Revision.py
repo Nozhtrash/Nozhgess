@@ -99,8 +99,8 @@ def _get_header_style(column_name: str) -> dict:
         return COLORS["grupo_azul_familia"]
 
     # 4. GRUPO VERDE (Texto blanco negrita)
-    # Fallecido, Caso, Apertura, Cerrado, SIC
-    if name in ["fallecido", "caso", "apertura", "¿cerrado?"] or "sic" in name:
+    # Fallecido, Caso, Apertura, SIC
+    if name in ["fallecido", "caso", "apertura"] or "sic" in name:
         return COLORS["grupo_verde_bold"]
 
     # 5. APTOS (Texto blanco negrita) -> Rosado Oscuro
@@ -114,7 +114,7 @@ def _get_header_style(column_name: str) -> dict:
     # 7. HABILITANTES / EXCLUYENTES
     if "hab" in name and "excl" not in name:
          return COLORS["grupo_rojo"]
-    if "excl" in name or "oa" in name or name.startswith("f obj") or "objetivo" in name or "fecha obj" in name:
+    if "excl" in name or "oa" in name or name.startswith("obj") or "objetivo" in name:
          return COLORS["grupo_azul_oa"]
 
     # 8. APS (Si no es contra)
@@ -463,7 +463,7 @@ def _describe_column(col: str) -> dict:
             "Fuente": "Configuración (Código por Año)",
             "Nota": "Configuración específica para el año en curso del paciente."
         }
-    if name.startswith("f obj") or "objetivo" in name:
+    if name.startswith("obj") or "objetivo" in name:
         return {
             "Categoria": "Gestión y Seguimiento",
             "Descripcion": "Fechas encontradas para el cumplimiento de Objetivos Sanitarios.",
@@ -517,9 +517,9 @@ def _describe_column(col: str) -> dict:
         },
         "fallecido": {
             "Categoria": "Identificación Paciente",
-            "Descripcion": "Indicador de fallecimiento.",
+            "Descripcion": "Fecha de fallecimiento (si aplica) o 'No'.",
             "Fuente": "SIGGES (Historia)",
-            "Nota": "Si dice 'Sí', el paciente suele ser descartado o marcado en observación."
+            "Nota": "Dato crítico para la gestión."
         },
 
         # --- DATOS DEL CASO ---
@@ -547,12 +547,7 @@ def _describe_column(col: str) -> dict:
             "Fuente": "SIGGES (Mini-tabla)",
             "Nota": "Determina la antigüedad administrativa."
         },
-        "¿cerrado?": {
-            "Categoria": "Datos del Caso GES",
-            "Descripcion": "Confirmación explícita de si el caso está cerrado.",
-            "Fuente": "SIGGES",
-            "Nota": "Casos cerrados generalmente no se gestionan."
-        },
+
 
         # --- DATOS CLÍNICOS (IPD) ---
         "fecha ipd": {
@@ -674,10 +669,10 @@ def _describe_column(col: str) -> dict:
 
         # --- AUDITORÍA Y TRAZABILIDAD ---
         "observación": {
-            "Categoria": "Auditoría Interna",
-            "Descripcion": "Bitácora de errores o hallazgos críticos.",
-            "Fuente": "Sistema",
-            "Nota": "Revisar siempre si tiene contenido (errores de conexión, datos faltantes, fallecimiento)."
+            "Categoria": "Notas / Auditoría",
+            "Descripcion": "Campo reservado para notas manuales o errores críticos de sistema.",
+            "Fuente": "Sistema / Manual",
+            "Nota": "Por defecto vacío, salvo error de conexión o 'Sin Caso'."
         },
         "observación folio": {
             "Categoria": "Auditoría Interna",

@@ -438,7 +438,7 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     cols = ["Fecha", "Rut", "Edad", "Estado", "Tipo"]
     cols += [
         "Familia", "Especialidad", "Fallecido",
-        "Caso", "Apertura", "¿Cerrado?"
+        "Caso", "Apertura"
     ]
     
     # 2. Objetivos (Dinámicas por código)
@@ -447,18 +447,24 @@ def cols_mision(m: Dict[str, Any]) -> List[str]:
     # NOTA: max_objs solo limita la cantidad de FECHAS dentro de la celda, no las columnas.
     
     for obj_code in objetivos_cfg:
-        cols.append(f"Fecha Obj {obj_code}")
+        cols.append(f"Obj {obj_code}")
 
     # 3. Habilitantes y Excluyentes (NUEVA UBICACIÓN: Después de Objetivos)
     # Habilitantes
     habs_cfg = _parse_code_list(m.get("habilitantes", []))
     if REVISAR_HABILITANTES and habs_cfg:
-        cols += ["C Hab", "F Hab", "Hab Vi"]
+        # Dynamic columns for each Habilitante code
+        for hab_code in habs_cfg:
+            cols.append(f"Hab {hab_code}")
+        # Keep Hab Vi (Status)
+        cols.append("Hab Vi")
         
     # Excluyentes
     excl_cfg = _parse_code_list(m.get("excluyentes", []))
     if REVISAR_EXCLUYENTES and excl_cfg:
-        cols += ["C Excluyente", "F Excluyente"]
+        # Dynamic columns for each Excluyente code
+        for excl_code in excl_cfg:
+            cols.append(f"Excl {excl_code}")
 
     # 4. Aptitud y Decisiones (NUEVA UBICACIÓN: Antes de Frecuencias)
     show_apto_strict = req_ipd or req_oa or req_aps or req_sic or req_eleccion or has_contra
@@ -610,8 +616,10 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     res["Caso"] = caso_seleccionado.get("caso", "")
     res["Estado"] = caso_seleccionado.get("estado", "")
     res["Apertura"] = caso_seleccionado.get("apertura", "")
-    res["¿Cerrado?"] = caso_seleccionado.get("cierre", "NO")
-    res["Fallecido"] = "Sí" if fall_dt else "No"
+    res["Apertura"] = caso_seleccionado.get("apertura", "")
+    # Cerrado logic removed
+    # Fallecido: Mostrar FECHA si existe, si no "No" (o vacío según prefiera, pero el user dijo "fecha")
+    res["Fallecido"] = fall_dt.strftime("%d-%m-%Y") if fall_dt else "No"
     apertura_principal_dt = dparse(res["Apertura"]) if res.get("Apertura") else None
     # -------------------------------------------------------------------------
     # NOTA: La lógica de 'Código Año' y 'Periodicidad' se calcula más adelante,
@@ -1023,8 +1031,8 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     
     # NUEVA LÓGICA: Llenar columnas por código (Todas las configuradas)
     for obj_code in objetivos_cfg:
-        # Columna Header: Fecha Obj {CODE} (Sin comillas)
-        col_name = f"Fecha Obj {obj_code}"
+        # Columna Header: Obj {CODE} (Sin comillas)
+        col_name = f"Obj {obj_code}"
         
         dts = obj_info_map.get(obj_code, [])
         if dts:
@@ -1122,10 +1130,25 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
     habs_cfg = _parse_code_list(m.get("habilitantes", []))
     if REVISAR_HABILITANTES and habs_cfg:
         habs_found = buscar_codigos_en_prestaciones(prestaciones, habs_cfg, fobj)
+        
+        # Group found dates by code
+        # habs_found is list of tuples (code_norm, dt, is_future)
+        habs_map = {}
+        for h in habs_found:
+            c_norm = h[0]
+            if c_norm not in habs_map:
+                habs_map[c_norm] = []
+            habs_map[c_norm].append(h[1])
+            
+        # Populate dynamic columns
+        for h_code in habs_cfg:
+            c_norm = normalizar_codigo(h_code)
+            dts = habs_map.get(c_norm, [])
+            dts_str = " | ".join(dt.strftime("%d-%m-%Y") for dt in dts[:filas_hab])
+            res[f"Hab {h_code}"] = dts_str
+
+        # Hab Vi Logic (Preserved)
         if habs_found:
-            top = habs_found[:filas_hab]
-            res["C Hab"] = join_clean([h[0] for h in top])
-            res["F Hab"] = join_clean([h[1].strftime("%d-%m-%Y") for h in top])
             hab_vigentes = [h for h in habs_found if en_vigencia(fobj, h[1], VENTANA_VIGENCIA_DIAS)] if fobj else habs_found
             # Simplificado: si hay al menos uno vigente, está OK
             if hab_vigentes:
@@ -1135,14 +1158,26 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         else:
             # Sin habilitantes = vacío (no texto)
             res["Hab Vi"] = ""
+            
     # ===== EXCLUYENTES =====
     excl_cfg = _parse_code_list(m.get("excluyentes", []))
     if excl_cfg:
         excl_found = buscar_codigos_en_prestaciones(prestaciones, excl_cfg, fobj)
-        if excl_found:
-            top = excl_found[:filas_excl]
-            res["C Excluyente"] = join_clean([x[0] for x in top])
-            res["F Excluyente"] = join_clean([x[1].strftime("%d-%m-%Y") for x in top])
+        
+        # Group found dates by code
+        excl_map = {}
+        for x in excl_found:
+            c_norm = x[0]
+            if c_norm not in excl_map:
+                excl_map[c_norm] = []
+            excl_map[c_norm].append(x[1])
+
+        # Populate dynamic columns
+        for e_code in excl_cfg:
+            c_norm = normalizar_codigo(e_code)
+            dts = excl_map.get(c_norm, [])
+            dts_str = " | ".join(dt.strftime("%d-%m-%Y") for dt in dts[:filas_excl])
+            res[f"Excl {e_code}"] = dts_str
     # ===== OBSERVACIÃ“N FOLIO =====
     if req_oa:
         obs_folio_list = []
@@ -1174,25 +1209,14 @@ def analizar_mision(sigges, m: Dict[str, Any], casos_data: List[Dict[str, Any]],
         res["Observación Folio"] = " | ".join(obs_folio_list)
     
     # ===== OBSERVACIÃ“N GENERAL =====
-
-    # Solo fallecimiento, como pidió el usuario.
-    obs_parts = []
-    if fall_dt:
-        obs_parts.append(f"PACIENTE FALLECIDO EL {fall_dt.strftime('%d-%m-%Y')}")
+    # Usuario solicitó (2026-02-11): "Deja limpia la columna observación... porque la usaré más adelante"
+    # Por lo tanto, eliminamos la inyección automática de "PACIENTE FALLECIDO".
+    # La columna ya se inicializó vacía al principio (vac_row) o con "Sin Caso" si falló.
     
-    if obs_parts:
-        # Si ya había algo (ej de OA/SIC), lo preservamos o sobreescribimos?
-        # El usuario dijo "La columna Observacion por ahora la quiero vacía... solo si fallecio".
-        # PERO en conexiones ya pusimos observaciones si había tracking.
-        # En la lógica nueva Â¿Apto? es la clave. Observación queda para cosas graves.
-        # Verificamos si ya tiene algo (ej "Sin Caso" de arriba)
-        
-        current = res.get("Observación", "")
-        if current and current != "Sin Caso":
-             res["Observación"] = current + " | " + " | ".join(obs_parts)
-        else:
-             res["Observación"] = " | ".join(obs_parts)
-    # Si no falleció y no hubo errores previos, Observación queda vacía (o "Sin Caso" si falló al inicio)
+    # Si 'Observación' tenía algo crítico previo (ej. de vac_row), se mantiene.
+    # Si no, se asegura limpia.
+    if "Observación" not in res:
+        res["Observación"] = ""
     
     # GUARDIAN DEL ORDEN: Asegurar que Excel use EXACTAMENTE el orden definido en cols_mision
     res["_cols_order"] = all_cols

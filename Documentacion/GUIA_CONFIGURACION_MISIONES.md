@@ -1,79 +1,95 @@
-# ⚙️ GUIA DE CONFIGURACIÓN DE MISIONES (JSON)
-> **Versión:** 1.0 (Feb 2026)
-> **Archivo:** `App/config/mission_config.json`
-
-Esta guía detalla el significado de cada "llave" en el cerebro de Nozhgess. Modificar estas variables altera el comportamiento clínico del robot.
+# ⚙️ GUÍA DE CONFIGURACIÓN DE MISIONES (JSON) v3.5.1
+> **Meta:** Domine la arquitectura de configuración para crear misiones precisas.
 
 ---
 
-# 1. ESQUEMA BASE
+## 1. El Nuevo Paradigma: "Lo que configuras es lo que obtienes"
+En la versión 3.5.1, Nozhgess elimina las columnas "fantasma". El Excel de salida es un espejo directo de su archivo JSON.
 
-Cada misión en el JSON debe seguir esta estructura mínima:
+### Ejemplo Práctico
+Si su JSON dice:
+```json
+"objetivos": ["040101", "040102"]
+```
+El Excel tendrá **exactamente** dos columnas: `Obj 040101` y `Obj 040102`.
+*Si borra "040102" del JSON, la columna desaparecerá del Excel automáticamente.*
 
+---
+
+## 2. Estructura del JSON de Misión
+Ubicación: `Lista de Misiones/Su_Mision.json`
+
+### Bloque A: Identidad
 ```json
 {
-  "nombre_mision": "Diabetes Tipo 2",
-  "indices": { "rut": 1, "nombre": 3, "familia": 2 },
-  "habilitantes": ["5002101", "5002102"],
-  "excluyentes": ["5001101"],
-  "require_ipd": true,
-  "max_habilitantes": 1
+  "nombre_mision": "Diabetes Mellitus Tipo 2",
+  "version": "2.0",
+  "autor": "Equipo GES"
+}
+```
+
+### Bloque B: Lógica de Negocio (El Corazón)
+Aquí define qué buscar. **Cada código aquí crea una columna.**
+```json
+{
+  "objetivos": [
+    "030104",  // Crea columna "Obj 030104"
+    "030105"   // Crea columna "Obj 030105"
+  ],
+  "habilitantes": [
+    "DIAB_T2_CIE10" // Crea columna "Hab DIAB_T2_CIE10"
+  ],
+  "excluyentes": [
+    "DIAB_T1_CIE10" // Crea columna "Excl DIAB_T1_CIE10"
+  ]
+}
+```
+
+### Bloque C: Parámetros del Motor
+Controlan la sensibilidad del robot.
+```json
+{
+  "ventana_dias": 365,      // Cuánto mirar hacia atrás
+  "max_anios": 10,          // Profundidad histórica máxima
+  "revisar_futuros": false, // ¿Mirar prestaciones con fecha futura? (Error humano)
+  
+  // FLAGS DE ACTIVACIÓN (NUEVO)
+  "require_oa": true,       // ¿Buscar en Tabla OA?
+  "require_ipd": true,      // ¿Buscar en Tabla IPD?
+  "active_frequencies": true // ¿Calcular periodicidad?
 }
 ```
 
 ---
 
-# 2. DICCIONARIO DE VARIABLES
-
-### 📊 Estructura de Entrada (`indices`)
-Define qué columnas del Excel que usted sube contienen qué datos.
-- **`rut`**: Índice de columna (Base 0 o 1 según implementación). 
-- **`nombre`**: Nombre completo del paciente.
-- **`fecha`**: Fecha de la nómina (para calcular vigencia).
-
-### 🩺 Lógica Clínica
-- **`habilitantes`**: Lista de códigos de prestaciones (OA) que activan la alerta roja.
-- **`excluyentes`**: Códigos que, si se encuentran, marcan al paciente como "No Apto" para esta misión.
-- **`keywords_mision`**: Términos que el robot busca en la lista de casos de SIGGES para saber a qué cartola entrar.
-- **`keywords_contra`**: Términos para detectar el "Caso en Contra". Si encuentra esto, activa la lógica de extracción divergente.
-
-### 📜 Banderas de Activación (`require_...`)
-- **`require_ipd`**: Si es `true`, el robot buscará la fecha de confirmación diagnóstica.
-- **`require_oa`**: Si es `true`, el robot leerá la tabla de Órdenes de Atención.
-- **`require_sic`**: Activa la búsqueda de interconsultas.
-- **`folio_vih`**: (Opt-in) Solo para misiones de VIH. Busca la columna Folio específica.
-
-### ⚖️ Límites y Filtros
-- **`max_habilitantes`**: Límite de exámenes rojos a reportar. Si hay 10 y el límite es 1, solo pondrá el más reciente.
-- **`anios_codigo`**: Mapeo para inyección por edad. 
-    *   *Ejemplo:* `{"0": "5002101", "15": "5003101"}` -> A los 15 años cambia el código clínico.
-
----
-
-# 3. EJEMPLO DE CONFIGURACIÓN AVANZADA (VIH)
+## 3. Configuración Avanzada de Frecuencias (V2)
+Puede definir reglas complejas para auditar controles.
 
 ```json
-{
-  "nombre_mision": "VIH Operativo",
-  "keywords_mision": ["VIH", "Inmunosupresión"],
-  "require_ipd": true,
-  "require_oa": true,
-  "folio_vih": true,
-  "indices": { "rut": 0, "nombre": 1 },
-  "habilitantes": ["0801103", "0801104"]
-}
+"frecuencias": [
+  {
+    "code": "030104",
+    "freq_qty": 1,
+    "freq_type": "Mes",    // Opciones: "Mes", "Año"
+    "periodicity": "Mensual"
+  },
+  {
+    "code": "030105",
+    "freq_qty": 2,
+    "freq_type": "Año",
+    "periodicity": "Anual"
+  }
+]
 ```
+Esto generará columnas `Freq 030104` (Resultado: "Cumple/No Cumple") y `Period 030104` (Label: "Mensual").
 
 ---
 
-# 4. SOLUCIÓN DE ERRORES (CONFIG)
-
-- **Problema:** "El robot entra a casos que no son".
-  - **Fix:** Refinar `keywords_mision`. Sea más específico.
-- **Problema:** "Me faltan columnas en el Excel".
-  - **Fix:** Verifique que las banderas `require_...` estén en `true`. Nozhgess oculta columnas inactivas para ahorrar espacio.
+## 4. Validaciones de Seguridad
+Para evitar errores catastróficos, el sistema ignora configuraciones peligrosas:
+- **Sin Objetivos:** Si la lista `objetivos` está vacía, la misión se aborta.
+- **Códigos Vacíos:** Strings vacíos `""` son eliminados silenciosamente.
+- **Tipos Incorrectos:** Si pone un número donde va un texto, el `Normalizador` intentará convertirlo. Si falla, lo descarta.
 
 ---
-
-**© 2026 Nozhgess Config Lab**
-*"Un JSON bien configurado es un reporte sin errores."*
+**© 2026 Nozhgess Configuration Team**

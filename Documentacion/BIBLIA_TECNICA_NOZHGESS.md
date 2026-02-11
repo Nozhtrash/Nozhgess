@@ -1,104 +1,81 @@
-# 📜 BIBLIA TÉCNICA NOZHGESS v3.5.1
-> **Versión:** 3.5.1 (Edición "Forensic III - Integrated Architecture")
-> **Última Actualización:** 08/Feb/2026
-> **Filosofía:** "Desacoplamiento total, integración centralizada. Auditoría en cada byte."
+# Biblia Técnica: Arquitectura y Lógica Profunda de Nozhgess (v3.5.1)
+
+> **Advertencia de Seguridad:** Este documento detalla la lógica interna de nivel forense. El conocimiento de estos sub-sistemas es obligatorio para cualquier modificación en el núcleo (`core`).
 
 ---
 
-# 📑 ÍNDICE TÉCNICO MAESTRO
+## 1. Arquitectura de Sistemas
+Nozhgess opera bajo un modelo **Híbrido MVC/Microservicios Embebidos**.
 
-1.  [**Arquitectura de Sistemas (Integrated MVC-S)**](#1-arquitectura-de-sistemas-integrated-mvc-s)
-2.  [**El Orquestador Nuclear (`integrator.py`)**](#2-el-orquestador-nuclear-integratorpy)
-3.  [**Motor Especializado v3.5.1**](#3-motor-especializado-v351)
-    *   3.1. Session Parasitism (Deep Dive)
-    *   3.2. Lógica de "Caso en Contra" Recursiva
-4.  [**Optimización y Rendimiento**](#4-optimización-y-rendimiento)
-5.  [**Manual de Reparación Forense**](#5-manual-de-reparación-forense)
-
----
-
-# 1. ARQUITECTURA DE SISTEMAS (INTEGRATED MVC-S)
-
-Hemos evolucionado de un modelo monolítico a uno integrado por servicios. El **Integrador** actúa como el puente entre el frontend moderno y la lógica de scraping heredada (legacy).
+### 1.1 Diagrama de Flujo de Datos
+El flujo de datos ("The Pipeline") es estrictamente unidireccional para garantizar la integridad forense:
 
 ```mermaid
 graph TD
-    subgraph "NIVEL 1: VISTA (UI)"
-        GUI[CustomTkinter App]
-        Console[RunnerView / Terminal]
-    end
-    
-    subgraph "NIVEL 2: ORQUESTACIÓN (CONTROLADOR)"
-        Integrator[integrator.py]
-        Queue[log_queue / IPC]
-    end
-    
-    subgraph "NIVEL 3: SERVICIOS Y LÓGICA"
-        Processor[Advanced Processor]
-        Monitor[Realtime Monitor]
-        Scraper[Driver.py / Conexiones.py]
-    end
-    
-    subgraph "NIVEL 4: DATOS"
-        JSON[mission_config.json]
-        Excel[Excel Engine / openpyxl]
-    end
-
-    GUI --> Integrator
-    Integrator --> Processor
-    Integrator --> Scraper
-    Scraper --> Queue
-    Queue --> Console
-    Processor --> Monitor
+    A[Misión JSON] -->|Validación de Esquema| B(Normalizador)
+    B -->|Configuración Congelada| C[Motor de Scraping]
+    D[Navegador Edge/CDP] -->|HTML Crudo| C
+    C -->|Extracción de Vectores| E{Analizador Lógico}
+    E -->|Motor de Frecuencias V2| F[Validación Temporal]
+    E -->|Motor de Columnas Dinámicas| G[Generación de Estructura]
+    F & G --> H[Reporte Excel]
 ```
 
----
+### 1.2 Componentes Críticos
 
-# 2. EL ORQUESTADOR NUCLEAR (`integrator.py`)
+#### A. Motor de Scraping (Session Parasitism)
+- **Archivo:** `Utilidades/Mezclador/Conexiones.py`
+- **Tecnología:** Selenium con Debugging Port (9222)
+- **Función:** Se conecta a una sesión de Edge ya autenticada. No realiza login. Utiliza esperas explícitas con backoff exponencial.
+- **Protocolo de Fallo:** Si detecta desconexión, lanza `FatalConnectionError` que detiene el hilo de trabajo pero mantiene viva la GUI.
 
-El `EnhancedNozhgessProcessor` es el componente más crítico de la v3.5.1:
-- **Session Management:** Genera IDs de sesión únicos para cada corrida, permitiendo trazabilidad total de errores.
-- **Memory Optimization:** Implementa `performance_optimizer.process_excel_in_chunks` para manejar archivos de 50.000+ filas sin agotar la RAM.
-- **Real-time Metrics:** Publica métricas de validación (RUTs válidos, duplicados eliminados) mediante callbacks hacia la UI.
+#### B. Motor de Columnas Dinámicas (Dynamic Column Engine)
+- **Implementación (v3.5.1):** 
+    - Ya no existen columnas estáticas como `Objetivo_1`, `Habilitante_1`.
+    - **Lógica de Generación:** Al inicio de cada misión, el sistema lee la configuración (`codigos_objetivo`) y pre-calcula los headers exactos: `Obj [Code]`, `Hab [Code]`, `Excl [Code]`.
+    - **Ventaja Forense:** Elimina la ambigüedad de columnas vacías. Si una columna existe, es porque el código fue auditado.
 
----
-
-# 3. MOTOR ESPECIALIZADO v3.5.1
-
-## 3.1. Session Parasitism
-Nozhgess no "abre" un navegador; se "adhiere" a uno existente.
-- **Protocolo:** Utiliza `Chrome DevTools Protocol (CDP)`.
-- **Ventaja:** Elude el 100% de los desafíos de autenticación multifactor (MFA) de SIGGES al heredar los tokens activos del proceso `msedge.exe`.
-
-## 3.2. Lógica de "Caso en Contra" Recursiva
-Cuando se detecta una patología divergente:
-1. El motor pausa la misión principal.
-2. Instancia un "Sandbox" de datos.
-3. El `DataParsingMixin` extrae los hitos del caso divergente (IPD, OA, SIC).
-4. El sistema compara fechas y prioriza la data más reciente para el dictamen final.
+#### C. Validador de Frecuencias V2 (Frequency Validator)
+- **Archivo:** `App/src/core/Analisis_Misiones.py`
+- **Lógica:** Desacoplado de la visualización. Opera sobre el raw dataset de prestaciones.
+- **Algoritmo:**
+    1. Normaliza fecha de nómina y fecha de prestación.
+    2. Calcula delta temporal (Meses/Años) exacto.
+    3. Compara contra `freq_qty` configurado en la misión.
+    4. **Resultado:** Booleano de cumplimiento + Metadata para el Excel (Color).
 
 ---
 
-# 4. OPTIMIZACIÓN Y RENDIMIENTO
+## 2. Lógica Forense (The Forensic Core)
 
-- **Threading Bridge:** Evita el bloqueo del hilo principal (GUI) mediante un puente asíncrono.
-- **RetryManager:** Implementa backoff exponencial para reintentos de red, reduciendo la probabilidad de baneo por parte del firewall de SIGGES.
-- **Age Validation V2:** Validación de rangos de edad (`edad_min`/`edad_max`) inyectada dinámicamente durante el procesamiento de filas.
+### 2.1 Preservación de Evidencia ("Fallecido")
+- **Antes (v3.0):** Booleano (Sí/No).
+- **Ahora (v3.5.1):** `datetime` exacto.
+- **Razón:** En auditoría, saber *cuándo* falleció el paciente es vital para determinar si una garantía venció antes o después del deceso. El sistema extrae este dato directamente de la ficha histórica de SIGGES.
+
+### 2.2 Columna de Observación Limpia
+- **Regla:** El sistema no debe "ensuciar" la columna de observaciones con logs automáticos.
+- **Excepción:** Solo se escribe si ocurre un **Fallo Técnico Crítico** (ej. "Sin Mini-Tabla", "Timeout Cartola").
+- **Uso:** Reservada para notas humanas cualitativas.
+
+### 2.3 Lógica de "Habilitante Vigente" (Hab Vi)
+- **Independencia:** Esta columna es calculada independientemente de si los habilitantes se muestran o no.
+- **Cálculo:** `(Fecha_Prestación + Ventana_Vigencia) >= Fecha_Corte`.
+- **Salida:** "Vigente" / "No Vigente". Es el semáforo principal para determinar si un paciente cumple los pre-requisitos de la misión.
 
 ---
 
-# 5. MANUAL DE REPARACIÓN FORENSE
+## 3. Estándares de Código y Datos
 
-### 🚨 El integrador dice "Sistema legacy no disponible"
-1.  **Causa:** El script no encuentra las carpetas `Z_Utilidades` o `App/src`.
-2.  **Solución:** Verificar que el script se ejecute desde la raíz del proyecto. El `sys.path.insert` debe apuntar correctamente al `app_root`.
+### 3.1 Formato de Fechas
+- **Estándar:** `dd-mm-yyyy` (ISO-Latam).
+- **Justificación:** Evita confusión mes/día en Excel (formato US vs UK).
+- **Implementación:** Forzado en `output_formatter` antes de escribir en Excel.
 
-### 🚨 Error de memoria al procesar misiones masivas
-1.  **Causa:** Acumulación de DataFrames en el `consolidated_dfs`.
-2.  **Solución:** Habilitar `MISION_POR_ARCHIVO` en `Mision_Actual.py` para liberar memoria después de cada misión.
+### 3.2 Manejo de Errores (Error Handling)
+- **Nivel 1 (Warning):** Dato faltante no crítico (ej. Edad). Se loguea y continúa.
+- **Nivel 2 (Error):** Fallo de scraping en un paciente. Se reintenta 3 veces. Si falla, se marca "Sin Caso" y continúa.
+- **Nivel 3 (Fatal):** Caída del navegador. Se aborta la misión y se alerta al usuario.
 
 ---
-
-**© 2026 Nozhgess Engineering Team**
-*"La precisión clínica es nuestra única garantía."*
-
+**© 2026 Nozhgess Dept. de Ingeniería**

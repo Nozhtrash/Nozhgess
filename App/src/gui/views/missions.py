@@ -11,11 +11,15 @@ import sys
 import json
 
 from src.gui.components import Card, FormRow
+from src.gui.components.collapsible_frame import CollapsibleFrame
 from src.gui.components.frequency_editor import FrequencyListEditor
 from src.gui.components.year_code_editor import YearCodeEditor
 from src.gui.controllers.mision_controller import MisionController
 from src.gui.managers.notification_manager import get_notifications
 from src.utils.telemetry import log_ui
+import webbrowser
+from src.gui.theme import get_font
+from src.gui.components.help_icon import HelpIcon
 
 # Asegurar path
 ruta_current = os.path.dirname(os.path.abspath(__file__))
@@ -154,7 +158,7 @@ class MissionsView(ctk.CTkFrame):
     """
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         self.controller = MisionController(ruta_proyecto)
@@ -170,9 +174,9 @@ class MissionsView(ctk.CTkFrame):
         self.template_mission_var = ctk.StringVar(value="")
         self.jump_var = ctk.StringVar(value="")
         # Fuentes reutilizables (evita recrearlas en loops)
-        self.font_title = ctk.CTkFont(size=22, weight="bold")
-        self.font_header = ctk.CTkFont(size=13, weight="bold")
-        self.font_label = ctk.CTkFont(size=12)
+        self.font_title = get_font(size=22, weight="bold")
+        self.font_header = get_font(size=13, weight="bold")
+        self.font_label = get_font(size=12)
         # Construcción incremental
         self._pending_build_job = None
         # Paginación OPTIMIZADA (1 Misión por página = 0 Lag)
@@ -202,17 +206,30 @@ class MissionsView(ctk.CTkFrame):
         except: pass
 
     def _setup_templates_bar(self):
-        """Barra unificada: Plantillas (con filtro) + Navegación."""
-        bar = ctk.CTkFrame(self, fg_color=self.colors.get("bg_card", "#1f1f1f"))
-        bar.pack(fill="x", padx=20, pady=(0, 12))
+        """Barra unificada: Plantillas (con filtro) + Navegación (Responsive)."""
+        
+        # Responsive Container: Horizontal Scroll
+        bar_scroll = ctk.CTkScrollableFrame(
+            self, 
+            fg_color="transparent", 
+            orientation="horizontal", 
+            height=85
+        )
+        bar_scroll.pack(fill="x", padx=20, pady=(0, 12))
+        
+        bar = ctk.CTkFrame(bar_scroll, fg_color=self.colors.get("bg_card", "#1f1f1f"))
+        bar.pack(fill="y", expand=True) # Let it expand inside scroll
         
         # Grid Layout
         # 0: Label "Carpeta" | 1: Folder Combo | 2: Template Combo | 3: Usar | 4: Eliminar
         # ... Spacer ...
         # 6: Prev | 7: Label Pág | 8: Next | 9: Jump | 10: New Mission
         
-        bar.grid_columnconfigure(5, weight=1) # Spacer
-
+        # bar.grid_columnconfigure(5, weight=1) # Spacer logic might fight with scroll if we want full width. 
+        # Instead, let's just pack left and right frames to ensure structure? 
+        # But we want to keep the grid if possible. 
+        # Let's use a spacer with a minimum width
+        
         # --- SECCIÓN PLANTILLAS ---
         # 1. Filtro Carpeta
         self.cat_menu = ctk.CTkOptionMenu(
@@ -229,7 +246,6 @@ class MissionsView(ctk.CTkFrame):
             bar, width=230,
             variable=self.repo_var,
             values=["(sin plantillas)"],
-            command=lambda v: self._on_template_change()
         )
         self.repo_menu.grid(row=0, column=1, padx=5, pady=8)
 
@@ -241,6 +257,9 @@ class MissionsView(ctk.CTkFrame):
         ctk.CTkButton(bar, text="✔ Usar", width=70, fg_color=hex_success, command=self._use_template).grid(row=0, column=2, padx=5, pady=8)
         # Botón Eliminar
         ctk.CTkButton(bar, text="🗑", width=40, fg_color=hex_error, command=self._delete_template).grid(row=0, column=3, padx=5, pady=8)
+
+        # SPACER
+        ctk.CTkFrame(bar, width=20, height=1, fg_color="transparent").grid(row=0, column=5)
 
         # --- SECCIÓN NAVEGACIÓN (Movida aquí) ---
         nav_frame = ctk.CTkFrame(bar, fg_color="transparent")
@@ -261,9 +280,11 @@ class MissionsView(ctk.CTkFrame):
 
         # New Mission
         ctk.CTkButton(
-            nav_frame, text="✚  Nueva Misión", width=120,
+            nav_frame, text="✚  Nueva Misión", width=140,
             fg_color=self.colors["accent"],
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=get_font(size=12, weight="bold"),
+            height=36,
+            corner_radius=10,
             command=self._add_mission
         ).pack(side="left", padx=(5,0))
 
@@ -275,12 +296,18 @@ class MissionsView(ctk.CTkFrame):
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=25, pady=(15, 5))
         
+        # Título + Icono
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(side="left")
+
         ctk.CTkLabel(
-            header,
-            text="📋 Editor de Misiones",
+            title_frame, 
+            text="🎛️ Editor de Misiones", 
             font=self.font_title,
             text_color=self.colors["text_primary"]
         ).pack(side="left")
+
+        HelpIcon(title_frame, text="Configura las misiones de extracción y sus parámetros.", text_color=self.colors["text_secondary"]).pack(side="left", padx=10)
 
     def _setup_footer(self):
         footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -288,17 +315,17 @@ class MissionsView(ctk.CTkFrame):
         
         self.save_btn = ctk.CTkButton(
             footer, text="💾  Guardar Todo (Disco)",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             fg_color=self.colors["accent"],
-            height=40, corner_radius=8,
+            height=40, corner_radius=10,
             command=self._on_save
         )
         self.save_btn.pack(side="left", fill="x", expand=True, padx=(0,5))
         
         ctk.CTkButton(
-            footer, text="🔄 Recargar", width=100,
+            footer, text="🔄 Recargar", width=120,
             fg_color=self.colors["bg_card"],
-            height=40, corner_radius=8,
+            height=40, corner_radius=10,
             command=lambda: self.reload_ui(True)
         ).pack(side="right")
 
@@ -517,25 +544,26 @@ class MissionsView(ctk.CTkFrame):
         # Botones Header
         # Eliminar
         ctk.CTkButton(
-            c_mis.header, text="🗑", width=32, height=24,
+            c_mis.header, text="🗑", width=36, height=36,
             fg_color=self.colors.get("error", "#ef4444"),
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=14, weight="bold"),
+            corner_radius=8,
             command=lambda idx=global_idx: self._delete_mission_prompt(idx)
         ).pack(side="right")
         
         # Guardar Plantilla
         ctk.CTkButton(
-            c_mis.header, text="💾", width=32, height=24,
+            c_mis.header, text="💾", width=36, height=36,
             fg_color=self.colors.get("accent", "#7c4dff"),
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=14, weight="bold"),
+            corner_radius=8,
             command=lambda idx=global_idx: self._save_mission_as_template(idx)
-        ).pack(side="right", padx=(0, 4))
+        ).pack(side="right", padx=(0, 6))
 
         # --- CONTENT ---
         # Helper interno para data bindings
         # Usamos 'mission_data' directo (que es una referencia a la lista en memoria) NO 'combined' plano
         # Pero _add_row espera un dict plano "key": value.
-        # Crearemos un 'flat_view' para _add_row, pero el _sync_view_to_memory reconstruirá la estructura.
         
         flat_view = {}
         for k,v in mission_data.items(): flat_view[f"{prefix}{k}"] = v
@@ -545,126 +573,125 @@ class MissionsView(ctk.CTkFrame):
         flat_view[f"{prefix}indices_nombre"] = indices.get("nombre", 3)
         flat_view[f"{prefix}indices_fecha"] = indices.get("fecha", 5)
 
-        # 1. Básico
-        basic = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        # 1. Información General (Collapsible) - Expanded by default
+        self.info_frame = CollapsibleFrame(c_mis.content, title="Información General", expanded=True, fg_color="transparent")
+        self.info_frame.pack(fill="x", pady=2)
+        info_c = self.info_frame.content
+
+        # 1.1 Básico
+        basic = ctk.CTkFrame(info_c, fg_color="transparent")
         basic.pack(fill="x")
         self._add_row(basic, f"{prefix}nombre", "Nombre Misión", flat_view).pack(fill="x", pady=2)
         self._add_row(basic, f"{prefix}ruta_entrada", "Excel Objetivo", flat_view, "path").pack(fill="x", pady=2)
         self._add_row(basic, f"{prefix}ruta_salida", "Carpeta Salida", flat_view, "path_folder").pack(fill="x", pady=2)
 
-        # 2. Keywords
-        kws = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        kws.pack(fill="x", pady=5)
+        # 1.2 Meta (Familia/Edad)
+        meta = ctk.CTkFrame(info_c, fg_color="transparent")
+        meta.pack(fill="x", pady=5)
+        meta.grid_columnconfigure((0,1), weight=1)
+        self._add_row(meta, f"{prefix}familia", "Familia (PS-FAM)", flat_view).grid(row=0, column=0, sticky="ew", padx=2)
+        self._add_row(meta, f"{prefix}especialidad", "Especialidad", flat_view).grid(row=0, column=1, sticky="ew", padx=2)
+        
+        self._add_row(meta, f"{prefix}edad_min", "Edad Mínima", flat_view).grid(row=1, column=0, sticky="ew", padx=2, pady=5)
+        self._add_row(meta, f"{prefix}edad_max", "Edad Máxima", flat_view).grid(row=1, column=1, sticky="ew", padx=2, pady=5)
+
+        # 2. Keywords (Collapsible)
+        self.kw_frame = CollapsibleFrame(c_mis.content, title="Filtros de Texto (Keywords)", expanded=False, fg_color="transparent")
+        self.kw_frame.pack(fill="x", pady=2)
+        kw_c = self.kw_frame.content
+
+        kws = ctk.CTkFrame(kw_c, fg_color="transparent")
+        kws.pack(fill="x", pady=2)
         self._add_row(kws, f"{prefix}keywords", "Keywords Principal", flat_view).pack(fill="x", pady=2)
         self._add_row(kws, f"{prefix}keywords_contra", "Keywords En Contra", flat_view).pack(fill="x", pady=2)
 
-        # 3. Códigos
-        codes = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        codes.pack(fill="x", pady=5)
+        # 3. Códigos (Collapsible)
+        self.code_frame = CollapsibleFrame(c_mis.content, title="Códigos Clínicos", expanded=False, fg_color="transparent")
+        self.code_frame.pack(fill="x", pady=2)
+        code_c = self.code_frame.content
+
+        codes = ctk.CTkFrame(code_c, fg_color="transparent")
+        codes.pack(fill="x", pady=2)
         codes.grid_columnconfigure((0,1,2), weight=1)
         self._add_row(codes, f"{prefix}objetivos", "Objetivos", flat_view).grid(row=0, column=0, sticky="ew", padx=2)
         self._add_row(codes, f"{prefix}habilitantes", "Habilitantes", flat_view).grid(row=0, column=1, sticky="ew", padx=2)
         self._add_row(codes, f"{prefix}excluyentes", "Excluyentes", flat_view).grid(row=0, column=2, sticky="ew", padx=2)
 
-        # 4. Meta
-        meta = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        meta.pack(fill="x", pady=5)
-        meta.grid_columnconfigure((0,1), weight=1)
-        self._add_row(meta, f"{prefix}familia", "Familia (PS-FAM)", flat_view).grid(row=0, column=0, sticky="ew", padx=2)
-        self._add_row(meta, f"{prefix}especialidad", "Especialidad", flat_view).grid(row=0, column=1, sticky="ew", padx=2)
-
-        # 4b. Rango Etario
-        self._add_row(meta, f"{prefix}edad_min", "Edad Mínima", flat_view).grid(row=1, column=0, sticky="ew", padx=2, pady=5)
-        self._add_row(meta, f"{prefix}edad_max", "Edad Máxima", flat_view).grid(row=1, column=1, sticky="ew", padx=2, pady=5)
-
-        # 5. Frecuencia (NUEVO EDITOR)
-        # 5. Frecuencia (NUEVO EDITOR)
-        freq = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        freq.pack(fill="x", pady=5)
+        # 4. Frecuencia (Collapsible)
+        self.freq_frame = CollapsibleFrame(c_mis.content, title="Reglas de Frecuencia", expanded=False, fg_color="transparent")
+        self.freq_frame.pack(fill="x", pady=2)
+        freq_c = self.freq_frame.content
         
-        # Header + Toggle Logic
-        f_header = ctk.CTkFrame(freq, fg_color="transparent")
-        f_header.pack(fill="x")
+        # Toggle Logic inside Collapsible
+        f_header = ctk.CTkFrame(freq_c, fg_color="transparent")
+        f_header.pack(fill="x", pady=5)
         
-        ctk.CTkLabel(f_header, text="Reglas de Frecuencia (Vida, Año, Mes)", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=2)
-        
-        # Toggle control variable handled via flat_view and _add_row logic usually, 
-        # but here we need dynamic UI showing/hiding.
-        # Let's bind a custom switch.
+        ctk.CTkLabel(f_header, text="Estado del Módulo:", font=get_font(size=12)).pack(side="left", padx=5)
         
         is_freq_active = bool(mission_data.get("active_frequencies", False))
         
-        # Editor Container (to hide/show)
-        f_editor_container = ctk.CTkFrame(freq, fg_color="transparent")
+        # Editor Container
+        f_editor_container = ctk.CTkFrame(freq_c, fg_color="transparent")
         if is_freq_active:
             f_editor_container.pack(fill="x", expand=True, pady=2)
             
         def toggle_freq():
             val = switch_var.get()
-            # Update data ref immediately (or rely on scrape later if we register it?)
-            # Scrape relies on widgets in self.rows. We should register this switch.
             mission_data["active_frequencies"] = (val == 1)
-            
             if val == 1:
                 f_editor_container.pack(fill="x", expand=True, pady=2)
             else:
                 f_editor_container.pack_forget()
 
         switch_var = ctk.IntVar(value=1 if is_freq_active else 0)
-        sw = ctk.CTkSwitch(f_header, text="Activar", variable=switch_var, command=toggle_freq, 
-                           width=80, height=24, font=ctk.CTkFont(size=11))
-        sw.pack(side="right", padx=5)
+        freq_switch = ctk.CTkSwitch(f_header, text="Activo" if is_freq_active else "Inactivo", variable=switch_var, command=lambda: [toggle_freq(), freq_switch.configure(text="Activo" if switch_var.get() else "Inactivo")], 
+                           width=80, height=24, font=get_font(size=11))
+        freq_switch.pack(side="left", padx=10)
         
-        # Register for sync
-        # We need to manually add it to flat_view or self.rows so _sync_view_to_memory picks it up?
-        # _sync_view_to_memory iterates self.rows. Let's add it manually.
-        self.rows[f"{prefix}active_frequencies"] = sw
+        self.rows[f"{prefix}active_frequencies"] = freq_switch
 
         # Inicializar lista si no existe
         if "frecuencias" not in mission_data or not isinstance(mission_data["frecuencias"], list):
             mission_data["frecuencias"] = []
-            
-            # Migración automática simple si existe legacy
             if mission_data.get("frecuencia") and not mission_data["frecuencias"]:
                 try:
                     legacy_qty = int(mission_data.get("frecuencia_cantidad", 1))
                 except: legacy_qty = 1
-                
-                # Adivinar tipo based on text
                 ft = "Mes"
                 txt = str(mission_data.get("frecuencia", "")).lower()
                 if "año" in txt or "anio" in txt: ft = "Año" 
                 elif "vida" in txt: ft = "Vida"
-                
                 mission_data["frecuencias"].append({
-                    "code": "LEGACY", # Placeholder, legacy logic used objectives.
+                    "code": "LEGACY",
                     "freq_type": ft,
                     "freq_qty": legacy_qty,
                     "periodicity": mission_data.get("periodicidad", "")
                 })
 
         # Editor
-        # Important: pass "mission_data['frecuencias']" ref.
-        # Also register in self.rows so _sync can scrape inner changes IF the editor supports get_data() logic inside sync (it does).
         f_editor = FrequencyListEditor(f_editor_container, data_list=mission_data["frecuencias"])
         f_editor.pack(fill="x", expand=True)
         self.rows[f"{prefix}frecuencias_editor"] = f_editor
 
-        # 6. Límites (Solo Vigencia, Edad movida a Meta)
-        limits = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        limits.pack(fill="x", pady=5)
+        # 6. Límites (Collapsible)
+        self.limits_frame = CollapsibleFrame(c_mis.content, title="Límites y Filtros", expanded=False, fg_color="transparent")
+        self.limits_frame.pack(fill="x", pady=2)
+        limits_container = self.limits_frame.content
+
+        limits = ctk.CTkFrame(limits_container, fg_color="transparent")
+        limits.pack(fill="x", pady=2)
         limits.grid_columnconfigure(0, weight=1)
         self._add_row(limits, f"{prefix}vigencia_dias", "Vigencia (días)", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
 
         # 7. Maximos
-        limits2 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        limits2 = ctk.CTkFrame(limits_container, fg_color="transparent")
         limits2.pack(fill="x", pady=2)
         limits2.grid_columnconfigure((0,1,2), weight=1)
         self._add_row(limits2, f"{prefix}max_objetivos", "Max Obj.", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
         self._add_row(limits2, f"{prefix}max_habilitantes", "Max Hab.", flat_view).grid(row=0, column=1, sticky="ew", padx=1)
         self._add_row(limits2, f"{prefix}max_excluyentes", "Max Excl.", flat_view).grid(row=0, column=2, sticky="ew", padx=1)
 
-        limits3 = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        limits3 = ctk.CTkFrame(limits_container, fg_color="transparent")
         limits3.pack(fill="x", pady=(0,2))
         limits3.grid_columnconfigure((0,1,2,3), weight=1)
         self._add_row(limits3, f"{prefix}max_ipd", "Max IPD", flat_view).grid(row=0, column=0, sticky="ew", padx=1)
@@ -673,8 +700,8 @@ class MissionsView(ctk.CTkFrame):
         self._add_row(limits3, f"{prefix}max_sic", "Max SIC", flat_view).grid(row=0, column=3, sticky="ew", padx=1)
 
         # 8. Switches (Requisitos)
-        sw = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        sw.pack(fill="x", pady=10)
+        sw = ctk.CTkFrame(limits_container, fg_color="transparent")
+        sw.pack(fill="x", pady=5)
         sw.grid_columnconfigure((0,1,2,3), weight=1)
         self._add_switch(sw, f"{prefix}require_ipd", "IPD (Req)", flat_view, 0, 0)
         self._add_switch(sw, f"{prefix}require_oa", "OA (Req)", flat_view, 0, 1)
@@ -684,9 +711,13 @@ class MissionsView(ctk.CTkFrame):
         self._add_switch(sw, f"{prefix}requiere_ipd", "Req. IPD (Apto)", flat_view, 1, 1)
         self._add_switch(sw, f"{prefix}requiere_aps", "Req. APS (Apto)", flat_view, 1, 2)
 
-        # 9. Avanzado (Folios / Años)
-        dyn = ctk.CTkFrame(c_mis.content, fg_color="transparent")
-        dyn.pack(fill="x", pady=8)
+        # 9. Avanzado (Collapsible)
+        self.adv_frame = CollapsibleFrame(c_mis.content, title="Configuración Avanzada (Folios/Códigos Año)", expanded=False, fg_color="transparent")
+        self.adv_frame.pack(fill="x", pady=2)
+        adv_container = self.adv_frame.content
+
+        dyn = ctk.CTkFrame(adv_container, fg_color="transparent")
+        dyn.pack(fill="x", pady=2)
         self._add_switch(dyn, f"{prefix}filtro_folio_activo", "Activar Filtro Folio", flat_view)
         self._add_row(dyn, f"{prefix}codigos_folio", "Códigos Folio (csv)", flat_view).pack(fill="x")
         self._add_switch(dyn, f"{prefix}folio_vih", "Activar Folio VIH", flat_view)
@@ -695,25 +726,21 @@ class MissionsView(ctk.CTkFrame):
         # YEAR CODES
         self._add_switch(dyn, f"{prefix}active_year_codes", "¿Tiene códigos por Año?", flat_view)
         
-        # Container for Year code (toggle visibility logic?)
-        # For now just render it. The switch logic is separate.
-        # Use CORRECT KEY: anios_codigo
         if "anios_codigo" not in mission_data: mission_data["anios_codigo"] = []
         
         y_frame = ctk.CTkFrame(dyn, fg_color="transparent")
         y_frame.pack(fill="x", pady=2)
         
-        # Instantiate DIRECTLY to avoid helper mismatch
-        # Using imported YearCodeEditor
         y_editor = YearCodeEditor(y_frame, data_list=mission_data["anios_codigo"], colors=self.colors)
         y_editor.pack(fill="x", expand=True)
         self.rows[f"{prefix}anios_editor"] = y_editor
         
-        # NO DUPLICATE FREQUENCY EDITOR HERE.
-        # (It was already added at step 5 in this function).
+        # 11. Indices (Collapsible)
+        self.idx_frame = CollapsibleFrame(c_mis.content, title="Índices de Columnas Excel", expanded=False, fg_color="transparent")
+        self.idx_frame.pack(fill="x", pady=2)
+        idx_container = self.idx_frame.content
 
-        # 11. Indices
-        ind = ctk.CTkFrame(c_mis.content, fg_color="transparent")
+        ind = ctk.CTkFrame(idx_container, fg_color="transparent")
         ind.pack(fill="x", pady=5)
         ind.grid_columnconfigure((0,1,2), weight=1)
         self._add_row(ind, f"{prefix}indices_rut", "Idx RUT", flat_view).grid(row=0, column=0)
@@ -768,10 +795,8 @@ class MissionsView(ctk.CTkFrame):
             self.prev_btn.configure(state="normal" if self.current_page > 0 else "disabled")
             self.next_btn.configure(state="normal" if self.current_page < self.total_pages - 1 else "disabled")
             
-        self.page_label.configure(text=f"{self.current_page+1}/{self.max(1, self.total_pages)}")
+        self.page_label.configure(text=f"{self.current_page+1}/{max(1, self.total_pages)}")
 
-    def max(self, a, b):
-        return a if a > b else b
 
     def _highlight_card(self, local_idx):
         """Resalta la tarjeta temporalmente para indicar salto."""
@@ -875,16 +900,8 @@ class MissionsView(ctk.CTkFrame):
             else:
                  self.repo_var.set("(vacío)")
         except: pass
-        
-        self._on_template_change()
 
-    def _refresh_target_menu(self):
-        # Placeholder for future implementation
-        pass
 
-    def _on_template_change(self):
-        """Callback placeholder (info eliminada por UI clean)."""
-        pass
 
     def _use_template(self):
         """Dialogo: ¿Sobrescribir actual o Crear nueva?"""
@@ -962,34 +979,15 @@ class MissionsView(ctk.CTkFrame):
         dialog.geometry("400x320")
 
     def _overwrite_current_action(self):
-        """Lógica original de overwite refactorizada."""
-        try:
-            tmpl_name = self.repo_var.get()
-            path = None
-            for name, p in self.repo_files:
-                if name == tmpl_name:
-                    path = p
-                    break
-            if not path: return
-
-            idx = self.current_page
-            data = self.controller.load_mission_file(path)
-            missions = data.get("MISSIONS", [])
-            if not missions: return
-            
-            # Confirm double check (optional, but requested behavior is 'safety')
-            # Since user clicked explicit "Overwrite" button, maybe skip native OS popup?
-            # Let's keep one final fast confirm or just proceed.
-            # User said "prefiero que me pregunte... boton de confirmacion". The Dialog IS the confirmation.
-            
-            self.controller.overwrite_mission(idx, missions[0])
-            self.reload_ui(True)
-            get_notifications().show_success(f"Misión #{idx+1} Sobrescrita")
-        except Exception as e:
-            get_notifications().show_error(f"Error: {e}")
+        """Sobrescribe la misión actual con la plantilla seleccionada."""
+        self._overwrite_mission_with_template(self.current_page)
 
     def _overwrite_specific_action(self, target_idx):
         """Sobrescribe una misión específica seleccionada por índice."""
+        self._overwrite_mission_with_template(target_idx)
+
+    def _overwrite_mission_with_template(self, target_idx):
+        """Lógica unificada de sobreescritura con plantilla."""
         try:
             tmpl_name = self.repo_var.get()
             path = None
@@ -1005,7 +1003,7 @@ class MissionsView(ctk.CTkFrame):
 
             self.controller.overwrite_mission(target_idx, missions[0])
             self.reload_ui(True)
-            get_notifications().show_success(f"Misión #{target_idx} Sobrescrita")
+            get_notifications().show_success(f"Misión #{target_idx+1} Sobrescrita")
         except Exception as e:
             get_notifications().show_error(f"Error: {e}")
 
@@ -1172,7 +1170,6 @@ class MissionsView(ctk.CTkFrame):
                 
                 # Guardar
                 try:
-                    import json
                     with open(file_path, "w", encoding="utf-8") as f:
                         json.dump(template_data, f, indent=2, ensure_ascii=False)
                     
@@ -1199,19 +1196,4 @@ class MissionsView(ctk.CTkFrame):
                     pass
         except Exception as e:
             get_notifications().show_error(f"Error guardando plantilla: {e}")
-
-    # ====================== Frequency & Year Editors ======================
-
-    def _add_year_code_editor(self, parent, key, current_data, idx):
-        editor = YearCodeEditor(parent, current_data, self.colors)
-        editor.pack(fill="x", padx=4, pady=5)
-        self.rows[key] = editor
-
-    def _add_frequency_list_editor(self, parent, key, current_data, idx):
-        # Shared component does not need colors dict
-        editor = FrequencyListEditor(parent, data_list=current_data)
-        editor.pack(fill="x", padx=4, pady=5)
-        self.rows[key] = editor
-
-
 

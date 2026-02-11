@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from typing import Callable, Optional, Any
+from src.gui.theme import get_font
 
 class FormRow(ctk.CTkFrame):
     """
@@ -28,7 +29,7 @@ class FormRow(ctk.CTkFrame):
         self.lbl = ctk.CTkLabel(
             self, 
             text=label,
-            font=ctk.CTkFont(size=12),
+            font=get_font(size=12),
             text_color=self.colors.get("text_secondary", "#94a3b8"),
             anchor="w"
         )
@@ -48,7 +49,7 @@ class FormRow(ctk.CTkFrame):
                 corner_radius=10,
                 fg_color=self.colors.get("bg_elevated", "#252b35"),
                 text_color=self.colors.get("text_muted", "#64748b"),
-                font=ctk.CTkFont(size=11, weight="bold"),
+                font=get_font(size=11, weight="bold"),
                 cursor="hand2"
             )
             self.help_btn.grid(row=0, column=2, padx=(10, 0))

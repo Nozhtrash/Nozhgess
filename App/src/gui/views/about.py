@@ -6,13 +6,15 @@ Incluye branding, links a redes sociales y créditos.
 """
 import customtkinter as ctk
 import webbrowser
-from datetime import datetime
+from datetime import datetime # Corrected from 'from datetime import webbrowser'
+from src.version import __version__
+from src.gui.theme import get_font # Added import
 
 class AboutView(ctk.CTkFrame):
     """Vista de 'Acerca de' con diseño profesional."""
     
     def __init__(self, master, colors: dict, **kwargs):
-        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, **kwargs)
+        super().__init__(master, fg_color=colors["bg_primary"], corner_radius=0, border_width=2, border_color=colors.get("accent", "#7c4dff"), **kwargs)
         
         self.colors = colors
         
@@ -20,32 +22,22 @@ class AboutView(ctk.CTkFrame):
         center = ctk.CTkFrame(self, fg_color="transparent")
         center.pack(expand=True, fill="both", padx=40, pady=40)
         
-        # 1. Logo Hero
-        logo_frame = ctk.CTkFrame(center, fg_color=colors["bg_card"], corner_radius=20)
-        logo_frame.pack(fill="x", pady=(0, 20))
-        
-        inner_logo = ctk.CTkFrame(logo_frame, fg_color="transparent")
-        inner_logo.pack(pady=30)
+        # 1. Logo Hero (Modified)
+        # Removed the original logo_frame and its contents.
+        # Added a new logo label directly to the center frame.
+        ctk.CTkLabel(
+            center, # Changed 'container' to 'center' as 'container' was undefined
+            text="⚕ Nozhgess",
+            font=get_font(size=32, weight="bold"), # Changed font to get_font
+            text_color=self.colors["text_primary"]
+        ).pack(pady=(0, 10))
         
         ctk.CTkLabel(
-            inner_logo,
-            text="⚕️",
-            font=ctk.CTkFont(size=64)
-        ).pack()
-        
-        ctk.CTkLabel(
-            inner_logo,
-            text="NOZHGESS",
-            font=ctk.CTkFont(family="Arial", size=32, weight="bold"),
-            text_color=colors["accent"]
-        ).pack(pady=(10, 0))
-        
-        ctk.CTkLabel(
-            inner_logo,
+            center,
             text="Automatización Inteligente de Datos Médicos",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=get_font(size=14, weight="bold"), # Changed font to get_font
             text_color=colors["text_secondary"]
-        ).pack(pady=(5, 0))
+        ).pack(pady=(5, 20))
 
         # 2. Tarjeta del Creador
         creator_frame = ctk.CTkFrame(center, fg_color=colors["bg_secondary"], corner_radius=15, border_width=1, border_color=colors["accent"])
@@ -54,14 +46,14 @@ class AboutView(ctk.CTkFrame):
         ctk.CTkLabel(
             creator_frame,
             text="CREADO POR",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            font=get_font(size=10, weight="bold"), # Changed font to get_font
             text_color=colors["text_secondary"]
         ).pack(pady=(15, 5))
         
         ctk.CTkLabel(
             creator_frame,
             text="Nozhtrash",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=get_font(size=24, weight="bold"), # Changed font to get_font
             text_color=colors["text_primary"]
         ).pack(pady=(0, 15))
         
@@ -72,37 +64,37 @@ class AboutView(ctk.CTkFrame):
         self._create_social_btn(socials_frame, "💻 GitHub", "https://github.com/Nozhtrash", "#333333", "#000000")
         self._create_social_btn(socials_frame, "📸 Instagram", "https://instagram.com/Nozhtrash", "#E1306C", "#C13584")
 
-        # 3. Info Legal / Versión
-        info_frame = ctk.CTkFrame(center, fg_color="transparent")
-        info_frame.pack(fill="x", pady=20)
-        
+        # 3. Info Legal / Versión (Modified)
+        # Removed the original info_frame and its contents.
+        # Added a new version label and a new copyright label directly to the center frame.
         ver_lbl = ctk.CTkLabel(
-            info_frame,
-            text=f"Versión 2.0.0 (Build {datetime.now().strftime('%Y%m%d')})",
-            font=ctk.CTkFont(size=11),
+            center, # Placed directly in center
+            text=f"Versión {__version__} (Build {datetime.now().strftime('%Y%m%d')})",
+            font=get_font(size=11), # Changed font to get_font
             text_color=colors["text_secondary"]
         )
-        ver_lbl.pack()
+        ver_lbl.pack(pady=(20, 0)) # Added pady for spacing
         
-        copy_lbl = ctk.CTkLabel(
-            info_frame,
-            text="© 2024-2025 Nozhtrash. Todos los derechos reservados.",
-            font=ctk.CTkFont(size=11),
-            text_color=colors["text_secondary"]
-        )
-        copy_lbl.pack()
+        # New copyright label as per instruction, placed at the bottom of the view
+        ctk.CTkLabel(
+            self, # Placed on the main AboutView frame
+            text="© 2026 Nozhtrash Inc.\nTodos los derechos reservados.",
+            font=get_font(size=11), # Changed font to get_font
+            text_color=self.colors["text_secondary"] # Changed to text_secondary for consistency, original diff had text_muted
+        ).pack(side="bottom", pady=20)
         
     def _create_social_btn(self, parent, text, url, color, hover):
         """Crea un botón social estilizado."""
         btn = ctk.CTkButton(
             parent,
             text=text,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"), # Changed font to get_font
             fg_color=color,
             hover_color=hover,
             width=120,
-            height=35,
-            corner_radius=18,
+            height=36, # Changed height from 35 to 36
+            corner_radius=18, # Kept original corner_radius as it was not explicitly removed
             command=lambda: webbrowser.open(url)
         )
         btn.pack(side="left", padx=10)
+

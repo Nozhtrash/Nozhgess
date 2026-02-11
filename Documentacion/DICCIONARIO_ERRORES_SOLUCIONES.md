@@ -1,58 +1,45 @@
-# 📕 DICCIONARIO MAESTRO DE ERRORES Y SOLUCIONES
-> **Versión:** 1.1 (Feb 2026) - Edición Forense III
-> **Nivel de Detalle:** Nivel 3 (Soporte & Ingeniería)
-
-Este documento es la referencia definitiva para diagnosticar y reparar Nozhgess. Los errores se clasifican por su origen, severidad y protocolo de resolución.
+# 📕 DICCIONARIO DE ERRORES Y SOLUCIONES NIVEL 3 (v3.5.1)
+> **Meta:** Reducir el MTTR (Mean Time To Repair) a < 5 minutos.
 
 ---
 
-# 1. ERRORES DE INFRAESTRUCTURA (NIVEL ROJO 🔴)
-*Impiden el arranque o la conexión con el motor de automatización.*
+## 1. ERRORES DE CONECTIVIDAD Y DRIVER (CRÍTICOS)
 
-| Código / Mensaje | Causa Raíz | Solución Técnica N3 |
+| Código/Mensaje | Causa Raíz | Protocolo de Solución |
 | :--- | :--- | :--- |
-| **`ConnectionRefusedError`** | Puerto 9222 de Edge cerrado o script PS1 no ejecutado. | Cerrar Edge, ejecutar `Iniciador Web.ps1` y verificar puerto con `netstat -ano | findstr 9222`. |
-| **`DevToolsActivePort`** | Perfil de Edge bloqueado por otra instancia. | Ejecutar `taskkill /F /IM msedge.exe` y reintentar. |
-| **`SessionNotCreated`** | Versión de Edge y Driver desincronizados. | Actualizar `msedgedriver.exe` en `App/bin` (Verificar versión en `edge://settings/help`). |
-| **`MaxRetryError`** | Fallo crítico en el `RetryManager` tras 5 intentos. | Reiniciar el equipo. Indica saturación de memoria o hilos huérfanos. |
+| **"FatalConnectionError: CDP Session Lost"** | El navegador Edge se cerró manualmente o por crash. | Reiniciar todo el ciclo: Cerrar terminal -> Abrir `Nozhgess.pyw` -> Reiniciar Edge. |
+| **"DevToolsActivePort file doesn't exist"** | Conflicto de puertos. Otra instancia de Chrome/Edge usa el 9222. | Ejecutar `taskkill /F /IM msedge.exe` en PowerShell. |
+| **"Timeout Exception (30s)"** | SIGGES está saturado o el internet es inestable. | Verificar acceso manual a SIGGES. Si funciona, aumentar `ESPERA_CARGA` en `config.json`. |
 
 ---
 
-# 2. ERRORES DEL MOTOR DE AUTOMATIZACIÓN (NIVEL NARANJA 🟠)
-*El robot está corriendo, pero falla en la interacción con la web.*
+## 2. ERRORES DE LÓGICA DE NEGOCIO (WARN)
 
-| Código / Mensaje | Causa Raíz | Protocolo de Resolución |
+| Mensaje en Log | Significado | Acción del Operador |
 | :--- | :--- | :--- |
-| **`TimeoutException`** | Elemento no cargó en el tiempo estipulado (Default 10s). | Aumentar `ESPERA_MEDIO` en `src/utils/Esperas.py` o verificar latencia de red. |
-| **`ClickIntercepted`** | Un popup o el "Spinner" de SIGGES bloquea el elemento. | Verificar que `SPINNER_CSS` en `locators.py` esté actualizado (SIGGES cambia IDs frecuentemente). |
-| **`StaleElement`** | El DOM cambió mientras se leía el dato. | El sistema ya reintenta, pero si persiste, forzar `sigges.refresh()` antes de la lectura. |
-| **`ElementNotInteractable`** | El elemento existe pero está oculto o deshabilitado. | Verificar si el paciente está en estado "Cerrado" o "Anulado" en SIGGES. |
+| **"Sin Mini-Tabla"** | El RUT existe en SIGGES pero no tiene historial GES visible. | Verificar RUT en Excel de entrada. Si es correcto, el paciente no es GES. |
+| **"Saltado tras 6 intentos"** | Falló la extracción repetidamente. | Revisar manualmente ese RUT en SIGGES. Posible corrupción de datos en la ficha. |
+| **"Columna 'Obj X' vacía"** | El paciente no tiene prestaciones con ese código. | Normal. Significa que no se encontró el objetivo buscado. |
 
 ---
 
-# 3. ERRORES DE LÓGICA CLÍNICA Y DATOS (NIVEL AMARILLO 🟡)
-*El robot termina, pero los resultados requieren auditoría humana.*
+## 3. ERRORES DE CONFIGURACIÓN (USER)
 
-### 3.1. Caso en Contra / Alerta de Divergencia
-- **Síntoma:** El Excel marca "Caso en Contra" y bloquea el procesamiento automático.
-- **Causa:** El paciente tiene una patología GES distinta a la proyectada en la misión (Ej: T1 vs T2).
-- **Solución:** Nozhgess extrae los datos del caso divergente. El auditor debe validar si el ingreso en la nómina original fue un error administrativo.
-
-### 3.2. Disparidad de Códigos de Prestación
-- **Síntoma:** El reporte dice "No Encontrado" pero el examen está en SIGGES.
-- **Solución:** SIGGES usa espacios al final de los códigos. Nozhgess v3.5.1 usa `Formatos.normalizar_codigo()` para limpiar estos caracteres. Verifique que el código en el JSON no tenga caracteres ocultos.
+| Síntoma | Causa | Solución |
+| :--- | :--- | :--- |
+| **Excel final sin columnas de Habilitantes** | `habilitantes` vacío en JSON o `require_oa: false`. | Revisar `mission_config.json`. Activar banderas necesarias. |
+| **"KeyError: 'objetivos'"** | JSON mal formado. Falta la llave obligatoria. | Validar JSON en `jsonlint.com` y corregir estructura. |
+| **Fechas en formato "45321"** | Excel interpretó la fecha como número. | Seleccionar columna en Excel -> Formato de Celdas -> Fecha Corta. |
 
 ---
 
-# 4. PROTOCOLO DE SOPORTE AVANZADO
+## 4. ERRORES DE AUDITORÍA FORENSE
 
-Si el error persiste tras aplicar las soluciones:
-1.  **Auditoría de Logs:** Revise `Logs/latest.log`. Busque la traza `[TERMINAL]` para errores de lógica o `[DEBUG]` para errores de Selenium.
-2.  **Volcado Forense:** Si un RUT falla sistemáticamente, el sistema genera un `debug_root_RUT.html`. Ábralo para ver qué leyó el robot.
-3.  **Reset de Sesión:** Borre la carpeta de perfil temporal definida en el `Iniciador Web.ps1` para limpiar cookies corruptas.
+| Alerta | Interpretación | Gravedad |
+| :--- | :--- | :--- |
+| **"Fallecido: [Fecha]"** | Paciente murió antes/durante el proceso. | **ALTA.** Verificar si la garantía venció antes del deceso. |
+| **"Caso en Contra: [Nombre]"** | Paciente tiene otra patología GES activa. | **MEDIA.** Posible error de ingreso administrativo. Revisar ficha. |
+| **Hab Vi: "No Vigente"** | Diagnóstico o examen está vencido (>1 año). | **BAJA.** El paciente requiere re-evaluación antes de ingresar. |
 
 ---
-
-**© 2026 Nozhgess Engineering**
-*"La estabilidad es el resultado de un diagnóstico preciso."*
-
+**© 2026 Nozhgess Support Ops**

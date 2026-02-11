@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from src.gui.theme import get_font
 
 class Card(ctk.CTkFrame):
     """
@@ -44,7 +45,7 @@ class Card(ctk.CTkFrame):
         self.title_lbl = ctk.CTkLabel(
             header,
             text=title,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=get_font(size=13, weight="bold"),
             text_color=self.colors.get("text_primary", "#f8fafc"),
             anchor="w"
         )

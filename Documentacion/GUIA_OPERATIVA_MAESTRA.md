@@ -1,68 +1,75 @@
-# 📘 GUIA OPERATIVA MAESTRA NOZHGESS v3.4.0
-> **Perfil:** Operadores Administrativos, Gestores GES y Auditores Clínicos.
-> **Versión:** 3.4.0 "Forensic Edition"
+# 📘 GUÍA OPERATIVA MAESTRA: NOZHGESS v3.5.1
+> **Para:** Auditores Clínicos y Supervisores GES
+> **Objetivo:** Ejecución impecable de auditorías forenses automatizadas.
 
 ---
 
-# 1. EL FLUJO DE TRABAJO PERFECTO
+## 1. Conceptos Clave (Lo Nuevo en v3.5.1)
 
-Para garantizar que el robot no cometa errores, siga este ritual de inicio:
+### A. Reportes Dinámicos
+Olvídese de las columnas vacías. Nozhgess ahora genera **solo las columnas necesarias** para su misión.
+- Si su misión busca 3 objetivos, el Excel tendrá `Obj [Cod 1]`, `Obj [Cod 2]` y `Obj [Cod 3]`.
+- Si no busca habilitantes, no verá columnas de habilitantes.
 
-1.  **Limpieza:** Cierre todas las ventanas de Edge.
-2.  **Ignición:** Abra `Nozhgess.pyw`.
-3.  **Conexión Debug:** Presione "Iniciar Edge (Debug)". Se abrirá una ventana de Edge especial.
-4.  **Login Humano:** Inicie sesión en SIGGES manualmente en esa ventana.
-5.  **Posicionamiento:** Quédese en la pantalla principal de SIGGES (donde se selecciona el establecimiento).
+### B. Precisión Forense
+- **Fallecido:** Ahora verá la **FECHA EXACTA** de defunción (ej. `15-08-2025`), no un simple "Sí". Esto le permite cruzar datos con la fecha de garantía.
+- **Observaciones Limpias:** La columna "Observación" estará vacía por defecto. Si ve algo escrito ahí, **PRESTE ATENCIÓN**: significa que hubo un error técnico grave (ej. "Sin Mini-Tabla") o una nota manual suya.
 
----
-
-# 2. EL NUEVO BUSCADOR DE LOGS (INTELIGENTE)
-
-Hemos optimizado la consola negra (Terminal) para que sea su mejor herramienta de auditoría.
-
-### Cómo buscar un paciente o error:
-1.  **Escribir:** Ponga el RUT o el texto en el campo de búsqueda (arriba a la derecha).
-2.  **Disparar:** Presione la tecla **ENTER** o el botón **Buscar**. 
-3.  **Navegar:** Use las flechas o presione Enter repetidamente para saltar entre coincidencias.
-4.  **Resaltado:** 
-    *   **Amarillo:** Todas las veces que aparece el término.
-    *   **Naranja:** La coincidencia en la que está parado actualmente.
-
-> [!TIP]
-> Si el robot se detiene, busque la palabra "Error" o "FALLO" para ver exactamente en qué paso se quedó.
+### C. Habilitante Vigente (El Semáforo)
+La columna `Hab Vi` es su mejor amiga. Le dice si el paciente cumple los requisitos de entrada (diagnósticos previos) en la fecha de la nómina, independientemente de qué columnas visualice.
 
 ---
 
-# 3. INTERPRETANDO EL REPORTE EXCEL (AVANZADO)
+## 2. Flujo de Trabajo Diario
 
-El Excel generado por Nozhgess v3.4.0 es ahora más inteligente.
+### Paso 1: Preparación (El "Gancho")
+1.  Abra **Microsoft Edge** e inicie sesión en SIGGES con sus credenciales.
+2.  Navegue a cualquier página interna de SIGGES (ej. Bandeja de Entrada) y **mantenga la pestaña abierta**.
+3.  Ejecute el acceso directo **"ACCESO_NOZHGESS"** en su escritorio.
+    *   *Nota: Nozhgess "parasitará" su sesión de Edge. No necesita loguearse de nuevo.*
 
-### 🔴 Alertas de Caso en Contra
-Si su misión detecta un caso que no corresponde (ej. busca un T2 y hay un T1 activo), verá:
-- **Columna "Caso en Contra":** Nombre del caso divergente encontrado.
-- **Columna "Apto Caso":** Un diagnóstico automático (ej. "IPD + Reciente"). Si dice esto, es muy probable que el paciente esté mal ingresado en la nómina.
+### Paso 2: Configuración de la Misión
+1.  En el Panel de Control, seleccione su Misión (ej. "Diabetes_v2").
+2.  Verifique los parámetros clave:
+    *   **Días Vigencia:** Ventana de tiempo para buscar antecedentes (ej. 365 días).
+    *   **Max Años:** Antigüedad máxima de la historia clínica a revisar.
+3.  Cargue su archivo Excel de pacientes (debe tener RUT y Fecha).
 
-### 🟣 Frecuencias y Periodicidad
-- **Freq CodxAño:** Le dirá de forma resumida si el paciente cumple con su control anual/mensual.
-- **Vigente / No Vigente:** Cálculo automático basado en la fecha de la nómina vs la fecha del último examen encontrado.
+### Paso 3: Ejecución y Monitoreo
+1.  Presione **"INICIAR AUDITORÍA"**.
+2.  Observe la consola (terminal negra):
+    *   **Texto Verde:** Paciente procesado correctamente.
+    *   **Texto Amarillo/Naranja:** Alertas de coincidencias o advertencias.
+    *   **Texto Rojo:** Errores críticos (Internet caído, SIGGES lento).
+3.  **IMPORTANTE:** No cierre la ventana de Edge mientras el robot trabaja. Puede minimizarla, pero no cerrarla.
+
+### Paso 4: Análisis del Reporte (Excel)
+El sistema generará un archivo `Analisis_Misiones_...xlsx` en la carpeta `Resultados`.
+
+#### Estructura del Excel:
+1.  **Hoja "Detalle":** Cada fila es un paciente.
+    - **Azul:** Datos del paciente (RUT, Edad, Fecha Fallecimiento).
+    - **Verde:** Habilitantes encontrados y Vigencia (`Hab Vi`).
+    - **Rojo:** Excluyentes (Patologías que descartan el caso).
+    - **Analítica:** Columnas dinámicas `Obj` con fechas de cumplimiento.
+2.  **Hoja "Diccionario":** Explicación técnica de qué significa cada columna en *su* reporte específico.
+3.  **Hoja "Carga Masiva":** (Opcional) Estructura lista para subir a plataformas de gestión.
 
 ---
 
-# 4. TABLA DE RESOLUCIÓN DE PROBLEMAS (SOPORTE)
+## 3. Solución de Problemas Comunes
 
-| Problema | Causa Probable | Solución Inmediata |
-| :--- | :--- | :--- |
-| **"Buscando RUT..." eterno** | SIGGES no responde o la sesión expiró. | Refresque la página de Edge manualmente. |
-| **Buscador de Logs lento** | Hay más de 1000 coincidencias. | Sea más específico en su búsqueda (ej. use el RUT completo). |
-| **Excel bloqueado** | Intentó generar el reporte con el Excel viejo abierto. | Cierre Excel y vuelva a presionar "Ejecutar" para los pacientes restantes. |
-| **Botón 'Ejecutar' gris** | No se ha cargado el archivo de entrada. | Arrastre su archivo Excel al área designada. |
+### 🔴 "El sistema dice 'Error Fatal de Conexión'"
+- **Causa:** Edge se cerró o SIGGES cerró la sesión por inactividad.
+- **Solución:** Cierre la terminal negra, vuelva a loguearse en Edge y ejecute Nozhgess de nuevo.
+
+### 🟡 "La columna Observación dice 'Sin Mini-Tabla'"
+- **Significado:** El robot buscó el RUT pero SIGGES no mostró la tabla de casos.
+- **Acción:** Verifique ese RUT manualmente. Puede ser un error de digitación en su Excel de entrada o un fallo puntual de SIGGES.
+
+### 🟠 "No aparecen mis objetivos en el Excel"
+- **Causa:** Probablemente la misión no tiene códigos configurados o ninguno de los pacientes tenía esos códigos.
+- **Verificación:** Revise la configuración de la misión en el Panel de Control.
 
 ---
-
-# 5. CONSEJOS DE SEGURIDAD CLÍNICA
-- **Auditores:** Nozhgess es un filtro. Siempre revise manualmente los casos marcados en **ROJO** (Habilitantes) antes de firmar un egreso.
-- **IT/Soporte:** No mueva los archivos de la carpeta `Utilidades` ni `App/config` sin una copia de seguridad.
-
----
-**© 2026 Nozhgess Support Team**
-*"La precisión es nuestra única garantía."*
+**© 2026 Nozhgess Operations**

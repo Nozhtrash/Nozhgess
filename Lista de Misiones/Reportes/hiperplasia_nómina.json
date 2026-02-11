@@ -5,9 +5,12 @@
       "keywords": [
         "Hiperplasia"
       ],
-      "objetivos": [],
+      "objetivos": [
+        "0101112"
+      ],
       "habilitantes": [
-        "0101111"
+        "1902055",
+        "1902056"
       ],
       "excluyentes": [],
       "familia": "35",
@@ -15,10 +18,10 @@
       "frecuencia": "Mensual",
       "frecuencias": [
         {
-          "code": "0101111",
+          "code": "0101112",
           "freq_type": "Mes",
           "freq_qty": 1,
-          "periodicity": "Nomina"
+          "periodicity": "Mes"
         }
       ],
       "anios_codigo": [],
@@ -49,7 +52,7 @@
       "indices": {
         "rut": "1",
         "nombre": "3",
-        "fecha": "5"
+        "fecha": "10"
       }
     }
   ]
